@@ -1,0 +1,127 @@
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsUrl,
+} from 'class-validator';
+
+export enum IntelligenceCategory {
+  LAUNCH = 'launch',
+  SATELLITE = 'satellite',
+  INDUSTRY = 'industry',
+  RESEARCH = 'research',
+  ENVIRONMENT = 'environment',
+}
+
+export enum IntelligenceLevel {
+  FREE = 'free',
+  ADVANCED = 'advanced',
+  PROFESSIONAL = 'professional',
+}
+
+export class CreateIntelligenceDto {
+  @IsString()
+  @IsNotEmpty({ message: '标题不能为空' })
+  title: string;
+
+  @IsString()
+  @IsNotEmpty({ message: '内容不能为空' })
+  content: string;
+
+  @IsString()
+  @IsNotEmpty({ message: '摘要不能为空' })
+  summary: string;
+
+  @IsString()
+  @IsOptional()
+  cover?: string;
+
+  @IsEnum(IntelligenceCategory, { message: '分类不正确' })
+  @IsNotEmpty({ message: '分类不能为空' })
+  category: IntelligenceCategory;
+
+  @IsEnum(IntelligenceLevel, { message: '等级不正确' })
+  @IsNotEmpty({ message: '等级不能为空' })
+  level: IntelligenceLevel;
+
+  @IsString()
+  @IsNotEmpty({ message: '来源不能为空' })
+  source: string;
+
+  @IsUrl()
+  @IsOptional()
+  sourceUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  tags?: string;
+
+  @IsString()
+  @IsOptional()
+  analysis?: string;
+
+  @IsString()
+  @IsOptional()
+  trend?: string;
+
+  @IsOptional()
+  publishedAt?: Date;
+}
+
+export class UpdateIntelligenceDto {
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsOptional()
+  content?: string;
+
+  @IsString()
+  @IsOptional()
+  summary?: string;
+
+  @IsString()
+  @IsOptional()
+  cover?: string;
+
+  @IsEnum(IntelligenceCategory)
+  @IsOptional()
+  category?: IntelligenceCategory;
+
+  @IsEnum(IntelligenceLevel)
+  @IsOptional()
+  level?: IntelligenceLevel;
+
+  @IsString()
+  @IsOptional()
+  source?: string;
+
+  @IsUrl()
+  @IsOptional()
+  sourceUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  tags?: string;
+
+  @IsString()
+  @IsOptional()
+  analysis?: string;
+
+  @IsString()
+  @IsOptional()
+  trend?: string;
+
+  @IsOptional()
+  publishedAt?: Date;
+}
+
+export class QueryIntelligenceDto {
+  page?: number = 1;
+  limit?: number = 10;
+  category?: string;
+  level?: string;
+  keyword?: string;
+}
