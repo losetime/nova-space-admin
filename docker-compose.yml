@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  # 后端服务 - 连接共享数据库
+  backend:
+    build:
+      context: ./backend-nest
+      dockerfile: Dockerfile
+    container_name: nova-admin-backend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - DB_HOST=nova-postgres # 指向共享数据库容器名
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=nova_space
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - PORT=3002
+      - FRONTEND_URL=http://47.236.101.87
+      - SPACE_TRACK_USERNAME=${SPACE_TRACK_USERNAME}
+      - SPACE_TRACK_PASSWORD=${SPACE_TRACK_PASSWORD}
+    volumes:
+      - ./backend-nest/cache:/app/cache
+      - ./backend-nest/data:/app/data
+    networks:
+      - nova-network
+    extra_hosts:
+      - "nova-postgres:host-gateway" # 允许通过容器名访问外部容器
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nova-admin-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"
+    networks:
+      - nova-network
+
+networks:
+  nova-network:
+    name: nova-network # 使用共享网络
+    external: true # 标记为外部网络（已存在）
