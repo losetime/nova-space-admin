@@ -6,16 +6,19 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # 复制 package 文件
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 
-# 安装依赖
-RUN npm ci
+# 在构建阶段添加
+RUN npm install -g pnpm
+
+# 使用 pnpm 代替 npm
+RUN pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY . .
 
 # 构建生产版本（跳过类型检查）
-RUN npm run build-only
+RUN pnpm run build-only
 
 # 阶段2: 生产环境 (Nginx 提供静态文件服务)
 FROM nginx:alpine AS production
