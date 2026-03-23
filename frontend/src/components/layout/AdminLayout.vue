@@ -1,12 +1,10 @@
 <template>
   <t-layout class="min-h-screen">
     <t-aside
-      :collapsed="collapsed"
-      :width="220"
-      :collapsed-width="64"
-      class="bg-[#001529]"
+      :style="{ width: collapsed ? '64px' : '220px' }"
+      class="bg-[#001529] transition-all duration-300"
     >
-      <div class="p-4 text-white text-center flex items-center justify-center">
+      <div class="p-4 text-white text-center flex items-center justify-center h-[56px]">
         <template v-if="!collapsed">
           <RocketIcon class="mr-2" />
           <h1 class="text-lg font-bold">Nova Space</h1>
@@ -15,37 +13,38 @@
       </div>
       <t-menu
         :value="activeMenu"
+        :collapsed="collapsed"
         theme="dark"
         @change="handleMenuClick"
       >
         <t-menu-item value="dashboard">
           <template #icon><DashboardIcon /></template>
-          <span>仪表盘</span>
+          仪表盘
         </t-menu-item>
         <t-menu-item value="articles">
           <template #icon><FileTxtIcon /></template>
-          <span>科普管理</span>
+          科普管理
         </t-menu-item>
         <t-menu-item value="intelligence">
           <template #icon><LightbulbIcon /></template>
-          <span>情报管理</span>
+          情报管理
         </t-menu-item>
         <t-menu-item value="users">
           <template #icon><UserIcon /></template>
-          <span>用户管理</span>
+          用户管理
         </t-menu-item>
         <t-menu-item value="feedback">
           <template #icon><ChatIcon /></template>
-          <span>反馈管理</span>
+          反馈管理
         </t-menu-item>
         <t-menu-item value="pushRecords">
           <template #icon><SendIcon /></template>
-          <span>推送记录</span>
+          推送记录
         </t-menu-item>
       </t-menu>
     </t-aside>
     <t-layout>
-      <t-header class="bg-white px-4 flex items-center justify-between shadow-sm">
+      <t-header class="bg-white px-4 flex items-center justify-between shadow-sm h-[56px]">
         <div class="flex items-center">
           <t-button variant="text" @click="collapsed = !collapsed">
             <template #icon>
@@ -134,5 +133,9 @@ function handleLogout() {
 <style scoped>
 :deep(.t-menu--dark) {
   background: transparent;
+}
+
+:deep(.t-aside) {
+  overflow: hidden;
 }
 </style>
