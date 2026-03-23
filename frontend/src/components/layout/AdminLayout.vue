@@ -37,6 +37,10 @@
           <CommentOutlined />
           <span>反馈管理</span>
         </a-menu-item>
+        <a-menu-item key="pushRecords">
+          <SendOutlined />
+          <span>推送记录</span>
+        </a-menu-item>
       </a-menu>
     </a-layout-sider>
     <a-layout>
@@ -80,6 +84,7 @@ import {
   MenuUnfoldOutlined,
   LogoutOutlined,
   CommentOutlined,
+  SendOutlined,
 } from '@ant-design/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -101,6 +106,8 @@ watch(
       selectedKeys.value = ['users']
     } else if (name === 'Feedback') {
       selectedKeys.value = ['feedback']
+    } else if (name === 'PushRecords') {
+      selectedKeys.value = ['pushRecords']
     } else {
       selectedKeys.value = ['dashboard']
     }
@@ -109,7 +116,16 @@ watch(
 )
 
 function handleMenuClick({ key }: { key: string }) {
-  router.push({ name: key.charAt(0).toUpperCase() + key.slice(1) })
+  // Special handling for pushRecords -> PushRecords
+  const routeNameMap: Record<string, string> = {
+    dashboard: 'Dashboard',
+    articles: 'Articles',
+    intelligence: 'Intelligence',
+    users: 'Users',
+    feedback: 'Feedback',
+    pushRecords: 'PushRecords',
+  }
+  router.push({ name: routeNameMap[key] || key })
 }
 
 function handleLogout() {

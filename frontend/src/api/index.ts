@@ -220,4 +220,40 @@ export const feedbackApi = {
     api.delete<any, ApiResponse<void>>(`/feedback/${id}`),
 }
 
+// Push Record API
+export interface PushRecord {
+  id: number
+  contentType: 'article' | 'intelligence'
+  contentId: number
+  title: string
+  targetLevel: 'all' | 'basic' | 'advanced' | 'professional'
+  status: 'pending' | 'sending' | 'success' | 'failed'
+  successCount: number
+  failCount: number
+  errorMessage?: string
+  pushedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const pushRecordApi = {
+  getList: (params?: { page?: number; limit?: number; contentType?: string; status?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<PushRecord>>>('/push-records', { params }),
+
+  getOne: (id: number) =>
+    api.get<any, ApiResponse<PushRecord>>(`/push-records/${id}`),
+
+  create: (data: { contentType: string; contentId: number; title: string; targetLevel?: string }) =>
+    api.post<any, ApiResponse<PushRecord>>('/push-records', data),
+
+  update: (id: number, data: { status?: string; successCount?: number; failCount?: number; errorMessage?: string }) =>
+    api.put<any, ApiResponse<PushRecord>>(`/push-records/${id}`, data),
+
+  delete: (id: number) =>
+    api.delete<any, ApiResponse<void>>(`/push-records/${id}`),
+
+  getStatistics: () =>
+    api.get<any, ApiResponse<{ total: number; success: number; failed: number; pending: number }>>('/push-records/statistics'),
+}
+
 export default api

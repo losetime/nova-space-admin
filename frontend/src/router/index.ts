@@ -72,6 +72,11 @@ const routes = [
         name: 'Feedback',
         component: () => import('@/views/FeedbackView.vue'),
       },
+      {
+        path: 'push-records',
+        name: 'PushRecords',
+        component: () => import('@/views/PushRecordsView.vue'),
+      },
     ],
   },
 ]

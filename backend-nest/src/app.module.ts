@@ -8,6 +8,7 @@ import { IntelligenceModule } from './modules/intelligence/intelligence.module';
 import { ImportModule } from './modules/import/import.module';
 import { UserModule } from './modules/user/user.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
+import { PushRecordModule } from './modules/push-record/push-record.module';
 import { AllExceptionsFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
 import appConfig from './config/app.config';
@@ -39,6 +40,7 @@ import appConfig from './config/app.config';
     ImportModule,
     UserModule,
     FeedbackModule,
+    PushRecordModule,
   ],
   providers: [
     {
