@@ -15,15 +15,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Ant Design customization */
-.ant-layout-sider {
-  background: #001529 !important;
-}
-
-.ant-menu-dark {
-  background: transparent !important;
-}
-
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;

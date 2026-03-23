@@ -1,57 +1,56 @@
 <template>
   <div class="min-h-screen flex items-center justify-center bg-gray-900">
-    <a-card class="w-96 shadow-xl">
-      <template #title>
+    <t-card class="w-96 shadow-xl">
+      <template #header>
         <div class="text-center text-xl font-bold">Nova Space 管理后台</div>
       </template>
-      <a-form
-        :model="form"
+      <t-form
+        :data="form"
         :rules="rules"
-        @finish="handleSubmit"
+        @submit="handleSubmit"
       >
-        <a-form-item name="username">
-          <a-input
-            v-model:value="form.username"
+        <t-form-item name="username">
+          <t-input
+            v-model="form.username"
             placeholder="用户名"
             size="large"
+            clearable
           >
-            <template #prefix>
-              <UserOutlined />
-            </template>
-          </a-input>
-        </a-form-item>
-        <a-form-item name="password">
-          <a-input-password
-            v-model:value="form.password"
+            <template #prefix-icon><UserIcon /></template>
+          </t-input>
+        </t-form-item>
+        <t-form-item name="password">
+          <t-input
+            v-model="form.password"
+            type="password"
             placeholder="密码"
             size="large"
+            clearable
           >
-            <template #prefix>
-              <LockOutlined />
-            </template>
-          </a-input-password>
-        </a-form-item>
-        <a-form-item>
-          <a-button
-            type="primary"
-            html-type="submit"
+            <template #prefix-icon><LockOnIcon /></template>
+          </t-input>
+        </t-form-item>
+        <t-form-item>
+          <t-button
+            theme="primary"
+            type="submit"
             :loading="loading"
             block
             size="large"
           >
             登录
-          </a-button>
-        </a-form-item>
-      </a-form>
-    </a-card>
+          </t-button>
+        </t-form-item>
+      </t-form>
+    </t-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { message } from 'ant-design-vue'
-import { UserOutlined, LockOutlined } from '@ant-design/icons-vue'
+import { MessagePlugin } from 'tdesign-vue-next'
+import { UserIcon, LockOnIcon } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -65,21 +64,23 @@ const form = reactive({
 })
 
 const rules = {
-  username: [{ required: true, message: '请输入用户名' }],
-  password: [{ required: true, message: '请输入密码' }],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
 
-async function handleSubmit() {
+async function handleSubmit({ validateResult }: { validateResult: boolean }) {
+  if (!validateResult) return
+
   loading.value = true
   try {
     const res = await authStore.login(form.username, form.password)
     if (res.success) {
-      message.success('登录成功')
+      MessagePlugin.success('登录成功')
       const redirect = route.query.redirect as string
       router.push(redirect || '/dashboard')
     }
   } catch (error: any) {
-    message.error(error.message || '登录失败')
+    MessagePlugin.error(error.message || '登录失败')
   } finally {
     loading.value = false
   }

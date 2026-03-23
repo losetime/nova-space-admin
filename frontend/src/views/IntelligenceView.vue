@@ -2,84 +2,74 @@
   <div>
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">情报管理</h2>
-      <a-space>
-        <a-button type="primary" @click="showImportModal = true">
-          <UploadOutlined />
+      <t-space>
+        <t-button theme="primary" @click="showImportModal = true">
+          <template #icon><UploadIcon /></template>
           导入
-        </a-button>
-        <a-button type="primary" @click="$router.push('/intelligence/create')">
-          <PlusOutlined />
+        </t-button>
+        <t-button theme="primary" @click="$router.push('/intelligence/create')">
+          <template #icon><AddIcon /></template>
           新建
-        </a-button>
-      </a-space>
+        </t-button>
+      </t-space>
     </div>
 
-    <a-table
+    <t-table
       :columns="columns"
-      :data-source="intelligences"
+      :data="intelligences"
       :loading="loading"
       :pagination="pagination"
-      @change="handleTableChange"
       row-key="id"
+      @page-change="handlePageChange"
     >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'category'">
-          <a-tag :color="getCategoryColor(record.category)">
-            {{ getCategoryText(record.category) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'level'">
-          <a-tag :color="getLevelColor(record.level)">
-            {{ getLevelText(record.level) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'createdAt'">
-          {{ formatDate(record.createdAt) }}
-        </template>
-        <template v-else-if="column.key === 'action'">
-          <a-space>
-            <a-button type="link" size="small" @click="$router.push(`/intelligence/${record.id}/edit`)">
-              编辑
-            </a-button>
-            <a-popconfirm
-              title="确定要删除这条情报吗？"
-              @confirm="handleDelete(record.id)"
-            >
-              <a-button type="link" size="small" danger>删除</a-button>
-            </a-popconfirm>
-          </a-space>
-        </template>
+      <template #category="{ row }">
+        <t-tag :theme="getCategoryTheme(row.category)" variant="light">
+          {{ getCategoryText(row.category) }}
+        </t-tag>
       </template>
-    </a-table>
+      <template #level="{ row }">
+        <t-tag :theme="getLevelTheme(row.level)" variant="light">
+          {{ getLevelText(row.level) }}
+        </t-tag>
+      </template>
+      <template #createdAt="{ row }">
+        {{ formatDate(row.createdAt) }}
+      </template>
+      <template #action="{ row }">
+        <t-space>
+          <t-link theme="primary" @click="$router.push(`/intelligence/${row.id}/edit`)">
+            编辑
+          </t-link>
+          <t-popconfirm content="确定要删除这条情报吗？" @confirm="handleDelete(row.id)">
+            <t-link theme="danger">删除</t-link>
+          </t-popconfirm>
+        </t-space>
+      </template>
+    </t-table>
 
     <!-- Import Modal -->
-    <a-modal
-      v-model:open="showImportModal"
-      title="导入情报"
-      @ok="handleImport"
-      :confirm-loading="importLoading"
+    <t-dialog
+      v-model:visible="showImportModal"
+      header="导入情报"
+      :confirm-btn="{ content: '导入', loading: importLoading }"
+      @confirm="handleImport"
     >
-      <a-form layout="vertical">
-        <a-form-item label="文件格式">
-          <a-radio-group v-model:value="importFormat">
-            <a-radio value="csv">CSV</a-radio>
-            <a-radio value="excel">Excel (xlsx)</a-radio>
-          </a-radio-group>
-        </a-form-item>
-        <a-form-item label="选择文件">
-          <a-upload
-            :file-list="fileList"
-            :before-upload="beforeUpload"
-            :max-count="1"
+      <t-form :data="importForm" layout="vertical">
+        <t-form-item label="文件格式" name="format">
+          <t-radio-group v-model="importForm.format">
+            <t-radio value="csv">CSV</t-radio>
+            <t-radio value="excel">Excel (xlsx)</t-radio>
+          </t-radio-group>
+        </t-form-item>
+        <t-form-item label="选择文件" name="file">
+          <t-upload
+            v-model="fileList"
+            :auto-upload="false"
+            :multiple="false"
             accept=".csv,.xlsx,.xls"
-          >
-            <a-button>
-              <UploadOutlined />
-              选择文件
-            </a-button>
-          </a-upload>
-        </a-form-item>
-      </a-form>
+          />
+        </t-form-item>
+      </t-form>
       <div class="text-gray-500 text-sm mt-2">
         <p>CSV/Excel 格式要求：</p>
         <ul class="list-disc list-inside">
@@ -89,19 +79,19 @@
           <li>category 可选值：launch, satellite, industry, research, environment</li>
           <li>level 可选值：free, advanced, professional</li>
         </ul>
-        <a-button type="link" size="small" class="p-0 mt-2" @click="downloadTemplate">
-          <DownloadOutlined />
+        <t-link theme="primary" class="mt-2 inline-block" @click="downloadTemplate">
+          <DownloadIcon />
           下载模板
-        </a-button>
+        </t-link>
       </div>
-    </a-modal>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
-import { PlusOutlined, UploadOutlined, DownloadOutlined } from '@ant-design/icons-vue'
+import { MessagePlugin } from 'tdesign-vue-next'
+import { AddIcon, UploadIcon, DownloadIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
 import { intelligenceApi, type Intelligence } from '@/api'
 
@@ -111,55 +101,55 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`,
+  showJumper: true,
 })
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', width: 60 },
-  { title: '标题', dataIndex: 'title', ellipsis: true },
-  { title: '分类', key: 'category', width: 100 },
-  { title: '等级', key: 'level', width: 100 },
-  { title: '来源', dataIndex: 'source', width: 120 },
-  { title: '浏览', dataIndex: 'views', width: 80 },
-  { title: '创建时间', key: 'createdAt', width: 120 },
-  { title: '操作', key: 'action', width: 120 },
+  { colKey: 'id', title: 'ID', width: 60 },
+  { colKey: 'title', title: '标题', ellipsis: true },
+  { colKey: 'category', title: '分类', width: 100 },
+  { colKey: 'level', title: '等级', width: 100 },
+  { colKey: 'source', title: '来源', width: 120 },
+  { colKey: 'views', title: '浏览', width: 80 },
+  { colKey: 'createdAt', title: '创建时间', width: 140 },
+  { colKey: 'action', title: '操作', width: 120 },
 ]
 
 const showImportModal = ref(false)
 const importLoading = ref(false)
-const importFormat = ref<'csv' | 'excel'>('excel')
+const importForm = reactive({
+  format: 'excel' as 'csv' | 'excel',
+})
 const fileList = ref<any[]>([])
-const uploadFile = ref<File | null>(null)
 
-const categoryMap: Record<string, { text: string; color: string }> = {
-  launch: { text: '发射', color: 'red' },
-  satellite: { text: '卫星', color: 'blue' },
-  industry: { text: '行业', color: 'green' },
-  research: { text: '科研', color: 'purple' },
-  environment: { text: '环境', color: 'orange' },
+const categoryMap: Record<string, { text: string; theme: 'danger' | 'primary' | 'success' | 'warning' | 'default' }> = {
+  launch: { text: '发射', theme: 'danger' },
+  satellite: { text: '卫星', theme: 'primary' },
+  industry: { text: '行业', theme: 'success' },
+  research: { text: '科研', theme: 'warning' },
+  environment: { text: '环境', theme: 'default' },
 }
 
-const levelMap: Record<string, { text: string; color: string }> = {
-  free: { text: '免费', color: 'green' },
-  advanced: { text: '进阶', color: 'blue' },
-  professional: { text: '专业', color: 'purple' },
+const levelMap: Record<string, { text: string; theme: 'success' | 'primary' | 'warning' }> = {
+  free: { text: '免费', theme: 'success' },
+  advanced: { text: '进阶', theme: 'primary' },
+  professional: { text: '专业', theme: 'warning' },
 }
 
 function getCategoryText(category: string) {
   return categoryMap[category]?.text || category
 }
 
-function getCategoryColor(category: string) {
-  return categoryMap[category]?.color || 'default'
+function getCategoryTheme(category: string) {
+  return categoryMap[category]?.theme || 'default'
 }
 
 function getLevelText(level: string) {
   return levelMap[level]?.text || level
 }
 
-function getLevelColor(level: string) {
-  return levelMap[level]?.color || 'default'
+function getLevelTheme(level: string) {
+  return levelMap[level]?.theme || 'default'
 }
 
 function formatDate(date: string) {
@@ -178,54 +168,48 @@ async function fetchIntelligences() {
       pagination.total = res.data.total
     }
   } catch (error) {
-    message.error('获取情报列表失败')
+    MessagePlugin.error('获取情报列表失败')
   } finally {
     loading.value = false
   }
 }
 
-function handleTableChange(pag: any) {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+function handlePageChange(pageInfo: { current: number; pageSize: number }) {
+  pagination.current = pageInfo.current
+  pagination.pageSize = pageInfo.pageSize
   fetchIntelligences()
 }
 
 async function handleDelete(id: number) {
   try {
     await intelligenceApi.delete(id)
-    message.success('删除成功')
+    MessagePlugin.success('删除成功')
     fetchIntelligences()
   } catch (error) {
-    message.error('删除失败')
+    MessagePlugin.error('删除失败')
   }
 }
 
-function beforeUpload(file: File) {
-  uploadFile.value = file
-  fileList.value = [file as any]
-  return false
-}
-
 async function handleImport() {
-  if (!uploadFile.value) {
-    message.warning('请选择文件')
+  if (fileList.value.length === 0) {
+    MessagePlugin.warning('请选择文件')
     return
   }
   importLoading.value = true
   try {
-    const res = await intelligenceApi.import(uploadFile.value, importFormat.value)
+    const file = fileList.value[0].raw
+    const res = await intelligenceApi.import(file, importForm.format)
     if (res.success) {
-      message.success(`导入完成：成功 ${res.data.success} 条，失败 ${res.data.failed} 条`)
+      MessagePlugin.success(`导入完成：成功 ${res.data.success} 条，失败 ${res.data.failed} 条`)
       if (res.data.errors.length > 0) {
         console.log('Import errors:', res.data.errors)
       }
       showImportModal.value = false
       fileList.value = []
-      uploadFile.value = null
       fetchIntelligences()
     }
   } catch (error: any) {
-    message.error(error.message || '导入失败')
+    MessagePlugin.error(error.message || '导入失败')
   } finally {
     importLoading.value = false
   }

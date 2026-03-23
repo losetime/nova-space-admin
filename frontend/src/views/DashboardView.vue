@@ -6,7 +6,7 @@
     <div class="stats-grid">
       <div class="stat-card stat-card-blue">
         <div class="stat-icon">
-          <FileTextOutlined />
+          <FileTxtIcon />
         </div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.articles }}</div>
@@ -16,7 +16,7 @@
 
       <div class="stat-card stat-card-purple">
         <div class="stat-icon">
-          <BulbOutlined />
+          <LightbulbIcon />
         </div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.intelligences }}</div>
@@ -26,7 +26,7 @@
 
       <div class="stat-card stat-card-green">
         <div class="stat-icon">
-          <UserOutlined />
+          <UserIcon />
         </div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.users }}</div>
@@ -36,7 +36,7 @@
 
       <div class="stat-card stat-card-orange">
         <div class="stat-icon">
-          <CommentOutlined />
+          <ChatIcon />
         </div>
         <div class="stat-content">
           <div class="stat-value">{{ stats.feedbacks }}</div>
@@ -71,27 +71,27 @@
     <!-- 快捷操作 -->
     <div class="quick-actions">
       <h3 class="section-title">快捷操作</h3>
-      <div class="actions-grid">
-        <a-button type="primary" size="large" @click="$router.push('/articles/create')">
-          <template #icon><PlusOutlined /></template>
+      <t-space>
+        <t-button theme="primary" size="large" @click="$router.push('/articles/create')">
+          <template #icon><AddIcon /></template>
           新建科普
-        </a-button>
-        <a-button type="primary" size="large" @click="$router.push('/intelligence/create')">
-          <template #icon><PlusOutlined /></template>
+        </t-button>
+        <t-button theme="primary" size="large" @click="$router.push('/intelligence/create')">
+          <template #icon><AddIcon /></template>
           新建情报
-        </a-button>
-        <a-button size="large" @click="$router.push('/feedback')">
-          <template #icon><CommentOutlined /></template>
+        </t-button>
+        <t-button variant="outline" size="large" @click="$router.push('/feedback')">
+          <template #icon><ChatIcon /></template>
           查看反馈
-        </a-button>
-      </div>
+        </t-button>
+      </t-space>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from 'vue'
-import { FileTextOutlined, BulbOutlined, UserOutlined, PlusOutlined, CommentOutlined } from '@ant-design/icons-vue'
+import { FileTxtIcon, LightbulbIcon, UserIcon, ChatIcon, AddIcon } from 'tdesign-icons-vue-next'
 import { articleApi, intelligenceApi, userApi, feedbackApi } from '@/api'
 
 const stats = reactive({
@@ -109,14 +109,13 @@ onMounted(async () => {
       articleApi.getList({ limit: 1 }),
       intelligenceApi.getList({ limit: 1 }),
       userApi.getList({ limit: 1 }),
-      feedbackApi.getList({ limit: 100 }), // 获取反馈列表用于统计
+      feedbackApi.getList({ limit: 100 }),
     ])
     stats.articles = articlesRes.data.total
     stats.intelligences = intelligencesRes.data.total
     stats.users = usersRes.data.total
     stats.feedbacks = feedbacksRes.data.total
 
-    // 统计反馈状态分布
     const statusCounts: Record<string, number> = {}
     feedbacksRes.data.data.forEach((f: any) => {
       statusCounts[f.status] = (statusCounts[f.status] || 0) + 1
@@ -274,11 +273,5 @@ onMounted(async () => {
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.actions-grid {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
 }
 </style>

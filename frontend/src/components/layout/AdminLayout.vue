@@ -1,91 +1,85 @@
 <template>
-  <a-layout class="min-h-screen">
-    <a-layout-sider
-      v-model:collapsed="collapsed"
-      :trigger="null"
-      collapsible
-      theme="dark"
-      width="220"
+  <t-layout class="min-h-screen">
+    <t-aside
+      :collapsed="collapsed"
+      :width="220"
+      :collapsed-width="64"
+      class="bg-[#001529]"
     >
       <div class="p-4 text-white text-center">
         <h1 v-if="!collapsed" class="text-lg font-bold">Nova Space - 后台管理系统</h1>
         <span v-else class="text-xl">N</span>
       </div>
-      <a-menu
-        v-model:selectedKeys="selectedKeys"
+      <t-menu
+        :value="activeMenu"
         theme="dark"
-        mode="inline"
-        @click="handleMenuClick"
+        @change="handleMenuClick"
       >
-        <a-menu-item key="dashboard">
-          <DashboardOutlined />
-          <span>仪表盘</span>
-        </a-menu-item>
-        <a-menu-item key="articles">
-          <FileTextOutlined />
-          <span>科普管理</span>
-        </a-menu-item>
-        <a-menu-item key="intelligence">
-          <BulbOutlined />
-          <span>情报管理</span>
-        </a-menu-item>
-        <a-menu-item key="users">
-          <UserOutlined />
-          <span>用户管理</span>
-        </a-menu-item>
-        <a-menu-item key="feedback">
-          <CommentOutlined />
-          <span>反馈管理</span>
-        </a-menu-item>
-        <a-menu-item key="pushRecords">
-          <SendOutlined />
-          <span>推送记录</span>
-        </a-menu-item>
-      </a-menu>
-    </a-layout-sider>
-    <a-layout>
-      <a-layout-header class="bg-white px-4 flex items-center justify-between shadow-sm">
+        <t-menu-item value="dashboard">
+          <template #icon><DashboardIcon /></template>
+          仪表盘
+        </t-menu-item>
+        <t-menu-item value="articles">
+          <template #icon><FileTxtIcon /></template>
+          科普管理
+        </t-menu-item>
+        <t-menu-item value="intelligence">
+          <template #icon><LightbulbIcon /></template>
+          情报管理
+        </t-menu-item>
+        <t-menu-item value="users">
+          <template #icon><UserIcon /></template>
+          用户管理
+        </t-menu-item>
+        <t-menu-item value="feedback">
+          <template #icon><ChatIcon /></template>
+          反馈管理
+        </t-menu-item>
+        <t-menu-item value="pushRecords">
+          <template #icon><SendIcon /></template>
+          推送记录
+        </t-menu-item>
+      </t-menu>
+    </t-aside>
+    <t-layout>
+      <t-header class="bg-white px-4 flex items-center justify-between shadow-sm">
         <div class="flex items-center">
-          <MenuUnfoldOutlined
-            v-if="collapsed"
-            class="text-lg cursor-pointer"
-            @click="collapsed = false"
-          />
-          <MenuFoldOutlined
-            v-else
-            class="text-lg cursor-pointer"
-            @click="collapsed = true"
-          />
+          <t-button variant="text" @click="collapsed = !collapsed">
+            <template #icon>
+              <ChevronLeftIcon v-if="!collapsed" />
+              <ChevronRightIcon v-else />
+            </template>
+          </t-button>
         </div>
         <div class="flex items-center gap-4">
           <span class="text-gray-600">{{ authStore.user?.username }}</span>
-          <a-button type="link" @click="handleLogout">
-            <LogoutOutlined />
+          <t-button variant="text" theme="danger" @click="handleLogout">
+            <template #icon><LogoutIcon /></template>
             退出
-          </a-button>
+          </t-button>
         </div>
-      </a-layout-header>
-      <a-layout-content class="m-4 p-4 bg-white rounded-lg shadow-sm">
+      </t-header>
+      <t-content class="m-4 p-4 bg-white rounded-lg shadow-sm">
         <router-view />
-      </a-layout-content>
-    </a-layout>
-  </a-layout>
+      </t-content>
+    </t-layout>
+  </t-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  DashboardOutlined,
-  FileTextOutlined,
-  BulbOutlined,
-  UserOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
-  LogoutOutlined,
-  CommentOutlined,
-  SendOutlined,
-} from '@ant-design/icons-vue'
+  DashboardIcon,
+  FileTxtIcon,
+  LightbulbIcon,
+  UserIcon,
+  ChatIcon,
+  SendIcon,
+  LogoutIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
@@ -93,30 +87,29 @@ const route = useRoute()
 const authStore = useAuthStore()
 
 const collapsed = ref(false)
-const selectedKeys = ref<string[]>(['dashboard'])
+const activeMenu = ref('dashboard')
 
 watch(
   () => route.name,
   (name) => {
     if (name === 'Articles' || name === 'ArticleCreate' || name === 'ArticleEdit') {
-      selectedKeys.value = ['articles']
+      activeMenu.value = 'articles'
     } else if (name === 'Intelligence' || name === 'IntelligenceCreate' || name === 'IntelligenceEdit') {
-      selectedKeys.value = ['intelligence']
+      activeMenu.value = 'intelligence'
     } else if (name === 'Users' || name === 'UserCreate' || name === 'UserEdit') {
-      selectedKeys.value = ['users']
+      activeMenu.value = 'users'
     } else if (name === 'Feedback') {
-      selectedKeys.value = ['feedback']
+      activeMenu.value = 'feedback'
     } else if (name === 'PushRecords') {
-      selectedKeys.value = ['pushRecords']
+      activeMenu.value = 'pushRecords'
     } else {
-      selectedKeys.value = ['dashboard']
+      activeMenu.value = 'dashboard'
     }
   },
   { immediate: true }
 )
 
-function handleMenuClick({ key }: { key: string }) {
-  // Special handling for pushRecords -> PushRecords
+function handleMenuClick(value: string) {
   const routeNameMap: Record<string, string> = {
     dashboard: 'Dashboard',
     articles: 'Articles',
@@ -125,7 +118,7 @@ function handleMenuClick({ key }: { key: string }) {
     feedback: 'Feedback',
     pushRecords: 'PushRecords',
   }
-  router.push({ name: routeNameMap[key] || key })
+  router.push({ name: routeNameMap[value] || value })
 }
 
 function handleLogout() {
@@ -133,3 +126,9 @@ function handleLogout() {
   router.push('/login')
 }
 </script>
+
+<style scoped>
+:deep(.t-menu--dark) {
+  background: transparent;
+}
+</style>

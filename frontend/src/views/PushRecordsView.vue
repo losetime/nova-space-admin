@@ -2,105 +2,103 @@
   <div>
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">推送记录</h2>
-      <a-space>
-        <a-select
-          v-model:value="filterTriggerType"
+      <t-space>
+        <t-select
+          v-model="filterTriggerType"
           style="width: 120px"
           placeholder="触发类型"
-          allowClear
+          clearable
           @change="handleFilter"
         >
-          <a-select-option value="scheduled">定时推送</a-select-option>
-          <a-select-option value="manual">手动推送</a-select-option>
-        </a-select>
-        <a-select
-          v-model:value="filterStatus"
+          <t-option value="scheduled" label="定时推送" />
+          <t-option value="manual" label="手动推送" />
+        </t-select>
+        <t-select
+          v-model="filterStatus"
           style="width: 120px"
           placeholder="推送状态"
-          allowClear
+          clearable
           @change="handleFilter"
         >
-          <a-select-option value="sent">已发送</a-select-option>
-          <a-select-option value="failed">失败</a-select-option>
-        </a-select>
-      </a-space>
+          <t-option value="sent" label="已发送" />
+          <t-option value="failed" label="失败" />
+        </t-select>
+      </t-space>
     </div>
 
     <!-- Statistics Cards -->
     <div class="grid grid-cols-3 gap-4 mb-4">
-      <a-card>
-        <a-statistic title="总记录" :value="statistics.total" />
-      </a-card>
-      <a-card>
-        <a-statistic title="已发送" :value="statistics.sent" :value-style="{ color: '#3f8600' }" />
-      </a-card>
-      <a-card>
-        <a-statistic title="发送失败" :value="statistics.failed" :value-style="{ color: '#cf1322' }" />
-      </a-card>
+      <t-card>
+        <t-statistic title="总记录" :value="statistics.total" />
+      </t-card>
+      <t-card>
+        <t-statistic title="已发送" :value="statistics.sent" :trend="statistics.sent > 0 ? 'increase' : undefined" trend-type="increase" />
+      </t-card>
+      <t-card>
+        <t-statistic title="发送失败" :value="statistics.failed" :trend="statistics.failed > 0 ? 'decrease' : undefined" trend-type="decrease" />
+      </t-card>
     </div>
 
-    <a-table
+    <t-table
       :columns="columns"
-      :data-source="records"
+      :data="records"
       :loading="loading"
       :pagination="pagination"
-      @change="handleTableChange"
       row-key="id"
+      @page-change="handleTableChange"
     >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'userId'">
-          <a-tooltip :title="record.userId">
-            <span>{{ record.userId }}</span>
-          </a-tooltip>
-        </template>
-        <template v-else-if="column.key === 'username'">
-          {{ record.user?.username || '-' }}
-        </template>
-        <template v-else-if="column.key === 'email'">
-          <a-tooltip v-if="record.subscriptionEmail" :title="record.subscriptionEmail">
-            <span>{{ record.subscriptionEmail }}</span>
-          </a-tooltip>
-          <span v-else>-</span>
-        </template>
-        <template v-else-if="column.key === 'triggerType'">
-          <a-tag :color="getTriggerTypeColor(record.triggerType)">
-            {{ getTriggerTypeText(record.triggerType) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'subject'">
-          <a-tooltip :title="record.subject">
-            <span class="cursor-pointer">{{ record.subject.slice(0, 30) }}{{ record.subject.length > 30 ? '...' : '' }}</span>
-          </a-tooltip>
-        </template>
-        <template v-else-if="column.key === 'status'">
-          <a-tag :color="getStatusColor(record.status)">
-            {{ getStatusText(record.status) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'sentAt'">
-          {{ formatDate(record.sentAt) }}
-        </template>
-        <template v-else-if="column.key === 'createdAt'">
-          {{ formatDate(record.createdAt) }}
-        </template>
-        <template v-else-if="column.key === 'action'">
-          <a-space>
-            <a-popconfirm
-              title="确定要删除这条推送记录吗？"
-              @confirm="handleDelete(record.id)"
-            >
-              <a-button type="link" size="small" danger>删除</a-button>
-            </a-popconfirm>
-          </a-space>
-        </template>
+      <template #userId="{ row }">
+        <t-tooltip :content="row.userId">
+          <span>{{ row.userId }}</span>
+        </t-tooltip>
       </template>
-    </a-table>
+      <template #username="{ row }">
+        {{ row.user?.username || '-' }}
+      </template>
+      <template #email="{ row }">
+        <t-tooltip v-if="row.subscriptionEmail" :content="row.subscriptionEmail">
+          <span>{{ row.subscriptionEmail }}</span>
+        </t-tooltip>
+        <span v-else>-</span>
+      </template>
+      <template #triggerType="{ row }">
+        <t-tag :theme="getTriggerTypeTheme(row.triggerType)" variant="light">
+          {{ getTriggerTypeText(row.triggerType) }}
+        </t-tag>
+      </template>
+      <template #subject="{ row }">
+        <t-tooltip :content="row.subject">
+          <span class="cursor-pointer">{{ row.subject.slice(0, 30) }}{{ row.subject.length > 30 ? '...' : '' }}</span>
+        </t-tooltip>
+      </template>
+      <template #status="{ row }">
+        <t-tag :theme="getStatusTheme(row.status)" variant="light">
+          {{ getStatusText(row.status) }}
+        </t-tag>
+      </template>
+      <template #sentAt="{ row }">
+        {{ formatDate(row.sentAt) }}
+      </template>
+      <template #createdAt="{ row }">
+        {{ formatDate(row.createdAt) }}
+      </template>
+      <template #action="{ row }">
+        <t-space>
+          <t-popconfirm
+            content="确定要删除这条推送记录吗？"
+            @confirm="handleDelete(row.id)"
+          >
+            <t-link theme="danger">删除</t-link>
+          </t-popconfirm>
+        </t-space>
+      </template>
+    </t-table>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { MessagePlugin } from 'tdesign-vue-next'
 import dayjs from 'dayjs'
 import { pushRecordApi, type PushRecord, type PushTriggerType, type PushRecordStatus } from '@/api'
 
@@ -110,8 +108,7 @@ const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`,
+  showJumper: true,
 })
 
 const filterTriggerType = ref<PushTriggerType | undefined>()
@@ -124,42 +121,42 @@ const statistics = reactive({
 })
 
 const columns = [
-  { title: 'ID', dataIndex: 'id', width: 280, ellipsis: true },
-  { title: '用户ID', key: 'userId', width: 280, ellipsis: true },
-  { title: '用户名', key: 'username', width: 120 },
-  { title: '订阅邮箱', key: 'email', width: 180, ellipsis: true },
-  { title: '触发类型', key: 'triggerType', width: 100 },
-  { title: '主题', key: 'subject', ellipsis: true },
-  { title: '状态', key: 'status', width: 80 },
-  { title: '发送时间', key: 'sentAt', width: 140 },
-  { title: '创建时间', key: 'createdAt', width: 140 },
-  { title: '操作', key: 'action', width: 80 },
+  { colKey: 'id', title: 'ID', width: 280, ellipsis: true },
+  { colKey: 'userId', title: '用户ID', width: 280, ellipsis: true },
+  { colKey: 'username', title: '用户名', width: 120 },
+  { colKey: 'email', title: '订阅邮箱', width: 180, ellipsis: true },
+  { colKey: 'triggerType', title: '触发类型', width: 100 },
+  { colKey: 'subject', title: '主题', ellipsis: true },
+  { colKey: 'status', title: '状态', width: 80 },
+  { colKey: 'sentAt', title: '发送时间', width: 140 },
+  { colKey: 'createdAt', title: '创建时间', width: 140 },
+  { colKey: 'action', title: '操作', width: 80 },
 ]
 
-const triggerTypeMap: Record<string, { text: string; color: string }> = {
-  scheduled: { text: '定时推送', color: 'blue' },
-  manual: { text: '手动推送', color: 'purple' },
+const triggerTypeMap: Record<string, { text: string; theme: 'primary' | 'warning' }> = {
+  scheduled: { text: '定时推送', theme: 'primary' },
+  manual: { text: '手动推送', theme: 'warning' },
 }
 
-const statusMap: Record<string, { text: string; color: string }> = {
-  sent: { text: '已发送', color: 'green' },
-  failed: { text: '失败', color: 'red' },
+const statusMap: Record<string, { text: string; theme: 'success' | 'danger' }> = {
+  sent: { text: '已发送', theme: 'success' },
+  failed: { text: '失败', theme: 'danger' },
 }
 
 function getTriggerTypeText(type: string) {
   return triggerTypeMap[type]?.text || type
 }
 
-function getTriggerTypeColor(type: string) {
-  return triggerTypeMap[type]?.color || 'default'
+function getTriggerTypeTheme(type: string) {
+  return triggerTypeMap[type]?.theme || 'default'
 }
 
 function getStatusText(status: string) {
   return statusMap[status]?.text || status
 }
 
-function getStatusColor(status: string) {
-  return statusMap[status]?.color || 'default'
+function getStatusTheme(status: string) {
+  return statusMap[status]?.theme || 'default'
 }
 
 function formatDate(date: string) {
@@ -180,7 +177,7 @@ async function fetchRecords() {
       pagination.total = res.data.total
     }
   } catch (error) {
-    message.error('获取推送记录失败')
+    MessagePlugin.error('获取推送记录失败')
   } finally {
     loading.value = false
   }
@@ -197,9 +194,9 @@ async function fetchStatistics() {
   }
 }
 
-function handleTableChange(pag: any) {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+function handleTableChange(pageInfo: { current: number; pageSize: number }) {
+  pagination.current = pageInfo.current
+  pagination.pageSize = pageInfo.pageSize
   fetchRecords()
 }
 
@@ -211,11 +208,11 @@ function handleFilter() {
 async function handleDelete(id: string) {
   try {
     await pushRecordApi.delete(id)
-    message.success('删除成功')
+    MessagePlugin.success('删除成功')
     fetchRecords()
     fetchStatistics()
   } catch (error) {
-    message.error('删除失败')
+    MessagePlugin.error('删除失败')
   }
 }
 

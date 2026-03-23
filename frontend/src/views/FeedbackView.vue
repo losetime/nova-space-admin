@@ -5,123 +5,118 @@
     </div>
 
     <div class="mb-4 flex gap-4">
-      <a-select
-        v-model:value="filterType"
+      <t-select
+        v-model="filterType"
         placeholder="类型筛选"
         style="width: 120px"
-        allow-clear
+        clearable
         @change="fetchFeedbacks"
       >
-        <a-select-option value="bug">Bug</a-select-option>
-        <a-select-option value="feature">功能请求</a-select-option>
-        <a-select-option value="suggestion">建议</a-select-option>
-        <a-select-option value="other">其他</a-select-option>
-      </a-select>
-      <a-select
-        v-model:value="filterStatus"
+        <t-option value="bug" label="Bug" />
+        <t-option value="feature" label="功能请求" />
+        <t-option value="suggestion" label="建议" />
+        <t-option value="other" label="其他" />
+      </t-select>
+      <t-select
+        v-model="filterStatus"
         placeholder="状态筛选"
         style="width: 120px"
-        allow-clear
+        clearable
         @change="fetchFeedbacks"
       >
-        <a-select-option value="pending">待处理</a-select-option>
-        <a-select-option value="processing">处理中</a-select-option>
-        <a-select-option value="resolved">已解决</a-select-option>
-        <a-select-option value="closed">已关闭</a-select-option>
-      </a-select>
+        <t-option value="pending" label="待处理" />
+        <t-option value="processing" label="处理中" />
+        <t-option value="resolved" label="已解决" />
+        <t-option value="closed" label="已关闭" />
+      </t-select>
     </div>
 
-    <a-table
+    <t-table
       :columns="columns"
-      :data-source="feedbacks"
+      :data="feedbacks"
       :loading="loading"
       :pagination="pagination"
-      @change="handleTableChange"
       row-key="id"
+      @page-change="handlePageChange"
     >
-      <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'type'">
-          <a-tag :color="getTypeColor(record.type)">
-            {{ getTypeText(record.type) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'status'">
-          <a-tag :color="getStatusColor(record.status)">
-            {{ getStatusText(record.status) }}
-          </a-tag>
-        </template>
-        <template v-else-if="column.key === 'createdAt'">
-          {{ formatDate(record.createdAt) }}
-        </template>
-        <template v-else-if="column.key === 'action'">
-          <a-space>
-            <a-button type="link" size="small" @click="showDetail(record)">
-              查看
-            </a-button>
-            <a-button type="link" size="small" @click="showStatusUpdate(record)">
-              更新状态
-            </a-button>
-            <a-popconfirm
-              title="确定要删除这条反馈吗？"
-              @confirm="handleDelete(record.id)"
-            >
-              <a-button type="link" size="small" danger>删除</a-button>
-            </a-popconfirm>
-          </a-space>
-        </template>
+      <template #type="{ row }">
+        <t-tag :theme="getTypeTheme(row.type)" variant="light">
+          {{ getTypeText(row.type) }}
+        </t-tag>
       </template>
-    </a-table>
+      <template #status="{ row }">
+        <t-tag :theme="getStatusTheme(row.status)" variant="light">
+          {{ getStatusText(row.status) }}
+        </t-tag>
+      </template>
+      <template #createdAt="{ row }">
+        {{ formatDate(row.createdAt) }}
+      </template>
+      <template #action="{ row }">
+        <t-space>
+          <t-link theme="primary" @click="showDetail(row)">
+            查看
+          </t-link>
+          <t-link theme="primary" @click="showStatusUpdate(row)">
+            更新状态
+          </t-link>
+          <t-popconfirm content="确定要删除这条反馈吗？" @confirm="handleDelete(row.id)">
+            <t-link theme="danger">删除</t-link>
+          </t-popconfirm>
+        </t-space>
+      </template>
+    </t-table>
 
     <!-- 详情弹窗 -->
-    <a-modal
-      v-model:open="detailVisible"
-      title="反馈详情"
-      :footer="null"
+    <t-dialog
+      v-model:visible="detailVisible"
+      header="反馈详情"
+      :footer="false"
       width="600px"
     >
-      <a-descriptions :column="1" bordered v-if="currentFeedback">
-        <a-descriptions-item label="标题">{{ currentFeedback.title }}</a-descriptions-item>
-        <a-descriptions-item label="类型">
-          <a-tag :color="getTypeColor(currentFeedback.type)">
+      <t-descriptions v-if="currentFeedback" :column="1" bordered>
+        <t-descriptions-item label="标题">{{ currentFeedback.title }}</t-descriptions-item>
+        <t-descriptions-item label="类型">
+          <t-tag :theme="getTypeTheme(currentFeedback.type)" variant="light">
             {{ getTypeText(currentFeedback.type) }}
-          </a-tag>
-        </a-descriptions-item>
-        <a-descriptions-item label="状态">
-          <a-tag :color="getStatusColor(currentFeedback.status)">
+          </t-tag>
+        </t-descriptions-item>
+        <t-descriptions-item label="状态">
+          <t-tag :theme="getStatusTheme(currentFeedback.status)" variant="light">
             {{ getStatusText(currentFeedback.status) }}
-          </a-tag>
-        </a-descriptions-item>
-        <a-descriptions-item label="内容">
+          </t-tag>
+        </t-descriptions-item>
+        <t-descriptions-item label="内容">
           <div style="white-space: pre-wrap;">{{ currentFeedback.content }}</div>
-        </a-descriptions-item>
-        <a-descriptions-item label="提交时间">{{ formatDate(currentFeedback.createdAt) }}</a-descriptions-item>
-      </a-descriptions>
-    </a-modal>
+        </t-descriptions-item>
+        <t-descriptions-item label="提交时间">{{ formatDate(currentFeedback.createdAt) }}</t-descriptions-item>
+      </t-descriptions>
+    </t-dialog>
 
     <!-- 状态更新弹窗 -->
-    <a-modal
-      v-model:open="statusVisible"
-      title="更新状态"
-      @ok="handleStatusUpdate"
-      :confirm-loading="updateLoading"
+    <t-dialog
+      v-model:visible="statusVisible"
+      header="更新状态"
+      :confirm-btn="{ content: '确定', loading: updateLoading }"
+      @confirm="handleStatusUpdate"
     >
-      <a-form layout="vertical">
-        <a-form-item label="状态">
-          <a-select v-model:value="newStatus">
-            <a-select-option value="pending">待处理</a-select-option>
-            <a-select-option value="processing">处理中</a-select-option>
-            <a-select-option value="resolved">已解决</a-select-option>
-            <a-select-option value="closed">已关闭</a-select-option>
-          </a-select>
-        </a-form-item>
-      </a-form>
-    </a-modal>
+      <t-form :data="statusForm" layout="vertical">
+        <t-form-item label="状态">
+          <t-select v-model="statusForm.status">
+            <t-option value="pending" label="待处理" />
+            <t-option value="processing" label="处理中" />
+            <t-option value="resolved" label="已解决" />
+            <t-option value="closed" label="已关闭" />
+          </t-select>
+        </t-form-item>
+      </t-form>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { message } from 'ant-design-vue'
+import { MessagePlugin } from 'tdesign-vue-next'
 import dayjs from 'dayjs'
 import { feedbackApi, type Feedback } from '@/api'
 
@@ -134,52 +129,53 @@ const filterStatus = ref<string | undefined>()
 const detailVisible = ref(false)
 const statusVisible = ref(false)
 const currentFeedback = ref<Feedback | null>(null)
-const newStatus = ref<string>('pending')
+const statusForm = reactive({
+  status: 'pending',
+})
 
 const pagination = reactive({
   current: 1,
   pageSize: 10,
   total: 0,
-  showSizeChanger: true,
-  showTotal: (total: number) => `共 ${total} 条`,
+  showJumper: true,
 })
 
 const columns = [
-  { title: '标题', dataIndex: 'title', ellipsis: true },
-  { title: '类型', key: 'type', width: 100 },
-  { title: '状态', key: 'status', width: 100 },
-  { title: '提交时间', key: 'createdAt', width: 150 },
-  { title: '操作', key: 'action', width: 200 },
+  { colKey: 'title', title: '标题', ellipsis: true },
+  { colKey: 'type', title: '类型', width: 100 },
+  { colKey: 'status', title: '状态', width: 100 },
+  { colKey: 'createdAt', title: '提交时间', width: 150 },
+  { colKey: 'action', title: '操作', width: 200 },
 ]
 
-const typeMap: Record<string, { text: string; color: string }> = {
-  bug: { text: 'Bug', color: 'red' },
-  feature: { text: '功能请求', color: 'blue' },
-  suggestion: { text: '建议', color: 'green' },
-  other: { text: '其他', color: 'default' },
+const typeMap: Record<string, { text: string; theme: 'danger' | 'primary' | 'success' | 'default' }> = {
+  bug: { text: 'Bug', theme: 'danger' },
+  feature: { text: '功能请求', theme: 'primary' },
+  suggestion: { text: '建议', theme: 'success' },
+  other: { text: '其他', theme: 'default' },
 }
 
-const statusMap: Record<string, { text: string; color: string }> = {
-  pending: { text: '待处理', color: 'orange' },
-  processing: { text: '处理中', color: 'blue' },
-  resolved: { text: '已解决', color: 'green' },
-  closed: { text: '已关闭', color: 'default' },
+const statusMap: Record<string, { text: string; theme: 'warning' | 'primary' | 'success' | 'default' }> = {
+  pending: { text: '待处理', theme: 'warning' },
+  processing: { text: '处理中', theme: 'primary' },
+  resolved: { text: '已解决', theme: 'success' },
+  closed: { text: '已关闭', theme: 'default' },
 }
 
 function getTypeText(type: string) {
   return typeMap[type]?.text || type
 }
 
-function getTypeColor(type: string) {
-  return typeMap[type]?.color || 'default'
+function getTypeTheme(type: string) {
+  return typeMap[type]?.theme || 'default'
 }
 
 function getStatusText(status: string) {
   return statusMap[status]?.text || status
 }
 
-function getStatusColor(status: string) {
-  return statusMap[status]?.color || 'default'
+function getStatusTheme(status: string) {
+  return statusMap[status]?.theme || 'default'
 }
 
 function formatDate(date: string) {
@@ -200,15 +196,15 @@ async function fetchFeedbacks() {
       pagination.total = res.data.total
     }
   } catch (error) {
-    message.error('获取反馈列表失败')
+    MessagePlugin.error('获取反馈列表失败')
   } finally {
     loading.value = false
   }
 }
 
-function handleTableChange(pag: any) {
-  pagination.current = pag.current
-  pagination.pageSize = pag.pageSize
+function handlePageChange(pageInfo: { current: number; pageSize: number }) {
+  pagination.current = pageInfo.current
+  pagination.pageSize = pageInfo.pageSize
   fetchFeedbacks()
 }
 
@@ -219,7 +215,7 @@ function showDetail(feedback: Feedback) {
 
 function showStatusUpdate(feedback: Feedback) {
   currentFeedback.value = feedback
-  newStatus.value = feedback.status
+  statusForm.status = feedback.status
   statusVisible.value = true
 }
 
@@ -227,12 +223,12 @@ async function handleStatusUpdate() {
   if (!currentFeedback.value) return
   updateLoading.value = true
   try {
-    await feedbackApi.update(currentFeedback.value.id, { status: newStatus.value })
-    message.success('状态更新成功')
+    await feedbackApi.update(currentFeedback.value.id, { status: statusForm.status })
+    MessagePlugin.success('状态更新成功')
     statusVisible.value = false
     fetchFeedbacks()
   } catch (error) {
-    message.error('状态更新失败')
+    MessagePlugin.error('状态更新失败')
   } finally {
     updateLoading.value = false
   }
@@ -241,10 +237,10 @@ async function handleStatusUpdate() {
 async function handleDelete(id: string) {
   try {
     await feedbackApi.delete(id)
-    message.success('删除成功')
+    MessagePlugin.success('删除成功')
     fetchFeedbacks()
   } catch (error) {
-    message.error('删除失败')
+    MessagePlugin.error('删除失败')
   }
 }
 
