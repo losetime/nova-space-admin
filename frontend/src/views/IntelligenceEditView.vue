@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-container">
     <div class="flex items-center mb-4">
       <t-button variant="text" @click="$router.back()">
         <template #icon><ChevronLeftIcon /></template>
@@ -150,3 +150,11 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
 
 onMounted(fetchIntelligence)
 </script>
+
+<style scoped>
+.page-container {
+  background: #fff;
+  padding: 24px;
+  border-radius: 3px;
+}
+</style>

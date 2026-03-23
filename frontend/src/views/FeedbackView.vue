@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="page-container">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">反馈管理</h2>
     </div>
@@ -246,3 +246,11 @@ async function handleDelete(id: string) {
 
 onMounted(fetchFeedbacks)
 </script>
+
+<style scoped>
+.page-container {
+  background: #fff;
+  padding: 24px;
+  border-radius: 3px;
+}
+</style>

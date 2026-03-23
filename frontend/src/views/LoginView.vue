@@ -1,93 +1,107 @@
 <template>
   <div class="login-wrapper">
-    <div class="login-container">
-      <div class="login-header">
-        <RocketIcon class="login-logo" />
-        <span class="login-title">Nova Space</span>
-      </div>
-      <div class="login-card">
-        <div class="login-card-header">
-          <h3>账号登录</h3>
+    <!-- 左侧登录区域 -->
+    <div class="login-left">
+      <div class="login-container">
+        <div class="title-container">
+          <h1 class="title margin-no">账号登录</h1>
+          <h1 class="title">Nova Space - 后台管理系统</h1>
         </div>
+
         <t-form
-          :data="form"
-          :rules="rules"
-          class="login-form"
-          @submit="handleSubmit"
+          ref="formRef"
+          class="item-container"
+          :data="formData"
+          :rules="FORM_RULES"
+          label-width="0"
+          @submit="onSubmit"
         >
           <t-form-item name="username">
             <t-input
-              v-model="form.username"
+              v-model="formData.username"
               size="large"
               placeholder="请输入用户名"
               clearable
             >
-              <template #prefix-icon><UserIcon /></template>
+              <template #prefix-icon>
+                <t-icon name="user" />
+              </template>
             </t-input>
           </t-form-item>
+
           <t-form-item name="password">
             <t-input
-              v-model="form.password"
-              type="password"
+              v-model="formData.password"
               size="large"
-              placeholder="请输入密码"
+              :type="showPsw ? 'text' : 'password'"
               clearable
+              placeholder="请输入密码"
             >
-              <template #prefix-icon><LockOnIcon /></template>
+              <template #prefix-icon>
+                <t-icon name="lock-on" />
+              </template>
+              <template #suffix-icon>
+                <t-icon :name="showPsw ? 'browse' : 'browse-off'" @click="showPsw = !showPsw" />
+              </template>
             </t-input>
           </t-form-item>
-          <t-form-item>
-            <t-button
-              theme="primary"
-              type="submit"
-              size="large"
-              block
-              :loading="loading"
-            >
+
+          <t-form-item class="btn-container">
+            <t-button block size="large" theme="primary" type="submit" :loading="loading">
               登录
             </t-button>
           </t-form-item>
         </t-form>
-        <div class="login-footer">
-          <span>Copyright © 2024 Nova Space. All Rights Reserved.</span>
-        </div>
       </div>
+
+      <footer class="copyright">Copyright @ 2024-2025 Nova Space. All Rights Reserved</footer>
     </div>
+
+    <!-- 右侧背景区域 -->
+    <div class="login-right"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { UserIcon, LockOnIcon, RocketIcon } from 'tdesign-icons-vue-next'
+import { ref, reactive } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+
+defineOptions({
+  name: 'LoginView',
+})
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
+const formRef = ref<FormInstanceFunctions>()
 const loading = ref(false)
-const form = reactive({
+const showPsw = ref(false)
+
+const formData = reactive({
   username: '',
   password: '',
 })
 
-const rules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+const FORM_RULES: Record<string, FormRule[]> = {
+  username: [{ required: true, message: '请输入用户名', type: 'error' }],
+  password: [{ required: true, message: '请输入密码', type: 'error' }],
 }
 
-async function handleSubmit({ validateResult }: { validateResult: boolean }) {
-  if (!validateResult) return
+const onSubmit = async (ctx: SubmitContext) => {
+  if (ctx.validateResult !== true) return
 
   loading.value = true
   try {
-    const res = await authStore.login(form.username, form.password)
+    const res = await authStore.login(formData.username, formData.password)
     if (res.success) {
       MessagePlugin.success('登录成功')
       const redirect = route.query.redirect as string
-      router.push(redirect || '/dashboard')
+      const redirectUrl = redirect ? decodeURIComponent(redirect) : '/dashboard'
+      router.push(redirectUrl)
     }
   } catch (error: any) {
     MessagePlugin.error(error.message || '登录失败')
@@ -99,97 +113,77 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
 
 <style scoped>
 .login-wrapper {
-  position: relative;
-  width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #e0e5ec 0%, #f5f7fa 100%);
-  overflow: hidden;
+  display: flex;
 }
 
-.login-wrapper::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background:
-    radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
-  animation: rotate 30s linear infinite;
+.login-left {
+  width: 550px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: #fff;
+  padding: 40px 60px;
+  position: relative;
 }
 
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.login-right {
+  flex: 1;
+  background-image: url('@/assets/login-bg.png');
+  background-size: cover;
+  background-position: center;
 }
 
 .login-container {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 20px;
+  max-width: 400px;
+  margin: 0 auto;
+  width: 100%;
 }
 
-.login-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 32px;
+.title-container {
+  margin-bottom: 48px;
 }
 
-.login-logo {
-  font-size: 36px;
-  color: #667eea;
-  margin-right: 12px;
-}
-
-.login-title {
+.title {
   font-size: 28px;
   font-weight: 600;
-  color: #333;
+  color: var(--td-text-color-primary, #000);
+  margin-top: 8px;
 }
 
-.login-card {
+.title.margin-no {
+  margin-top: 0;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--td-text-color-secondary, #666);
+}
+
+.item-container {
   width: 100%;
-  max-width: 400px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  padding: 40px;
 }
 
-.login-card-header {
-  text-align: center;
-  margin-bottom: 32px;
+.btn-container {
+  margin-top: 48px;
 }
 
-.login-card-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 500;
-  color: #333;
+.copyright {
+  position: absolute;
+  left: 80px;
+  bottom: 40px;
+  font-size: 14px;
+  color: var(--td-text-color-secondary, #666);
 }
 
-.login-form {
-  margin-bottom: 24px;
+@media screen and (max-width: 900px) {
+  .login-right {
+    display: none;
+  }
 }
 
-.login-footer {
-  text-align: center;
-  padding-top: 24px;
-  border-top: 1px solid #eee;
-}
-
-.login-footer span {
-  font-size: 12px;
-  color: #999;
+@media screen and (max-height: 700px) {
+  .copyright {
+    display: none;
+  }
 }
 </style>

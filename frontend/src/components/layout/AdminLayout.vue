@@ -1,19 +1,22 @@
 <template>
-  <t-layout class="min-h-screen">
-    <t-aside class="aside">
+  <t-layout class="admin-layout">
+    <!-- 侧边栏 -->
+    <t-aside class="admin-aside">
       <t-menu
         :value="activeMenu"
         :collapsed="collapsed"
-        :width="['220px', '64px']"
         theme="dark"
+        :width="['232px', '64px']"
         @change="handleMenuClick"
       >
         <template #logo>
-          <div class="menu-logo">
-            <RocketIcon class="menu-logo-icon" />
-            <span v-if="!collapsed" class="menu-logo-text">Nova Space</span>
+          <div class="side-nav-logo" @click="router.push('/dashboard')">
+            <RocketIcon v-if="!collapsed" class="logo-icon" />
+            <RocketIcon v-else class="logo-icon-small" />
+            <span v-if="!collapsed" class="logo-text">Nova Space</span>
           </div>
         </template>
+
         <t-menu-item value="dashboard">
           <template #icon><DashboardIcon /></template>
           仪表盘
@@ -38,12 +41,9 @@
           <template #icon><SendIcon /></template>
           推送记录
         </t-menu-item>
+
         <template #operations>
-          <t-button
-            variant="text"
-            shape="square"
-            @click="collapsed = !collapsed"
-          >
+          <t-button variant="text" shape="square" @click="collapsed = !collapsed">
             <template #icon>
               <ChevronLeftIcon v-if="!collapsed" />
               <ChevronRightIcon v-else />
@@ -52,36 +52,49 @@
         </template>
       </t-menu>
     </t-aside>
-    <t-layout>
-      <t-header class="header">
-        <div class="header-left">
-          <t-breadcrumb>
-            <t-breadcrumb-item>管理后台</t-breadcrumb-item>
-            <t-breadcrumb-item>{{ currentRouteTitle }}</t-breadcrumb-item>
-          </t-breadcrumb>
-        </div>
-        <div class="header-right">
-          <t-dropdown>
-            <t-button variant="text">
-              <template #icon><UserIcon /></template>
-              <span class="ml-1">{{ authStore.user?.username }}</span>
-              <template #suffix><ChevronDownIcon /></template>
-            </t-button>
-            <template #dropdown>
-              <t-dropdown-menu>
-                <t-dropdown-item @click="handleLogout">
-                  <template #leftIcon><LogoutIcon /></template>
-                  退出登录
-                </t-dropdown-item>
-              </t-dropdown-menu>
-            </template>
-          </t-dropdown>
-        </div>
+
+    <!-- 主内容区 -->
+    <t-layout class="admin-main">
+      <!-- 顶部导航 -->
+      <t-header class="admin-header">
+        <t-head-menu>
+          <template #logo>
+            <t-breadcrumb class="header-breadcrumb">
+              <t-breadcrumb-item>管理后台</t-breadcrumb-item>
+              <t-breadcrumb-item>{{ currentRouteTitle }}</t-breadcrumb-item>
+            </t-breadcrumb>
+          </template>
+          <template #operations>
+            <div class="header-operations">
+              <t-dropdown :min-column-width="120" trigger="click">
+                <t-button theme="default" variant="text">
+                  <template #icon>
+                    <t-icon name="user-circle" />
+                  </template>
+                  <span class="user-name">{{ authStore.user?.username }}</span>
+                  <template #suffix><ChevronDownIcon /></template>
+                </t-button>
+                <template #dropdown>
+                  <t-dropdown-menu>
+                    <t-dropdown-item @click="handleLogout">
+                      <template #leftIcon><LogoutIcon /></template>
+                      退出登录
+                    </t-dropdown-item>
+                  </t-dropdown-menu>
+                </template>
+              </t-dropdown>
+            </div>
+          </template>
+        </t-head-menu>
       </t-header>
-      <t-content class="content">
+
+      <!-- 内容区 -->
+      <t-content class="admin-content">
         <router-view />
       </t-content>
-      <t-footer class="footer">
+
+      <!-- 底部 -->
+      <t-footer class="admin-footer">
         Copyright © 2024 Nova Space. All Rights Reserved.
       </t-footer>
     </t-layout>
@@ -171,63 +184,102 @@ function handleLogout() {
 </script>
 
 <style scoped>
-.aside {
-  background: #001529;
+.admin-layout {
+  height: 100vh;
 }
 
-.menu-logo {
+.admin-aside {
+  background: #242424;
+  transition: width 0.2s;
+}
+
+.side-nav-logo {
   display: flex;
   align-items: center;
   justify-content: center;
   height: 64px;
+  cursor: pointer;
   color: #fff;
 }
 
-.menu-logo-icon {
+.admin-aside :deep(.t-menu__logo) {
+  height: 64px;
+}
+
+.admin-aside :deep(.t-menu__operations .t-button) {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.admin-aside :deep(.t-menu__operations .t-button:hover) {
+  color: #fff;
+}
+
+.logo-icon {
+  font-size: 32px;
+}
+
+.logo-icon-small {
   font-size: 28px;
 }
 
-.menu-logo-text {
-  margin-left: 10px;
+.logo-text {
+  margin-left: 12px;
   font-size: 18px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.header {
+.admin-main {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.admin-header {
   height: 64px;
+  background: #fff;
+  border-bottom: 1px solid var(--td-component-stroke);
   padding: 0 24px;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
 }
 
-.header-left {
+.admin-header :deep(.t-head-menu) {
+  height: 100%;
+}
+
+.admin-header :deep(.t-head-menu__inner) {
+  border-bottom: none;
+}
+
+.header-breadcrumb {
+  margin-left: 0;
+}
+
+.header-operations {
   display: flex;
   align-items: center;
 }
 
-.header-right {
-  display: flex;
-  align-items: center;
+.user-name {
+  margin-left: 8px;
+  margin-right: 4px;
 }
 
-.content {
-  margin: 16px;
-  padding: 16px;
-  background: #fff;
-  border-radius: 3px;
-  min-height: calc(100vh - 64px - 64px - 32px);
+.admin-content {
+  flex: 1;
+  padding: 24px;
+  background: var(--td-bg-color-page);
+  overflow: auto;
 }
 
-.footer {
+.admin-footer {
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 64px;
-  color: #666;
+  background: #fff;
+  border-top: 1px solid var(--td-component-stroke);
+  color: var(--td-text-color-secondary);
   font-size: 14px;
 }
 </style>
