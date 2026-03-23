@@ -22,7 +22,10 @@
       "Bash(powershell.exe -NoProfile -Command \"Get-AppxPackage '*Ubuntu*' | Select-Object PackageFamilyName\")",
       "Bash(powershell.exe -NoProfile -Command \"Start-Process 'shell:AppsFolder\\\\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc!Ubuntu'\")",
       "Bash(explorer.exe shell:AppsFolder\\\\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc!Ubuntu)",
-      "Bash(docker-compose build:*)"
+      "Bash(docker-compose build:*)",
+      "WebFetch(domain:tdesign.tencent.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:github.com)"
     ]
   }
 }
