@@ -9,6 +9,7 @@ import { ImportModule } from './modules/import/import.module';
 import { UserModule } from './modules/user/user.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { PushRecordModule } from './modules/push-record/push-record.module';
+import { HealthModule } from './common/health/health.module';
 import { AllExceptionsFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
 import appConfig from './config/app.config';
@@ -41,6 +42,7 @@ import appConfig from './config/app.config';
     UserModule,
     FeedbackModule,
     PushRecordModule,
+    HealthModule,
   ],
   providers: [
     {

@@ -21,13 +21,16 @@ services:
       - FRONTEND_URL=http://47.236.101.87
       - SPACE_TRACK_USERNAME=${SPACE_TRACK_USERNAME}
       - SPACE_TRACK_PASSWORD=${SPACE_TRACK_PASSWORD}
-    volumes:
-      - ./backend-nest/cache:/app/cache
-      - ./backend-nest/data:/app/data
     networks:
       - nova-network
     extra_hosts:
       - "nova-postgres:host-gateway" # 允许通过容器名访问外部容器
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # 前端服务
   frontend:
@@ -37,11 +40,17 @@ services:
     container_name: nova-admin-frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     ports:
       - "8080:8080"
     networks:
       - nova-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   nova-network:

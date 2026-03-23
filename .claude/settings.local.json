@@ -7,7 +7,22 @@
       "WebFetch(domain:zh.wikipedia.org)",
       "WebFetch(domain:www.cnsa.gov.cn)",
       "WebFetch(domain:www.spacechina.com)",
-      "WebFetch(domain:baike.baidu.com)"
+      "WebFetch(domain:baike.baidu.com)",
+      "Bash(wsl --list --verbose)",
+      "Bash(wsl -l -v)",
+      "Bash(powershell -Command \"Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux | Select-Object State\")",
+      "Bash(powershell -Command \"Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform | Select-Object State\")",
+      "Bash(powershell -Command \"Get-AppxPackage *Ubuntu* | Select-Object Name, PackageFullName\")",
+      "Bash(wsl:*)",
+      "Bash(wsl.exe --version)",
+      "Bash(winget install:*)",
+      "Bash(ubuntu2404.exe install:*)",
+      "Bash(powershell -Command \"Start-Process ''shell:AppsFolder\\\\CanonicalGroupLimited.Ubuntu_2404.1.68.0_x64__79rhkp1fndgsc!ubuntu''\")",
+      "Bash(powershell -Command \"Get-AppxPackage *Ubuntu* | ForEach-Object { $_.PackageFamilyName }\")",
+      "Bash(powershell.exe -NoProfile -Command \"Get-AppxPackage '*Ubuntu*' | Select-Object PackageFamilyName\")",
+      "Bash(powershell.exe -NoProfile -Command \"Start-Process 'shell:AppsFolder\\\\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc!Ubuntu'\")",
+      "Bash(explorer.exe shell:AppsFolder\\\\CanonicalGroupLimited.Ubuntu_79rhkp1fndgsc!Ubuntu)",
+      "Bash(docker-compose build:*)"
     ]
   }
 }
