@@ -8,7 +8,7 @@
       width="220"
     >
       <div class="p-4 text-white text-center">
-        <h1 v-if="!collapsed" class="text-lg font-bold">Nova Space Admin</h1>
+        <h1 v-if="!collapsed" class="text-lg font-bold">Nova Space - 后台管理系统</h1>
         <span v-else class="text-xl">N</span>
       </div>
       <a-menu

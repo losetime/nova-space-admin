@@ -1,56 +1,51 @@
 import {
   Entity,
-  PrimaryGeneratedColumn,
   Column,
+  PrimaryGeneratedColumn,
   CreateDateColumn,
-  UpdateDateColumn,
+  ManyToOne,
+  Index,
 } from 'typeorm';
+import { PushTriggerType, PushRecordStatus } from '../../../common/enums/push.enum';
+import { User } from '../../../common/entities/user.entity';
 
 @Entity('push_records')
 export class PushRecord {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ comment: '关联内容类型: article/intelligence' })
-  contentType: string;
+  @Column()
+  @Index()
+  userId: string;
 
-  @Column({ comment: '关联内容ID' })
-  contentId: number;
-
-  @Column({ length: 200, comment: '内容标题' })
-  title: string;
+  @ManyToOne(() => User)
+  user: User;
 
   @Column({
-    type: 'enum',
-    enum: ['all', 'basic', 'advanced', 'professional'],
-    default: 'all',
-    comment: '推送目标用户等级',
+    type: 'simple-enum',
+    enum: PushTriggerType,
+    default: PushTriggerType.MANUAL,
   })
-  targetLevel: string;
+  triggerType: PushTriggerType;
+
+  @Column()
+  subject: string;
+
+  @Column({ type: 'text' })
+  content: string;
+
+  @Column()
+  sentAt: Date;
 
   @Column({
-    type: 'enum',
-    enum: ['pending', 'sending', 'success', 'failed'],
-    default: 'pending',
-    comment: '推送状态',
+    type: 'simple-enum',
+    enum: PushRecordStatus,
   })
-  status: string;
+  status: PushRecordStatus;
 
-  @Column({ type: 'int', default: 0, comment: '推送成功数量' })
-  successCount: number;
-
-  @Column({ type: 'int', default: 0, comment: '推送失败数量' })
-  failCount: number;
-
-  @Column({ type: 'text', nullable: true, comment: '错误信息' })
+  @Column({ nullable: true })
   errorMessage: string;
-
-  @Column({ type: 'timestamp', nullable: true, comment: '推送时间' })
-  pushedAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

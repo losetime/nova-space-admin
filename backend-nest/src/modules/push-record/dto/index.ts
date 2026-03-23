@@ -1,36 +1,29 @@
-import { IsEnum, IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsDateString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PushTriggerType, PushRecordStatus } from '../../../common/enums/push.enum';
 
 export class CreatePushRecordDto {
   @IsString()
-  contentType: string;
+  userId: string;
 
-  @IsInt()
-  @Type(() => Number)
-  contentId: number;
+  @IsEnum(PushTriggerType)
+  @IsOptional()
+  triggerType?: PushTriggerType;
 
   @IsString()
-  title: string;
+  subject: string;
 
-  @IsEnum(['all', 'basic', 'advanced', 'professional'])
-  @IsOptional()
-  targetLevel?: string;
+  @IsString()
+  content: string;
+
+  @IsDateString()
+  sentAt: string;
 }
 
 export class UpdatePushRecordDto {
-  @IsEnum(['pending', 'sending', 'success', 'failed'])
+  @IsEnum(PushRecordStatus)
   @IsOptional()
-  status?: string;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  successCount?: number;
-
-  @IsInt()
-  @IsOptional()
-  @Min(0)
-  failCount?: number;
+  status?: PushRecordStatus;
 
   @IsString()
   @IsOptional()
@@ -51,10 +44,14 @@ export class QueryPushRecordDto {
   limit?: number = 10;
 
   @IsOptional()
-  @IsString()
-  contentType?: string;
+  @IsEnum(PushTriggerType)
+  triggerType?: PushTriggerType;
 
   @IsOptional()
-  @IsEnum(['pending', 'sending', 'success', 'failed'])
-  status?: string;
+  @IsEnum(PushRecordStatus)
+  status?: PushRecordStatus;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }

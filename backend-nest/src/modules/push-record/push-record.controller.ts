@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  ParseIntPipe,
   UseGuards,
 } from '@nestjs/common';
 import { PushRecordService } from './push-record.service';
@@ -35,7 +34,7 @@ export class PushRecordController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.pushRecordService.findOne(id);
   }
 
@@ -45,12 +44,12 @@ export class PushRecordController {
   }
 
   @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdatePushRecordDto) {
+  update(@Param('id') id: string, @Body() dto: UpdatePushRecordDto) {
     return this.pushRecordService.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(@Param('id') id: string) {
     return this.pushRecordService.remove(id);
   }
 }

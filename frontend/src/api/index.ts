@@ -221,39 +221,46 @@ export const feedbackApi = {
 }
 
 // Push Record API
+export type PushTriggerType = 'scheduled' | 'manual'
+export type PushRecordStatus = 'sent' | 'failed'
+
+export interface PushRecordUser {
+  id: string
+  username: string
+}
+
 export interface PushRecord {
-  id: number
-  contentType: 'article' | 'intelligence'
-  contentId: number
-  title: string
-  targetLevel: 'all' | 'basic' | 'advanced' | 'professional'
-  status: 'pending' | 'sending' | 'success' | 'failed'
-  successCount: number
-  failCount: number
+  id: string
+  userId: string
+  user?: PushRecordUser
+  subscriptionEmail?: string
+  triggerType: PushTriggerType
+  subject: string
+  content: string
+  sentAt: string
+  status: PushRecordStatus
   errorMessage?: string
-  pushedAt?: string
   createdAt: string
-  updatedAt: string
 }
 
 export const pushRecordApi = {
-  getList: (params?: { page?: number; limit?: number; contentType?: string; status?: string }) =>
+  getList: (params?: { page?: number; limit?: number; triggerType?: PushTriggerType; status?: PushRecordStatus; userId?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<PushRecord>>>('/push-records', { params }),
 
-  getOne: (id: number) =>
+  getOne: (id: string) =>
     api.get<any, ApiResponse<PushRecord>>(`/push-records/${id}`),
 
-  create: (data: { contentType: string; contentId: number; title: string; targetLevel?: string }) =>
+  create: (data: { userId: string; triggerType?: PushTriggerType; subject: string; content: string; sentAt: string }) =>
     api.post<any, ApiResponse<PushRecord>>('/push-records', data),
 
-  update: (id: number, data: { status?: string; successCount?: number; failCount?: number; errorMessage?: string }) =>
+  update: (id: string, data: { status?: PushRecordStatus; errorMessage?: string }) =>
     api.put<any, ApiResponse<PushRecord>>(`/push-records/${id}`, data),
 
-  delete: (id: number) =>
+  delete: (id: string) =>
     api.delete<any, ApiResponse<void>>(`/push-records/${id}`),
 
   getStatistics: () =>
-    api.get<any, ApiResponse<{ total: number; success: number; failed: number; pending: number }>>('/push-records/statistics'),
+    api.get<any, ApiResponse<{ total: number; sent: number; failed: number }>>('/push-records/statistics'),
 }
 
 export default api
