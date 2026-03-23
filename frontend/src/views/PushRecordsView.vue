@@ -39,7 +39,7 @@
       </t-card>
     </div>
 
-    <t-table
+    <t-table bordered
       :columns="columns"
       :data="records"
       :loading="loading"

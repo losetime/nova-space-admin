@@ -6,9 +6,12 @@
       :collapsed-width="64"
       class="bg-[#001529]"
     >
-      <div class="p-4 text-white text-center">
-        <h1 v-if="!collapsed" class="text-lg font-bold">Nova Space - 后台管理系统</h1>
-        <span v-else class="text-xl">N</span>
+      <div class="p-4 text-white text-center flex items-center justify-center">
+        <template v-if="!collapsed">
+          <RocketIcon class="mr-2" />
+          <h1 class="text-lg font-bold">Nova Space</h1>
+        </template>
+        <RocketIcon v-else class="text-2xl" />
       </div>
       <t-menu
         :value="activeMenu"
@@ -17,27 +20,27 @@
       >
         <t-menu-item value="dashboard">
           <template #icon><DashboardIcon /></template>
-          仪表盘
+          <span>仪表盘</span>
         </t-menu-item>
         <t-menu-item value="articles">
           <template #icon><FileTxtIcon /></template>
-          科普管理
+          <span>科普管理</span>
         </t-menu-item>
         <t-menu-item value="intelligence">
           <template #icon><LightbulbIcon /></template>
-          情报管理
+          <span>情报管理</span>
         </t-menu-item>
         <t-menu-item value="users">
           <template #icon><UserIcon /></template>
-          用户管理
+          <span>用户管理</span>
         </t-menu-item>
         <t-menu-item value="feedback">
           <template #icon><ChatIcon /></template>
-          反馈管理
+          <span>反馈管理</span>
         </t-menu-item>
         <t-menu-item value="pushRecords">
           <template #icon><SendIcon /></template>
-          推送记录
+          <span>推送记录</span>
         </t-menu-item>
       </t-menu>
     </t-aside>
@@ -79,6 +82,7 @@ import {
   LogoutIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  RocketIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 

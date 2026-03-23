@@ -14,7 +14,7 @@
       </t-space>
     </div>
 
-    <t-table
+    <t-table bordered
       :columns="columns"
       :data="intelligences"
       :loading="loading"

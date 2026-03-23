@@ -31,7 +31,7 @@
       </t-select>
     </div>
 
-    <t-table
+    <t-table bordered
       :columns="columns"
       :data="feedbacks"
       :loading="loading"
