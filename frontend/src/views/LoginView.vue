@@ -1,63 +1,55 @@
 <template>
-  <div class="login-container">
-    <div class="login-bg">
-      <div class="login-content">
-        <div class="login-left">
-          <div class="login-banner">
-            <RocketIcon class="banner-icon" />
-            <h1 class="banner-title">Nova Space</h1>
-            <p class="banner-desc">航天科普情报管理平台</p>
-          </div>
+  <div class="login-wrapper">
+    <div class="login-container">
+      <div class="login-header">
+        <RocketIcon class="login-logo" />
+        <span class="login-title">Nova Space</span>
+      </div>
+      <div class="login-card">
+        <div class="login-card-header">
+          <h3>账号登录</h3>
         </div>
-        <div class="login-right">
-          <div class="login-form-wrapper">
-            <div class="login-header">
-              <RocketIcon class="login-icon" />
-              <h2 class="login-title">管理员登录</h2>
-              <p class="login-subtitle">欢迎使用 Nova Space 管理后台</p>
-            </div>
-            <t-form
-              :data="form"
-              :rules="rules"
-              @submit="handleSubmit"
+        <t-form
+          :data="form"
+          :rules="rules"
+          class="login-form"
+          @submit="handleSubmit"
+        >
+          <t-form-item name="username">
+            <t-input
+              v-model="form.username"
+              size="large"
+              placeholder="请输入用户名"
+              clearable
             >
-              <t-form-item name="username">
-                <t-input
-                  v-model="form.username"
-                  size="large"
-                  placeholder="请输入用户名"
-                  clearable
-                >
-                  <template #prefix-icon><UserIcon /></template>
-                </t-input>
-              </t-form-item>
-              <t-form-item name="password">
-                <t-input
-                  v-model="form.password"
-                  type="password"
-                  size="large"
-                  placeholder="请输入密码"
-                  clearable
-                >
-                  <template #prefix-icon><LockOnIcon /></template>
-                </t-input>
-              </t-form-item>
-              <t-form-item>
-                <t-button
-                  theme="primary"
-                  type="submit"
-                  size="large"
-                  block
-                  :loading="loading"
-                >
-                  登录
-                </t-button>
-              </t-form-item>
-            </t-form>
-            <div class="login-footer">
-              <span class="login-tip">提示：管理员账户请联系系统管理员获取</span>
-            </div>
-          </div>
+              <template #prefix-icon><UserIcon /></template>
+            </t-input>
+          </t-form-item>
+          <t-form-item name="password">
+            <t-input
+              v-model="form.password"
+              type="password"
+              size="large"
+              placeholder="请输入密码"
+              clearable
+            >
+              <template #prefix-icon><LockOnIcon /></template>
+            </t-input>
+          </t-form-item>
+          <t-form-item>
+            <t-button
+              theme="primary"
+              type="submit"
+              size="large"
+              block
+              :loading="loading"
+            >
+              登录
+            </t-button>
+          </t-form-item>
+        </t-form>
+        <div class="login-footer">
+          <span>Copyright © 2024 Nova Space. All Rights Reserved.</span>
         </div>
       </div>
     </div>
@@ -106,114 +98,98 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
 </script>
 
 <style scoped>
-.login-container {
+.login-wrapper {
+  position: relative;
   width: 100vw;
   height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.login-bg {
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 20px;
-}
-
-.login-content {
-  display: flex;
-  background: #fff;
-  border-radius: 12px;
+  background: linear-gradient(135deg, #e0e5ec 0%, #f5f7fa 100%);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.login-left {
-  flex: 1;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.login-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    radial-gradient(circle at 20% 80%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(118, 75, 162, 0.1) 0%, transparent 50%);
+  animation: rotate 30s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.login-container {
+  position: relative;
+  z-index: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-}
-
-.login-banner {
-  text-align: center;
-  color: #fff;
-}
-
-.banner-icon {
-  font-size: 80px;
-  margin-bottom: 20px;
-}
-
-.banner-title {
-  font-size: 32px;
-  font-weight: 600;
-  margin: 0 0 10px;
-}
-
-.banner-desc {
-  font-size: 16px;
-  opacity: 0.9;
-  margin: 0;
-}
-
-.login-right {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-}
-
-.login-form-wrapper {
-  width: 100%;
-  max-width: 320px;
+  height: 100%;
+  padding: 20px;
 }
 
 .login-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.login-logo {
+  font-size: 36px;
+  color: #667eea;
+  margin-right: 12px;
+}
+
+.login-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #333;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 40px;
+}
+
+.login-card-header {
   text-align: center;
   margin-bottom: 32px;
 }
 
-.login-icon {
-  font-size: 48px;
-  color: #667eea;
-  margin-bottom: 16px;
-}
-
-.login-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #333;
-  margin: 0 0 8px;
-}
-
-.login-subtitle {
-  font-size: 14px;
-  color: #999;
+.login-card-header h3 {
   margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+  color: #333;
+}
+
+.login-form {
+  margin-bottom: 24px;
 }
 
 .login-footer {
-  margin-top: 24px;
   text-align: center;
+  padding-top: 24px;
+  border-top: 1px solid #eee;
 }
 
-.login-tip {
+.login-footer span {
   font-size: 12px;
   color: #999;
-}
-
-@media (max-width: 768px) {
-  .login-left {
-    display: none;
-  }
-
-  .login-content {
-    max-width: 400px;
-  }
 }
 </style>
