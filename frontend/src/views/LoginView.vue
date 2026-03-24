@@ -9,7 +9,6 @@
         </div>
 
         <t-form
-          ref="formRef"
           class="item-container"
           :data="formData"
           :rules="FORM_RULES"
@@ -63,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import type { FormInstanceFunctions, FormRule, SubmitContext } from 'tdesign-vue-next'
+import type { FormRule, SubmitContext } from 'tdesign-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { ref, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -77,7 +76,6 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 
-const formRef = ref<FormInstanceFunctions>()
 const loading = ref(false)
 const showPsw = ref(false)
 

@@ -57,14 +57,17 @@
       </t-form-item>
 
       <t-form-item label="标签" name="tags">
-        <t-input v-model="form.tags" placeholder="标签，逗号分隔" clearable />
+        <t-tag-input
+          v-model="tagsArray"
+          placeholder="输入标签后回车"
+          clearable
+        />
       </t-form-item>
 
       <t-form-item label="内容" name="content">
-        <t-textarea
+        <RichTextEditor
           v-model="form.content"
-          placeholder="请输入内容"
-          :autosize="{ minRows: 10 }"
+          placeholder="请输入情报内容，支持富文本编辑"
         />
       </t-form-item>
 
@@ -81,11 +84,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
 import { intelligenceApi } from '@/api'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -105,6 +109,14 @@ const form = reactive({
   tags: '',
 })
 
+// 标签数组
+const tagsArray = ref<string[]>([])
+
+// 监听 tagsArray 变化，同步到 form.tags
+watch(tagsArray, (val) => {
+  form.tags = val.join(',')
+})
+
 const rules = {
   title: [{ required: true, message: '请输入标题', trigger: 'blur' }],
   content: [{ required: true, message: '请输入内容', trigger: 'blur' }],
@@ -120,6 +132,8 @@ async function fetchIntelligence() {
     const res = await intelligenceApi.getOne(Number(route.params.id))
     if (res.success) {
       Object.assign(form, res.data)
+      // 设置标签数组
+      tagsArray.value = res.data.tags ? res.data.tags.split(',').filter(Boolean) : []
     }
   } catch (error) {
     MessagePlugin.error('获取情报失败')

@@ -263,4 +263,20 @@ export const pushRecordApi = {
     api.get<any, ApiResponse<{ total: number; sent: number; failed: number }>>('/push-records/statistics'),
 }
 
+// Upload API
+export interface UploadResult {
+  url: string
+  filename: string
+  originalname: string
+  size: number
+  mimetype: string
+}
+
+export const uploadApi = {
+  uploadImage: (formData: FormData) =>
+    api.post<any, ApiResponse<UploadResult>>('/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+}
+
 export default api

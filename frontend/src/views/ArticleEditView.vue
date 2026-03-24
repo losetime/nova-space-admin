@@ -40,20 +40,17 @@
       </t-form-item>
 
       <t-form-item label="标签" name="tags">
-        <t-select
+        <t-tag-input
           v-model="form.tags"
           placeholder="输入标签后回车"
-          multiple
           clearable
-          creatable
         />
       </t-form-item>
 
       <t-form-item label="内容" name="content">
-        <t-textarea
+        <RichTextEditor
           v-model="form.content"
-          placeholder="请输入内容"
-          :autosize="{ minRows: 10 }"
+          placeholder="请输入科普内容，支持富文本编辑"
         />
       </t-form-item>
 
@@ -79,6 +76,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
 import { articleApi } from '@/api'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const router = useRouter()
 const route = useRoute()

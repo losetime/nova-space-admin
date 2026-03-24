@@ -3,6 +3,7 @@ import { registerAs } from '@nestjs/config';
 export default registerAs('app', () => ({
   nodeEnv: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '3002', 10) || 3002,
+  baseUrl: process.env.BASE_URL || 'http://localhost:3002',
   jwtSecret: process.env.JWT_SECRET || 'nova-space-secret-key-2024',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   database: {
