@@ -77,6 +77,11 @@ const routes = [
         name: 'PushRecords',
         component: () => import('@/views/PushRecordsView.vue'),
       },
+      {
+        path: 'quiz-sync',
+        name: 'QuizSync',
+        component: () => import('@/views/QuizSyncView.vue'),
+      },
     ],
   },
 ]

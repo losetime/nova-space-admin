@@ -41,6 +41,10 @@
           <template #icon><SendIcon /></template>
           推送记录
         </t-menu-item>
+        <t-menu-item value="quizSync">
+          <template #icon><QuestionnaireIcon /></template>
+          问答同步
+        </t-menu-item>
 
         <template #operations>
           <t-button variant="text" shape="square" @click="collapsed = !collapsed">
@@ -116,6 +120,7 @@ import {
   ChevronRightIcon,
   RocketIcon,
   ChevronDownIcon,
+  QuestionnaireIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
@@ -139,6 +144,7 @@ const routeTitleMap: Record<string, string> = {
   UserEdit: '编辑用户',
   Feedback: '反馈管理',
   PushRecords: '推送记录',
+  QuizSync: '问答同步',
 }
 
 const currentRouteTitle = computed(() => {
@@ -158,6 +164,8 @@ watch(
       activeMenu.value = 'feedback'
     } else if (name === 'PushRecords') {
       activeMenu.value = 'pushRecords'
+    } else if (name === 'QuizSync') {
+      activeMenu.value = 'quizSync'
     } else {
       activeMenu.value = 'dashboard'
     }
@@ -173,6 +181,7 @@ function handleMenuClick(value: string) {
     users: 'Users',
     feedback: 'Feedback',
     pushRecords: 'PushRecords',
+    quizSync: 'QuizSync',
   }
   router.push({ name: routeNameMap[value] || value })
 }

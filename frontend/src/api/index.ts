@@ -279,4 +279,38 @@ export const uploadApi = {
     }),
 }
 
+// Quiz API
+export interface QuizSyncResult {
+  added: number
+  skipped: number
+  errors: number
+}
+
+export interface QuizStats {
+  total: number
+  fromOpenTDB: number
+  manual: number
+  lastSyncTime: string | null
+}
+
+export interface QuizConfig {
+  enabled: boolean
+  cron: string
+  count: number
+}
+
+export const quizApi = {
+  sync: (count: number) =>
+    api.post<any, ApiResponse<QuizSyncResult>>('/quiz/sync', { count }),
+
+  getStats: () =>
+    api.get<any, ApiResponse<QuizStats>>('/quiz/stats'),
+
+  getConfig: () =>
+    api.get<any, ApiResponse<QuizConfig>>('/quiz/config'),
+
+  updateConfig: (data: Partial<QuizConfig>) =>
+    api.put<any, ApiResponse<QuizConfig>>('/quiz/config', data),
+}
+
 export default api

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { ArticleModule } from './modules/article/article.module';
@@ -10,6 +11,7 @@ import { UserModule } from './modules/user/user.module';
 import { FeedbackModule } from './modules/feedback/feedback.module';
 import { PushRecordModule } from './modules/push-record/push-record.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { QuizModule } from './modules/quiz/quiz.module';
 import { HealthModule } from './common/health/health.module';
 import { AllExceptionsFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
@@ -21,6 +23,7 @@ import appConfig from './config/app.config';
       isGlobal: true,
       load: [appConfig],
     }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -44,6 +47,7 @@ import appConfig from './config/app.config';
     FeedbackModule,
     PushRecordModule,
     UploadModule,
+    QuizModule,
     HealthModule,
   ],
   providers: [
