@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Quiz } from './entities/quiz.entity';
-import { QuizSyncService } from './quiz-sync.service';
-import { QuizSyncController } from './quiz-sync.controller';
-import { QuizSyncScheduler } from './quiz-sync.scheduler';
+import { QuizService } from './quiz.service';
+import { QuizController } from './quiz.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Quiz])],
-  controllers: [QuizSyncController],
-  providers: [QuizSyncService, QuizSyncScheduler],
-  exports: [QuizSyncService],
+  controllers: [QuizController],
+  providers: [QuizService],
+  exports: [QuizService],
 })
 export class QuizModule {}

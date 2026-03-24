@@ -33,15 +33,6 @@ export class Quiz {
   @Column({ default: 10 })
   points: number;
 
-  @Column({ nullable: true, unique: true, name: 'source_id' })
-  sourceId: string;
-
-  @Column({ nullable: true, name: 'source_type' })
-  sourceType: string;
-
-  @Column({ type: 'text', nullable: true, name: 'original_question' })
-  originalQuestion: string;
-
   @CreateDateColumn()
   createdAt: Date;
 

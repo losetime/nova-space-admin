@@ -280,37 +280,36 @@ export const uploadApi = {
 }
 
 // Quiz API
-export interface QuizSyncResult {
-  added: number
-  skipped: number
-  errors: number
-}
-
-export interface QuizStats {
-  total: number
-  fromOpenTDB: number
-  manual: number
-  lastSyncTime: string | null
-}
-
-export interface QuizConfig {
-  enabled: boolean
-  cron: string
-  count: number
+export interface Quiz {
+  id: number
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation?: string
+  category: 'basic' | 'advanced' | 'mission' | 'people'
+  points: number
+  createdAt: string
+  updatedAt: string
 }
 
 export const quizApi = {
-  sync: (count: number) =>
-    api.post<any, ApiResponse<QuizSyncResult>>('/quiz/sync', { count }),
+  getList: (params?: { page?: number; limit?: number; category?: string; keyword?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<Quiz>>>('/quiz', { params }),
+
+  getOne: (id: number) =>
+    api.get<any, ApiResponse<Quiz>>(`/quiz/${id}`),
+
+  create: (data: Partial<Quiz>) =>
+    api.post<any, ApiResponse<Quiz>>('/quiz', data),
+
+  update: (id: number, data: Partial<Quiz>) =>
+    api.put<any, ApiResponse<Quiz>>(`/quiz/${id}`, data),
+
+  delete: (id: number) =>
+    api.delete<any, ApiResponse<void>>(`/quiz/${id}`),
 
   getStats: () =>
-    api.get<any, ApiResponse<QuizStats>>('/quiz/stats'),
-
-  getConfig: () =>
-    api.get<any, ApiResponse<QuizConfig>>('/quiz/config'),
-
-  updateConfig: (data: Partial<QuizConfig>) =>
-    api.put<any, ApiResponse<QuizConfig>>('/quiz/config', data),
+    api.get<any, ApiResponse<{ total: number; byCategory: { category: string; count: string }[] }>>('/quiz/stats'),
 }
 
 export default api

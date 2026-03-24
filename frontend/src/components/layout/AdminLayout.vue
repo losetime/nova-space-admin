@@ -41,9 +41,9 @@
           <template #icon><SendIcon /></template>
           推送记录
         </t-menu-item>
-        <t-menu-item value="quizSync">
+        <t-menu-item value="quiz">
           <template #icon><QuestionnaireIcon /></template>
-          问答同步
+          问答管理
         </t-menu-item>
 
         <template #operations>
@@ -144,7 +144,7 @@ const routeTitleMap: Record<string, string> = {
   UserEdit: '编辑用户',
   Feedback: '反馈管理',
   PushRecords: '推送记录',
-  QuizSync: '问答同步',
+  Quiz: '问答管理',
 }
 
 const currentRouteTitle = computed(() => {
@@ -164,8 +164,8 @@ watch(
       activeMenu.value = 'feedback'
     } else if (name === 'PushRecords') {
       activeMenu.value = 'pushRecords'
-    } else if (name === 'QuizSync') {
-      activeMenu.value = 'quizSync'
+    } else if (name === 'Quiz') {
+      activeMenu.value = 'quiz'
     } else {
       activeMenu.value = 'dashboard'
     }
@@ -181,7 +181,7 @@ function handleMenuClick(value: string) {
     users: 'Users',
     feedback: 'Feedback',
     pushRecords: 'PushRecords',
-    quizSync: 'QuizSync',
+    quiz: 'Quiz',
   }
   router.push({ name: routeNameMap[value] || value })
 }

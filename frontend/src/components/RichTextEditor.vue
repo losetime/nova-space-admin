@@ -284,6 +284,14 @@ async function addImage() {
   input.onchange = async (e) => {
     const file = (e.target as HTMLInputElement).files?.[0]
     if (!file) return
+
+    // 检查文件大小 (5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      MessagePlugin.warning(`图片大小不能超过 5MB，当前文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+      return
+    }
+
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -309,6 +317,15 @@ function importMarkdown() {
 async function handleMarkdownFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+
+  // 检查文件大小 (10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    MessagePlugin.warning(`文件大小不能超过 10MB，当前文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+    ;(e.target as HTMLInputElement).value = ''
+    return
+  }
+
   try {
     const text = await file.text()
     const html = markdownToHtml(text)
@@ -348,6 +365,15 @@ function importDocx() {
 async function handleDocxFile(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+
+  // 检查文件大小 (10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    MessagePlugin.warning(`文件大小不能超过 10MB，当前文件大小: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+    ;(e.target as HTMLInputElement).value = ''
+    return
+  }
+
   try {
     const arrayBuffer = await file.arrayBuffer()
     const result = await mammoth.convertToHtml({ arrayBuffer })
