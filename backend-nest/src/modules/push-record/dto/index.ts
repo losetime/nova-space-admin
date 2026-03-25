@@ -55,3 +55,8 @@ export class QueryPushRecordDto {
   @IsString()
   userId?: string;
 }
+
+export class TestPushDto {
+  @IsString()
+  email: string;
+}

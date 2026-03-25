@@ -261,6 +261,12 @@ export const pushRecordApi = {
 
   getStatistics: () =>
     api.get<any, ApiResponse<{ total: number; sent: number; failed: number }>>('/push-records/statistics'),
+
+  testPush: (email: string) =>
+    api.post<any, ApiResponse<{ success: boolean; message: string }>>('/push-records/test', { email }),
+
+  testDigestPush: (email: string) =>
+    api.post<any, ApiResponse<{ success: boolean; message: string }>>('/push-records/test-digest', { email }),
 }
 
 // Upload API

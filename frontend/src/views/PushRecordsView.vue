@@ -3,6 +3,9 @@
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">推送记录</h2>
       <t-space>
+        <t-button theme="primary" @click="showTestDialog = true">
+          测试推送
+        </t-button>
         <t-select
           v-model="filterTriggerType"
           style="width: 120px"
@@ -93,6 +96,30 @@
         </t-space>
       </template>
     </t-table>
+
+    <!-- Test Push Dialog -->
+    <t-dialog
+      v-model:visible="showTestDialog"
+      header="测试推送"
+      :confirm-btn="{ content: '发送', loading: testLoading }"
+      @confirm="handleTestPush"
+    >
+      <t-form :data="testForm" :rules="testRules" ref="testFormRef">
+        <t-form-item label="接收邮箱" name="email">
+          <t-input v-model="testForm.email" placeholder="请输入接收测试邮件的邮箱地址" />
+        </t-form-item>
+        <t-form-item label="推送类型" name="type">
+          <t-radio-group v-model="testForm.type">
+            <t-radio value="simple">简单测试</t-radio>
+            <t-radio value="digest">资讯推送</t-radio>
+          </t-radio-group>
+          <div class="text-gray-500 text-sm mt-2">
+            简单测试：发送一封测试邮件验证配置<br>
+            资讯推送：发送包含最新情报的邮件
+          </div>
+        </t-form-item>
+      </t-form>
+    </t-dialog>
   </div>
 </template>
 
@@ -119,6 +146,21 @@ const statistics = reactive({
   sent: 0,
   failed: 0,
 })
+
+// Test push dialog
+const showTestDialog = ref(false)
+const testLoading = ref(false)
+const testFormRef = ref()
+const testForm = reactive({
+  email: '',
+  type: 'simple' as 'simple' | 'digest',
+})
+const testRules = {
+  email: [
+    { required: true, message: '请输入邮箱地址' },
+    { email: true, message: '请输入有效的邮箱地址' },
+  ],
+}
 
 const columns = [
   { colKey: 'id', title: 'ID', width: 280, ellipsis: true },
@@ -213,6 +255,32 @@ async function handleDelete(id: string) {
     fetchStatistics()
   } catch (error) {
     MessagePlugin.error('删除失败')
+  }
+}
+
+async function handleTestPush() {
+  const valid = await testFormRef.value?.validate()
+  if (!valid) return
+
+  testLoading.value = true
+  try {
+    const res = testForm.type === 'simple'
+      ? await pushRecordApi.testPush(testForm.email)
+      : await pushRecordApi.testDigestPush(testForm.email)
+
+    if (res.data.success) {
+      MessagePlugin.success(res.data.message)
+      showTestDialog.value = false
+      testForm.email = ''
+      fetchRecords()
+      fetchStatistics()
+    } else {
+      MessagePlugin.error(res.data.message)
+    }
+  } catch (error) {
+    MessagePlugin.error('发送测试推送失败')
+  } finally {
+    testLoading.value = false
   }
 }
 
