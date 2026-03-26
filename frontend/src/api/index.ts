@@ -29,9 +29,9 @@ api.interceptors.response.use(
     return response.data
   },
   (error) => {
+    // 401 错误只清除 localStorage，让路由守卫处理跳转
     if (error.response?.status === 401) {
       localStorage.removeItem('admin_token')
-      window.location.href = '/login'
     }
     return Promise.reject(error.response?.data || error)
   }
@@ -316,6 +316,49 @@ export const quizApi = {
 
   getStats: () =>
     api.get<any, ApiResponse<{ total: number; byCategory: { category: string; count: string }[] }>>('/quiz/stats'),
+}
+
+// Satellite Sync API
+export type SyncType = 'tle' | 'discos' | 'all'
+export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed'
+
+export interface SyncProgress {
+  total: number
+  processed: number
+  success: number
+  failed: number
+  percentage: number
+  estimatedTimeRemaining?: string
+}
+
+export interface SyncTask {
+  taskId: string
+  type: SyncType
+  status: SyncStatus
+  startedAt: string
+  completedAt?: string
+  progress: SyncProgress
+  error?: string
+}
+
+export interface SyncStats {
+  tleCount: number
+  metadataCount: number
+  discosCount: number
+  discosCoverage: string
+  lastTleSync?: string
+  lastDiscosSync?: string
+}
+
+export const satelliteSyncApi = {
+  startSync: (type: SyncType, force?: boolean) =>
+    api.post<any, ApiResponse<SyncTask>>('/satellite-sync', { type, force }),
+
+  getStatus: () =>
+    api.get<any, ApiResponse<SyncTask | null>>('/satellite-sync/status'),
+
+  getStats: () =>
+    api.get<any, ApiResponse<SyncStats>>('/satellite-sync/stats'),
 }
 
 export default api

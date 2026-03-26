@@ -24,4 +24,16 @@ export default registerAs('app', () => ({
     pass: process.env.SMTP_PASS || '',
     from: process.env.SMTP_FROM || 'noreply@nova-space.com',
   },
+  satellite: {
+    maxSatellites: parseInt(process.env.SATELLITE_MAX_COUNT || '10000', 10) || 10000,
+  },
+  spaceTrack: {
+    username: process.env.SPACE_TRACK_USERNAME || '',
+    password: process.env.SPACE_TRACK_PASSWORD || '',
+    baseUrl: 'https://www.space-track.org',
+  },
+  esaDiscos: {
+    apiToken: process.env.ESA_DISCOS_API_TOKEN || '',
+    baseUrl: 'https://discosweb.esoc.esa.int/api',
+  },
 }));

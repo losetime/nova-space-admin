@@ -45,6 +45,10 @@
           <template #icon><QuestionnaireIcon /></template>
           问答管理
         </t-menu-item>
+        <t-menu-item value="satelliteSync">
+          <template #icon><CloudDownloadIcon /></template>
+          卫星数据同步
+        </t-menu-item>
 
         <template #operations>
           <t-button variant="text" shape="square" @click="collapsed = !collapsed">
@@ -121,6 +125,7 @@ import {
   RocketIcon,
   ChevronDownIcon,
   QuestionnaireIcon,
+  CloudDownloadIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
@@ -145,6 +150,7 @@ const routeTitleMap: Record<string, string> = {
   Feedback: '反馈管理',
   PushRecords: '推送记录',
   Quiz: '问答管理',
+  SatelliteSync: '卫星数据同步',
 }
 
 const currentRouteTitle = computed(() => {
@@ -166,6 +172,8 @@ watch(
       activeMenu.value = 'pushRecords'
     } else if (name === 'Quiz') {
       activeMenu.value = 'quiz'
+    } else if (name === 'SatelliteSync') {
+      activeMenu.value = 'satelliteSync'
     } else {
       activeMenu.value = 'dashboard'
     }
@@ -182,6 +190,7 @@ function handleMenuClick(value: string) {
     feedback: 'Feedback',
     pushRecords: 'PushRecords',
     quiz: 'Quiz',
+    satelliteSync: 'SatelliteSync',
   }
   router.push({ name: routeNameMap[value] || value })
 }

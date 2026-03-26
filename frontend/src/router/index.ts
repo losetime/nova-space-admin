@@ -82,6 +82,11 @@ const routes = [
         name: 'Quiz',
         component: () => import('@/views/QuizView.vue'),
       },
+      {
+        path: 'satellite-sync',
+        name: 'SatelliteSync',
+        component: () => import('@/views/SatelliteSyncView.vue'),
+      },
     ],
   },
 ]
@@ -91,23 +96,29 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to) => {
   const authStore = useAuthStore()
 
-  if (authStore.isAuthenticated && !authStore.user) {
-    try {
-      await authStore.fetchProfile()
-    } catch (error) {
-      // Token invalid, will redirect to login
+  // 检查是否需要认证
+  if (to.meta.requiresAuth) {
+    // 没有token，跳转登录
+    if (!authStore.isAuthenticated) {
+      return { name: 'Login', query: { redirect: to.fullPath } }
+    }
+
+    // 有token但没有用户信息，尝试获取
+    if (!authStore.user) {
+      try {
+        await authStore.fetchProfile()
+      } catch (error) {
+        return { name: 'Login', query: { redirect: to.fullPath } }
+      }
     }
   }
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next({ name: 'Login', query: { redirect: to.fullPath } })
-  } else if (to.meta.guestOnly && authStore.isAuthenticated) {
-    next({ name: 'Dashboard' })
-  } else {
-    next()
+  // 已登录访问登录页，跳转首页
+  if (to.meta.guestOnly && authStore.isAuthenticated) {
+    return { name: 'Dashboard' }
   }
 })
 

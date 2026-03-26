@@ -6,7 +6,12 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<any>(null)
   const token = ref<string | null>(localStorage.getItem('admin_token'))
 
-  const isAuthenticated = computed(() => !!token.value)
+  // 同时检查内存中的 token 和 localStorage（确保同步）
+  const isAuthenticated = computed(() => {
+    const storedToken = localStorage.getItem('admin_token')
+    return !!token.value && !!storedToken
+  })
+
   const isAdmin = computed(() =>
     user.value?.role === 'admin' || user.value?.role === 'super_admin'
   )
@@ -30,12 +35,17 @@ export const useAuthStore = defineStore('auth', () => {
       }
       return res
     } catch (error) {
-      logout()
+      // 清除无效 token
+      clearAuth()
       throw error
     }
   }
 
   function logout() {
+    clearAuth()
+  }
+
+  function clearAuth() {
     user.value = null
     token.value = null
     localStorage.removeItem('admin_token')
@@ -48,6 +58,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     login,
     logout,
+    clearAuth,
     fetchProfile,
   }
 })
