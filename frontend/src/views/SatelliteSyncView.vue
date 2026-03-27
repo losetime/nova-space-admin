@@ -190,12 +190,10 @@ async function handleSync(type: SyncType) {
 // 轮询同步状态
 function startPolling() {
   pollTimer = window.setInterval(async () => {
-    if (syncing.value) {
-      await loadSyncStatus()
-      // 如果同步完成，刷新统计数据
-      if (syncStatus.value?.status !== 'running') {
-        await loadStats()
-      }
+    await loadSyncStatus()
+    // 如果同步完成，刷新统计数据
+    if (syncStatus.value?.status !== 'running') {
+      await loadStats()
     }
   }, 2000)
 }

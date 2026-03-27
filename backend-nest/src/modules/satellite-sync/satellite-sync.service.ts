@@ -133,19 +133,34 @@ export class SatelliteSyncService {
 
   /**
    * 获取当前同步状态
+   * 返回正在运行的任务，或最近完成的任务（5分钟内）
    */
   async getCurrentStatus(): Promise<SatelliteSyncTaskEntity | null> {
+    // 优先返回内存中正在运行的任务
     if (this.currentTask) {
       return this.currentTask;
     }
 
-    // 查找最近运行中的任务
+    // 查找正在运行的任务
     const runningTask = await this.taskRepository.findOne({
       where: { status: 'running' },
       order: { startedAt: 'DESC' },
     });
 
-    return runningTask || null;
+    if (runningTask) {
+      return runningTask;
+    }
+
+    // 查找最近完成的任务（5分钟内），让前端能看到结果
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const recentTask = await this.taskRepository
+      .createQueryBuilder('task')
+      .where('task.status IN (:...statuses)', { statuses: ['completed', 'failed'] })
+      .andWhere('task.completedAt > :fiveMinutesAgo', { fiveMinutesAgo })
+      .orderBy('task.completedAt', 'DESC')
+      .getOne();
+
+    return recentTask || null;
   }
 
   /**
@@ -234,7 +249,9 @@ export class SatelliteSyncService {
       task.status = 'completed';
       task.completedAt = new Date();
       await this.taskRepository.save(task);
+      this.logger.log(`同步任务完成: ${task.id}`);
     } catch (error) {
+      this.logger.error(`同步任务失败: ${error.message}`, error.stack);
       task.status = 'failed';
       task.error = error.message;
       task.completedAt = new Date();
@@ -342,7 +359,10 @@ export class SatelliteSyncService {
         },
       );
 
-      req.on('error', reject);
+      req.on('error', (err) => {
+        this.logger.error(`Space-Track 登录网络错误: ${err.message}`);
+        reject(err);
+      });
       req.on('timeout', () => {
         req.destroy();
         reject(new Error('登录超时'));

@@ -29,33 +29,20 @@ export class SatelliteSyncController {
   async startSync(@Body() dto: SyncRequestDto) {
     this.logger.log(`收到同步请求: type=${dto.type}, force=${dto.force}`);
 
-    try {
-      const task = await this.syncService.startSync(dto.type);
+    const task = await this.syncService.startSync(dto.type);
 
-      return {
-        success: true,
-        data: {
-          taskId: task.id,
-          type: task.type,
-          status: task.status,
-          progress: {
-            total: task.total,
-            processed: task.processed,
-            success: task.success,
-            failed: task.failed,
-            percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
-          },
-        },
-        message: '同步任务已启动',
-      };
-    } catch (error) {
-      this.logger.error(`同步启动失败: ${error.message}`);
-      return {
-        success: false,
-        data: null,
-        message: error.message,
-      };
-    }
+    return {
+      taskId: task.id,
+      type: task.type,
+      status: task.status,
+      progress: {
+        total: task.total,
+        processed: task.processed,
+        success: task.success,
+        failed: task.failed,
+        percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
+      },
+    };
   }
 
   /**
@@ -67,31 +54,23 @@ export class SatelliteSyncController {
     const task = await this.syncService.getCurrentStatus();
 
     if (!task) {
-      return {
-        success: true,
-        data: null,
-        message: '当前没有运行中的同步任务',
-      };
+      return null;
     }
 
     return {
-      success: true,
-      data: {
-        taskId: task.id,
-        type: task.type,
-        status: task.status,
-        startedAt: task.startedAt.toISOString(),
-        completedAt: task.completedAt?.toISOString(),
-        progress: {
-          total: task.total,
-          processed: task.processed,
-          success: task.success,
-          failed: task.failed,
-          percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
-        },
-        error: task.error,
+      taskId: task.id,
+      type: task.type,
+      status: task.status,
+      startedAt: task.startedAt.toISOString(),
+      completedAt: task.completedAt?.toISOString(),
+      progress: {
+        total: task.total,
+        processed: task.processed,
+        success: task.success,
+        failed: task.failed,
+        percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
       },
-      message: 'success',
+      error: task.error,
     };
   }
 
@@ -101,12 +80,6 @@ export class SatelliteSyncController {
    */
   @Get('stats')
   async getStats() {
-    const stats = await this.syncService.getStats();
-
-    return {
-      success: true,
-      data: stats,
-      message: 'success',
-    };
+    return await this.syncService.getStats();
   }
 }
