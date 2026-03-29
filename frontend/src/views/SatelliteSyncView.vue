@@ -26,12 +26,12 @@
         <t-button
           theme="primary"
           size="large"
-          :loading="syncing === 'celestrak'"
+          :loading="syncing === 'keeptrack-tle'"
           :disabled="!!syncing"
-          @click="handleSync('celestrak')"
+          @click="handleSync('keeptrack-tle')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          同步 CelesTrak（主）
+          同步 KeepTrack TLE（主）
         </t-button>
         <t-button
           theme="default"
@@ -48,12 +48,12 @@
           theme="default"
           size="large"
           variant="outline"
-          :loading="syncing === 'keeptrack-tle'"
+          :loading="syncing === 'celestrak'"
           :disabled="!!syncing"
-          @click="handleSync('keeptrack-tle')"
+          @click="handleSync('celestrak')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          同步 KeepTrack TLE
+          同步 CelesTrak（兜底）
         </t-button>
       </div>
       <div class="section-info">
@@ -157,9 +157,9 @@
         <t-col :span="12">
           <h4>TLE 轨道数据</h4>
           <ul>
-            <li><strong>CelesTrak</strong> - 主数据源，获取活跃卫星 GROUP=active，约 14,879 颗，免费无需认证</li>
+            <li><strong>KeepTrack</strong> - 主数据源，提供 TLE 和扩展元数据，需要 API Key</li>
             <li><strong>Space-Track</strong> - 备用数据源，需要账号认证</li>
-            <li><strong>KeepTrack</strong> - 备用数据源，需要 API Key</li>
+            <li><strong>CelesTrak</strong> - 兜底数据源，获取活跃卫星 GROUP=active，免费无需认证</li>
           </ul>
         </t-col>
         <t-col :span="12">
