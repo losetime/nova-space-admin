@@ -902,7 +902,7 @@ export class SatelliteSyncService {
   }
 
   /**
-   * ESA DISCOS 批量同步
+   * ESA DISCOS 批量同步（备用数据源）
    */
   private async syncDiscos(task: SatelliteSyncTaskEntity): Promise<void> {
     this.logger.log('开始 ESA DISCOS 数据同步...');
@@ -912,15 +912,16 @@ export class SatelliteSyncService {
     }
 
     // 获取所有需要同步的卫星
+    // 跳过条件：hasExtendedData=true（KeepTrack 已同步，数据完整）
     const metadataList = await this.metadataRepository.find({
-      where: { hasDiscosData: false },
+      where: { hasExtendedData: false, hasDiscosData: false },
       select: ['noradId'],
     });
 
     task.total = metadataList.length;
     await this.taskRepository.save(task);
 
-    this.logger.log(`需要同步 ${metadataList.length} 颗卫星的 DISCOS 数据`);
+    this.logger.log(`需要同步 ${metadataList.length} 颗卫星的 DISCOS 数据（已排除 KeepTrack 完整数据）`);
 
     let processed = 0;
     let success = 0;
