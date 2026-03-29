@@ -346,35 +346,40 @@ export class SatelliteSyncService {
         case 'all':
           // 智能降级策略：主数据源失败才用备用源
 
-          // TLE 数据同步：CelesTrak（主） → Space-Track（备用） → KeepTrack（备用）
+          // TLE 数据同步：KeepTrack（主） → Space-Track（备用） → CelesTrak（兜底）
           let tleSyncSuccess = false;
 
-          this.logger.log('[完整同步] 开始 TLE 数据同步 - 主数据源 CelesTrak');
-          try {
-            await this.syncCelestrak(task);
-            tleSyncSuccess = true;
-            this.logger.log('[完整同步] CelesTrak TLE 同步成功，跳过备用源');
-          } catch (error) {
-            this.logger.warn(`[完整同步] CelesTrak 失败：${error.message}，尝试 Space-Track 备用源`);
+          // 优先使用 KeepTrack（主数据源，与元数据策略对齐）
+          if (this.keepTrackApiKey) {
+            this.logger.log('[完整同步] 开始 TLE 数据同步 - 主数据源 KeepTrack');
+            try {
+              await this.syncKeepTrackBrief(task);
+              tleSyncSuccess = true;
+              this.logger.log('[完整同步] KeepTrack TLE 同步成功，跳过备用源');
+            } catch (error) {
+              this.logger.warn(`[完整同步] KeepTrack TLE 失败：${error.message}，尝试 Space-Track 备用源`);
+            }
+          } else {
+            this.logger.warn('[完整同步] KeepTrack API Key 未配置，尝试 Space-Track 备用源');
           }
 
           if (!tleSyncSuccess) {
             try {
               await this.syncTle(task);
               tleSyncSuccess = true;
-              this.logger.log('[完整同步] Space-Track TLE 同步成功，跳过 KeepTrack');
+              this.logger.log('[完整同步] Space-Track TLE 同步成功，跳过 CelesTrak');
             } catch (error) {
-              this.logger.warn(`[完整同步] Space-Track 失败：${error.message}，尝试 KeepTrack 备用源`);
+              this.logger.warn(`[完整同步] Space-Track 失败：${error.message}，尝试 CelesTrak 兜底源`);
             }
           }
 
-          if (!tleSyncSuccess && this.keepTrackApiKey) {
+          if (!tleSyncSuccess) {
             try {
-              await this.syncKeepTrackBrief(task);
+              await this.syncCelestrak(task);
               tleSyncSuccess = true;
-              this.logger.log('[完整同步] KeepTrack TLE 同步成功');
+              this.logger.log('[完整同步] CelesTrak TLE 同步成功（兜底）');
             } catch (error) {
-              this.logger.warn(`[完整同步] KeepTrack TLE 失败：${error.message}`);
+              this.logger.warn(`[完整同步] CelesTrak 失败：${error.message}`);
             }
           }
 
@@ -430,10 +435,10 @@ export class SatelliteSyncService {
   }
 
   /**
-   * CelesTrak TLE 数据同步
+   * CelesTrak TLE 数据同步（兜底数据源）
    */
   private async syncCelestrak(task: SatelliteSyncTaskEntity): Promise<void> {
-    this.logger.log('开始 CelesTrak TLE 数据同步...');
+    this.logger.log('开始 CelesTrak TLE 数据同步（兜底源）...');
 
     const url = `${this.celestrakBaseUrl}/gp.php?GROUP=active&FORMAT=json`;
 
