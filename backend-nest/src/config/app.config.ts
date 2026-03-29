@@ -36,4 +36,11 @@ export default registerAs('app', () => ({
     apiToken: process.env.ESA_DISCOS_API_TOKEN || '',
     baseUrl: 'https://discosweb.esoc.esa.int/api',
   },
+  celestrak: {
+    baseUrl: 'https://celestrak.org/NORAD/elements',
+  },
+  keepTrack: {
+    apiKey: process.env.KEEPTRACK_API_KEY || '',
+    baseUrl: 'https://api.keeptrack.space/v4',
+  },
 }));

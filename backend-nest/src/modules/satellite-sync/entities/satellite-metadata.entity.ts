@@ -137,6 +137,9 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'boolean', default: false })
   hasDiscosData: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  hasExtendedData: boolean; // KeepTrack 扩展元数据标记
+
   @CreateDateColumn()
   createdAt: Date;
 

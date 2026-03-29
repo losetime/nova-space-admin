@@ -10,7 +10,13 @@ import {
 /**
  * 同步任务类型
  */
-export type SyncType = 'tle' | 'discos' | 'all';
+export type SyncType =
+  | 'celestrak'        // CelesTrak TLE 同步
+  | 'space-track'      // Space-Track TLE 同步
+  | 'keeptrack-tle'    // KeepTrack TLE 同步（需 API Key）
+  | 'keeptrack-meta'   // KeepTrack 元数据同步（需 API Key）
+  | 'discos'           // ESA DISCOS 元数据同步
+  | 'all';             // 完整同步
 
 /**
  * 同步任务状态
