@@ -316,7 +316,7 @@ export class SatelliteSyncService {
 
     // 异步执行同步
     this.executeSync(task).catch((error) => {
-      this.logger.error(`同步任务失败: ${error.message}`);
+      this.logger.error(`同步任务失败：${error.message}`);
     });
 
     return task;
@@ -492,17 +492,19 @@ export class SatelliteSyncService {
   }
 
   /**
-   * TLE 数据同步
+   * TLE 数据同步（Space-Track）
    */
   private async syncTle(task: SatelliteSyncTaskEntity): Promise<void> {
-    this.logger.log('开始 TLE 数据同步...');
+    this.logger.log('开始 Space-Track TLE 数据同步...');
 
     if (!this.spaceTrackUsername || !this.spaceTrackPassword) {
       throw new Error('Space-Track 凭据未配置，请检查环境变量');
     }
 
     // 登录获取 session
+    this.logger.log('正在登录 Space-Track...');
     await this.loginSpaceTrack();
+    this.logger.log('Space-Track 登录成功');
 
     // 分批获取数据
     const batches = [
@@ -519,16 +521,19 @@ export class SatelliteSyncService {
     let totalFailed = 0;
 
     for (const batch of batches) {
-      this.logger.log(`获取批次: ${batch.name} (NORAD ID ${batch.range})`);
+      this.logger.log(`获取批次：${batch.name} (NORAD ID ${batch.range})`);
 
       try {
         const gpData = await this.fetchGpBatch(batch.range);
+        this.logger.log(`批次 ${batch.name} 获取到 ${gpData.length} 条数据`);
 
         // 处理数据
         const result = await this.processAndStoreGpData(gpData);
         totalProcessed += gpData.length;
         totalSuccess += result.success;
         totalFailed += result.failed;
+
+        this.logger.log(`批次 ${batch.name} 处理完成：成功 ${result.success}, 失败 ${result.failed}`);
 
         // 更新任务进度
         task.total = totalProcessed;
@@ -540,12 +545,12 @@ export class SatelliteSyncService {
         // 批次间隔
         await this.sleep(this.BATCH_INTERVAL_MS);
       } catch (error) {
-        this.logger.error(`批次 ${batch.name} 失败: ${error.message}`);
-        totalFailed++;
+        this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
+        totalFailed += gpData?.length || 0;
       }
     }
 
-    this.logger.log(`TLE 同步完成: 成功 ${totalSuccess}, 失败 ${totalFailed}`);
+    this.logger.log(`Space-Track TLE 同步完成：成功 ${totalSuccess}, 失败 ${totalFailed}`);
   }
 
   /**
@@ -573,7 +578,7 @@ export class SatelliteSyncService {
           res.on('data', (chunk) => { body += chunk; });
           res.on('end', () => {
             if (res.statusCode !== 200) {
-              reject(new Error(`登录失败，状态码: ${res.statusCode}`));
+              reject(new Error(`登录失败，状态码：${res.statusCode}`));
               return;
             }
             const cookies = res.headers['set-cookie'];
@@ -607,7 +612,7 @@ export class SatelliteSyncService {
     const https = await import('https');
     const url = `${this.spaceTrackBaseUrl}/basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/decay_date/null-val/epoch/%3Enow-10/NORAD_CAT_ID/${noradRange}/format/json`;
 
-    this.logger.debug(`请求: ${url}`);
+    this.logger.debug(`请求：${url}`);
 
     return new Promise((resolve, reject) => {
       const req = https.get(
@@ -625,7 +630,7 @@ export class SatelliteSyncService {
           res.on('end', () => {
             try {
               if (data.startsWith('<') || data.startsWith('Invalid')) {
-                reject(new Error(`API 错误: ${data.substring(0, 50)}`));
+                reject(new Error(`API 错误：${data.substring(0, 50)}`));
                 return;
               }
               const items: SpaceTrackGpResponse[] = JSON.parse(data);
@@ -647,7 +652,7 @@ export class SatelliteSyncService {
   }
 
   /**
-   * 处理并存储 GP 数据
+   * 处理并存储 GP 数据（Space-Track）
    */
   private async processAndStoreGpData(gpData: SpaceTrackGpResponse[]): Promise<{ success: number; failed: number }> {
     let success = 0;
@@ -657,10 +662,11 @@ export class SatelliteSyncService {
       try {
         const noradId = this.formatNoradId(item.NORAD_CAT_ID);
 
-        // 保存 TLE
+        // 保存 TLE（Space-Track 数据）
         const tleEntity = this.tleRepository.create({
           noradId,
           name: item.OBJECT_NAME,
+          source: 'space-track',
           line1: item.TLE_LINE1,
           line2: item.TLE_LINE2,
           epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
@@ -677,6 +683,7 @@ export class SatelliteSyncService {
         await this.upsertMetadata(item);
         success++;
       } catch (error) {
+        this.logger.warn(`保存 Space-Track 数据失败 (${item.OBJECT_NAME}, NORAD ${item.NORAD_CAT_ID}): ${error.message}`);
         failed++;
       }
     }
@@ -961,7 +968,7 @@ export class SatelliteSyncService {
       await this.taskRepository.save(task);
     }
 
-    this.logger.log(`ESA DISCOS 同步完成: 成功 ${success}, 失败 ${failed}`);
+    this.logger.log(`ESA DISCOS 同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
   /**
