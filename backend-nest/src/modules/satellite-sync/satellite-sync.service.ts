@@ -458,9 +458,22 @@ export class SatelliteSyncService {
       await this.taskRepository.save(task);
 
       let success = 0;
+      let skipped = 0;
       for (const item of data) {
         try {
           const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+
+          // 检查是否已存在数据（避免覆盖其他源的 richer 数据）
+          const existing = await this.tleRepository.findOne({
+            where: { noradId },
+            select: ['source'],
+          });
+
+          if (existing) {
+            // 已有其他源的数据，跳过不覆盖
+            skipped++;
+            continue;
+          }
 
           await this.tleRepository.upsert({
             noradId,
@@ -484,7 +497,7 @@ export class SatelliteSyncService {
       task.processed = data.length;
       await this.taskRepository.save(task);
 
-      this.logger.log(`CelesTrak 同步完成：成功 ${success}`);
+      this.logger.log(`CelesTrak 同步完成：成功 ${success}, 跳过 ${skipped} (已有其他源数据)`);
     } catch (error) {
       this.logger.error(`CelesTrak 同步失败：${error.message}`);
       throw error;
@@ -519,6 +532,7 @@ export class SatelliteSyncService {
     let totalProcessed = 0;
     let totalSuccess = 0;
     let totalFailed = 0;
+    let batchErrors: string[] = [];
 
     for (const batch of batches) {
       this.logger.log(`获取批次：${batch.name} (NORAD ID ${batch.range})`);
@@ -546,11 +560,22 @@ export class SatelliteSyncService {
         await this.sleep(this.BATCH_INTERVAL_MS);
       } catch (error) {
         this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
+        batchErrors.push(`${batch.name}: ${error.message}`);
         totalFailed += gpData?.length || 0;
       }
     }
 
     this.logger.log(`Space-Track TLE 同步完成：成功 ${totalSuccess}, 失败 ${totalFailed}`);
+
+    // 如果所有批次都失败，抛出异常触发兜底源
+    if (totalSuccess === 0 && batchErrors.length > 0) {
+      throw new Error(`Space-Track 所有批次均失败：${batchErrors.join('; ')}`);
+    }
+
+    // 部分成功也记录警告
+    if (totalFailed > 0 && totalSuccess > 0) {
+      this.logger.warn(`Space-Track 部分失败：${totalFailed} 条数据处理失败`);
+    }
   }
 
   /**
