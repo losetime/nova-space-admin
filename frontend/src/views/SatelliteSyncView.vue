@@ -72,16 +72,12 @@
         </div>
         <div class="stat-sub">
           <div class="stat-item">
-            <span class="stat-sub-label">ESA DISCOS</span>
-            <span class="stat-sub-value">{{ stats.discosCount.toLocaleString() }}</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-sub-label">覆盖率</span>
-            <span class="stat-sub-value highlight">{{ stats.discosCoverage }}</span>
-          </div>
-          <div class="stat-item">
             <span class="stat-sub-label">KeepTrack</span>
             <span class="stat-sub-value">待 API Key</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-sub-label">ESA DISCOS</span>
+            <span class="stat-sub-value highlight">{{ stats.discosCount.toLocaleString() }} ({{ stats.discosCoverage }})</span>
           </div>
         </div>
       </div>
@@ -89,28 +85,28 @@
         <t-button
           theme="primary"
           size="large"
-          :loading="syncing === 'discos'"
-          :disabled="!!syncing"
-          @click="handleSync('discos')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 ESA DISCOS（主）
-        </t-button>
-        <t-button
-          theme="default"
-          size="large"
-          variant="outline"
           :loading="syncing === 'keeptrack-meta'"
           :disabled="!!syncing"
           @click="handleSync('keeptrack-meta')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          同步 KeepTrack 元数据
+          同步 KeepTrack 元数据（主）
+        </t-button>
+        <t-button
+          theme="default"
+          size="large"
+          variant="outline"
+          :loading="syncing === 'discos'"
+          :disabled="!!syncing"
+          @click="handleSync('discos')"
+        >
+          <template #icon><CloudDownloadIcon /></template>
+          同步 ESA DISCOS（备用）
         </t-button>
       </div>
       <div class="section-info">
         <t-tag theme="default" size="small" variant="outline">
-          最近 DISCOS 同步：{{ stats.lastDiscosSync ? formatDate(stats.lastDiscosSync) : '暂无记录' }}
+          最近 KeepTrack 同步：{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}
         </t-tag>
       </div>
     </t-card>
@@ -169,8 +165,8 @@
         <t-col :span="12">
           <h4>卫星元数据</h4>
           <ul>
-            <li><strong>ESA DISCOS</strong> - 主数据源，欧洲航天局官方数据库，提供质量、尺寸、运营商等信息</li>
-            <li><strong>KeepTrack</strong> - 备用数据源，提供制造商、平台、设备等扩展信息，需要 API Key</li>
+            <li><strong>KeepTrack</strong> - 主数据源，提供制造商、平台、设备等扩展信息，需要 API Key</li>
+            <li><strong>ESA DISCOS</strong> - 备用数据源，欧洲航天局官方数据库，提供质量、尺寸、运营商等信息</li>
           </ul>
         </t-col>
       </t-row>

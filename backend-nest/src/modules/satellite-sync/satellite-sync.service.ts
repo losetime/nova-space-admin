@@ -323,7 +323,7 @@ export class SatelliteSyncService {
   }
 
   /**
-   * 执行同步
+   * 执行同步（智能降级策略）
    */
   private async executeSync(task: SatelliteSyncTaskEntity): Promise<void> {
     try {
@@ -344,11 +344,74 @@ export class SatelliteSyncService {
           await this.syncDiscos(task);
           break;
         case 'all':
-          await this.syncCelestrak(task);
-          await this.syncTle(task);
-          await this.syncKeepTrackBrief(task);
-          await this.syncKeepTrackDetail(task);
-          await this.syncDiscos(task);
+          // 智能降级策略：主数据源失败才用备用源
+
+          // TLE 数据同步：CelesTrak（主） → Space-Track（备用） → KeepTrack（备用）
+          let tleSyncSuccess = false;
+
+          this.logger.log('[完整同步] 开始 TLE 数据同步 - 主数据源 CelesTrak');
+          try {
+            await this.syncCelestrak(task);
+            tleSyncSuccess = true;
+            this.logger.log('[完整同步] CelesTrak TLE 同步成功，跳过备用源');
+          } catch (error) {
+            this.logger.warn(`[完整同步] CelesTrak 失败：${error.message}，尝试 Space-Track 备用源`);
+          }
+
+          if (!tleSyncSuccess) {
+            try {
+              await this.syncTle(task);
+              tleSyncSuccess = true;
+              this.logger.log('[完整同步] Space-Track TLE 同步成功，跳过 KeepTrack');
+            } catch (error) {
+              this.logger.warn(`[完整同步] Space-Track 失败：${error.message}，尝试 KeepTrack 备用源`);
+            }
+          }
+
+          if (!tleSyncSuccess && this.keepTrackApiKey) {
+            try {
+              await this.syncKeepTrackBrief(task);
+              tleSyncSuccess = true;
+              this.logger.log('[完整同步] KeepTrack TLE 同步成功');
+            } catch (error) {
+              this.logger.warn(`[完整同步] KeepTrack TLE 失败：${error.message}`);
+            }
+          }
+
+          if (!tleSyncSuccess) {
+            this.logger.error('[完整同步] 所有 TLE 数据源均失败');
+          }
+
+          // 元数据同步：KeepTrack（主） → ESA DISCOS（备用）
+          let metaSyncSuccess = false;
+
+          if (this.keepTrackApiKey) {
+            this.logger.log('[完整同步] 开始元数据同步 - 主数据源 KeepTrack');
+            try {
+              await this.syncKeepTrackDetail(task);
+              metaSyncSuccess = true;
+              this.logger.log('[完整同步] KeepTrack 元数据同步成功，跳过 ESA DISCOS');
+            } catch (error) {
+              this.logger.warn(`[完整同步] KeepTrack 元数据失败：${error.message}，尝试 ESA DISCOS 备用源`);
+            }
+          } else {
+            this.logger.warn('[完整同步] KeepTrack API Key 未配置，跳过主数据源');
+          }
+
+          if (!metaSyncSuccess) {
+            try {
+              await this.syncDiscos(task);
+              metaSyncSuccess = true;
+              this.logger.log('[完整同步] ESA DISCOS 元数据同步成功');
+            } catch (error) {
+              this.logger.warn(`[完整同步] ESA DISCOS 失败：${error.message}`);
+            }
+          }
+
+          if (!metaSyncSuccess) {
+            this.logger.error('[完整同步] 所有元数据源均失败');
+          }
+
           break;
       }
 
