@@ -198,6 +198,7 @@ export class SatelliteSyncService {
   private currentTask: SatelliteSyncTaskEntity | null = null;
   private sessionCookie: string = '';
   private cookieExpiry: Date | null = null;
+  private useMockData: boolean = false; // 是否使用模拟数据（从本地缓存文件读取）
 
   // 限流参数
   private readonly BATCH_INTERVAL_MS = 3000; // 批次间隔 3 秒
@@ -218,6 +219,7 @@ export class SatelliteSyncService {
     this.spaceTrackPassword = this.configService.get<string>('app.spaceTrack.password') || '';
     this.esaDiscosApiToken = this.configService.get<string>('app.esaDiscos.apiToken');
     this.keepTrackApiKey = this.configService.get<string>('app.keepTrack.apiKey') || '';
+    this.useMockData = this.configService.get<boolean>('app.useMockData') || false;
   }
 
   /**
@@ -440,6 +442,12 @@ export class SatelliteSyncService {
   private async syncCelestrak(task: SatelliteSyncTaskEntity): Promise<void> {
     this.logger.log('开始 CelesTrak TLE 数据同步（兜底源）...');
 
+    // 如果使用模拟数据，从本地缓存文件读取
+    if (this.useMockData) {
+      await this.syncCelestrakMock(task);
+      return;
+    }
+
     const url = `${this.celestrakBaseUrl}/gp.php?GROUP=active&FORMAT=json`;
 
     try {
@@ -505,10 +513,93 @@ export class SatelliteSyncService {
   }
 
   /**
+   * CelesTrak TLE 数据同步（模拟模式 - 从本地缓存文件读取）
+   */
+  private async syncCelestrakMock(task: SatelliteSyncTaskEntity): Promise<void> {
+    this.logger.log('开始 CelesTrak TLE 数据同步（模拟模式）...');
+
+    const cacheFilePath = require('path').join(
+      __dirname,
+      '../../..',
+      'data',
+      'celestrak-tle-cache.json',
+    );
+
+    const fs = await import('fs');
+
+    if (!fs.existsSync(cacheFilePath)) {
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}，请先运行 pnpm run cache:tle`);
+    }
+
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
+
+    if (cacheData.count === 0) {
+      this.logger.warn('CelesTrak 缓存数据为空，跳过同步');
+      task.status = 'completed';
+      task.completedAt = new Date();
+      await this.taskRepository.save(task);
+      return;
+    }
+
+    task.total = cacheData.count;
+    await this.taskRepository.save(task);
+
+    let success = 0;
+    let skipped = 0;
+
+    for (const item of cacheData.data) {
+      try {
+        const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+
+        // 检查是否已存在数据（避免覆盖其他源的 richer 数据）
+        const existing = await this.tleRepository.findOne({
+          where: { noradId },
+          select: ['source'],
+        });
+
+        if (existing) {
+          // 已有其他源的数据，跳过不覆盖
+          skipped++;
+          continue;
+        }
+
+        await this.tleRepository.upsert({
+          noradId,
+          name: item.OBJECT_NAME,
+          source: 'celestrak',
+          epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+          inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
+          raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
+          eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
+          argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+          meanMotion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+        }, ['noradId']);
+
+        success++;
+      } catch (error) {
+        this.logger.warn(`保存失败 (${item.OBJECT_NAME}): ${error.message}`);
+      }
+
+      task.processed = success + skipped;
+      task.success = success;
+      await this.taskRepository.save(task);
+    }
+
+    this.logger.log(`CelesTrak（模拟）同步完成：成功 ${success}, 跳过 ${skipped}`);
+  }
+
+  /**
    * TLE 数据同步（Space-Track）
    */
   private async syncTle(task: SatelliteSyncTaskEntity): Promise<void> {
     this.logger.log('开始 Space-Track TLE 数据同步...');
+
+    // 如果使用模拟数据，从本地缓存文件读取
+    if (this.useMockData) {
+      await this.syncTleMock(task);
+      return;
+    }
 
     if (!this.spaceTrackUsername || !this.spaceTrackPassword) {
       throw new Error('Space-Track 凭据未配置，请检查环境变量');
@@ -561,7 +652,6 @@ export class SatelliteSyncService {
       } catch (error) {
         this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
         batchErrors.push(`${batch.name}: ${error.message}`);
-        totalFailed += gpData?.length || 0;
       }
     }
 
@@ -1161,5 +1251,67 @@ export class SatelliteSyncService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Space-Track TLE 数据同步（模拟模式 - 从本地缓存文件读取）
+   */
+  private async syncTleMock(task: SatelliteSyncTaskEntity): Promise<void> {
+    this.logger.log('开始 Space-Track TLE 数据同步（模拟模式）...');
+
+    const cacheFilePath = require('path').join(
+      __dirname,
+      '../../..',
+      'data',
+      'space-track-tle-cache.json',
+    );
+
+    const fs = await import('fs');
+
+    if (!fs.existsSync(cacheFilePath)) {
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}，请先运行 pnpm run cache:tle`);
+    }
+
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
+
+    task.total = cacheData.count;
+    await this.taskRepository.save(task);
+
+    let success = 0;
+    let failed = 0;
+
+    for (const item of cacheData.data) {
+      try {
+        const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+
+        // 保存 TLE（Space-Track 数据）
+        await this.tleRepository.upsert({
+          noradId,
+          name: item.OBJECT_NAME,
+          source: 'space-track',
+          line1: item.TLE_LINE1,
+          line2: item.TLE_LINE2,
+          epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+          inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
+          raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
+          eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
+          argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+          meanMotion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+        }, ['noradId']);
+
+        success++;
+      } catch (error) {
+        this.logger.warn(`保存失败 (${item.OBJECT_NAME}, NORAD ${item.NORAD_CAT_ID}): ${error.message}`);
+        failed++;
+      }
+
+      task.processed = success + failed;
+      task.success = success;
+      task.failed = failed;
+      await this.taskRepository.save(task);
+    }
+
+    this.logger.log(`Space-Track TLE（模拟）同步完成：成功 ${success}, 失败 ${failed}`);
   }
 }

@@ -43,4 +43,5 @@ export default registerAs('app', () => ({
     apiKey: process.env.KEEPTRACK_API_KEY || '',
     baseUrl: 'https://api.keeptrack.space/v4',
   },
+  useMockData: process.env.USE_MOCK_DATA === 'true' || false,
 }));
