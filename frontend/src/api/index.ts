@@ -319,7 +319,13 @@ export const quizApi = {
 }
 
 // Satellite Sync API
-export type SyncType = 'tle' | 'discos' | 'all'
+export type SyncType =
+  | 'celestrak'        // CelesTrak TLE 同步
+  | 'space-track'      // Space-Track TLE 同步
+  | 'keeptrack-tle'    // KeepTrack TLE 同步（需 API Key）
+  | 'keeptrack-meta'   // KeepTrack 元数据同步（需 API Key）
+  | 'discos'           // ESA DISCOS 元数据同步
+  | 'all'              // 完整同步
 export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 export interface SyncProgress {
@@ -346,8 +352,12 @@ export interface SyncStats {
   metadataCount: number
   discosCount: number
   discosCoverage: string
+  celestrakCount?: number
+  keepTrackCount?: number
   lastTleSync?: string
   lastDiscosSync?: string
+  lastCelestrakSync?: string
+  lastKeepTrackSync?: string
 }
 
 export const satelliteSyncApi = {

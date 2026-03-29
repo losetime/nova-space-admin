@@ -3,21 +3,33 @@
     <!-- 数据统计卡片 -->
     <t-row :gutter="16" class="stats-row">
       <t-col :span="3">
-        <t-card title="TLE 数据" :bordered="false" class="stats-card">
+        <t-card title="TLE 数据总数" :bordered="false" class="stats-card">
           <div class="stats-value">{{ stats.tleCount.toLocaleString() }}</div>
-          <div class="stats-label">轨道数据条数</div>
+          <div class="stats-label">轨道数据总条数</div>
         </t-card>
       </t-col>
       <t-col :span="3">
-        <t-card title="元数据" :bordered="false" class="stats-card">
+        <t-card title="CelesTrak" :bordered="false" class="stats-card">
+          <div class="stats-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</div>
+          <div class="stats-label">CelesTrak 数据源</div>
+        </t-card>
+      </t-col>
+      <t-col :span="3">
+        <t-card title="KeepTrack" :bordered="false" class="stats-card">
+          <div class="stats-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</div>
+          <div class="stats-label">KeepTrack 数据源</div>
+        </t-card>
+      </t-col>
+      <t-col :span="3">
+        <t-card title="元数据总数" :bordered="false" class="stats-card">
           <div class="stats-value">{{ stats.metadataCount.toLocaleString() }}</div>
           <div class="stats-label">卫星元数据条数</div>
         </t-card>
       </t-col>
       <t-col :span="3">
-        <t-card title="DISCOS 数据" :bordered="false" class="stats-card">
+        <t-card title="ESA DISCOS" :bordered="false" class="stats-card">
           <div class="stats-value">{{ stats.discosCount.toLocaleString() }}</div>
-          <div class="stats-label">扩展元数据条数</div>
+          <div class="stats-label">DISCOS 扩展数据</div>
         </t-card>
       </t-col>
       <t-col :span="3">
@@ -33,12 +45,22 @@
       <div class="sync-actions">
         <t-button
           theme="primary"
-          :loading="syncing === 'tle'"
+          :loading="syncing === 'celestrak'"
           :disabled="!!syncing"
-          @click="handleSync('tle')"
+          @click="handleSync('celestrak')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          TLE 同步
+          CelesTrak TLE
+        </t-button>
+        <t-button
+          theme="primary"
+          variant="outline"
+          :loading="syncing === 'space-track'"
+          :disabled="!!syncing"
+          @click="handleSync('space-track')"
+        >
+          <template #icon><CloudDownloadIcon /></template>
+          Space-Track TLE
         </t-button>
         <t-button
           theme="primary"
@@ -48,11 +70,30 @@
           @click="handleSync('discos')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          ESA DISCOS 同步
+          ESA DISCOS
+        </t-button>
+        <t-button
+          theme="primary"
+          variant="outline"
+          :loading="syncing === 'keeptrack-tle'"
+          :disabled="!!syncing"
+          @click="handleSync('keeptrack-tle')"
+        >
+          <template #icon><CloudDownloadIcon /></template>
+          KeepTrack TLE
+        </t-button>
+        <t-button
+          theme="primary"
+          variant="outline"
+          :loading="syncing === 'keeptrack-meta'"
+          :disabled="!!syncing"
+          @click="handleSync('keeptrack-meta')"
+        >
+          <template #icon><CloudDownloadIcon /></template>
+          KeepTrack 元数据
         </t-button>
         <t-button
           theme="warning"
-          variant="outline"
           :loading="syncing === 'all'"
           :disabled="!!syncing"
           @click="handleSync('all')"
@@ -94,8 +135,12 @@
     <t-card title="最近同步" :bordered="false" class="last-sync-card">
       <div class="last-sync-info">
         <div class="last-sync-item">
-          <span class="label">最近 TLE 同步:</span>
-          <span class="value">{{ stats.lastTleSync ? formatDate(stats.lastTleSync) : '暂无记录' }}</span>
+          <span class="label">最近 CelesTrak 同步:</span>
+          <span class="value">{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}</span>
+        </div>
+        <div class="last-sync-item">
+          <span class="label">最近 KeepTrack 同步:</span>
+          <span class="value">{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}</span>
         </div>
         <div class="last-sync-item">
           <span class="label">最近 DISCOS 同步:</span>
@@ -108,10 +153,28 @@
     <t-card title="数据源说明" :bordered="false" class="info-card">
       <t-list>
         <t-list-item>
-          <t-list-item-meta title="TLE 数据" description="从 Space-Track 获取卫星两行轨道根数数据，包含约 10,000 颗活跃卫星的轨道信息。" />
+          <t-list-item-meta
+            title="CelesTrak TLE"
+            description="从 CelesTrak 获取活跃卫星的轨道根数数据（GROUP=active），约 14,879 颗卫星，免费无需认证。"
+          />
         </t-list-item>
         <t-list-item>
-          <t-list-item-meta title="ESA DISCOS 数据" description="从欧洲航天局 DISCOS 数据库获取卫星扩展元数据，包括质量、尺寸、运营商、任务类型等信息。" />
+          <t-list-item-meta
+            title="Space-Track TLE"
+            description="从 Space-Track 获取卫星轨道数据，作为 CelesTrak 的备用数据源，需要账号认证。"
+          />
+        </t-list-item>
+        <t-list-item>
+          <t-list-item-meta
+            title="ESA DISCOS 元数据"
+            description="从欧洲航天局 DISCOS 数据库获取卫星扩展元数据，包括质量、尺寸、运营商、任务类型等信息。"
+          />
+        </t-list-item>
+        <t-list-item>
+          <t-list-item-meta
+            title="KeepTrack（需 API Key）"
+            description="从 KeepTrack.space 获取卫星 TLE 和详细元数据，包括制造商、平台、设备等扩展信息。"
+          />
         </t-list-item>
       </t-list>
     </t-card>
@@ -129,7 +192,10 @@ const stats = reactive<SyncStats>({
   metadataCount: 0,
   discosCount: 0,
   discosCoverage: '0%',
-  lastTleSync: undefined,
+  celestrakCount: 0,
+  keepTrackCount: 0,
+  lastCelestrakSync: undefined,
+  lastKeepTrackSync: undefined,
   lastDiscosSync: undefined,
 })
 
