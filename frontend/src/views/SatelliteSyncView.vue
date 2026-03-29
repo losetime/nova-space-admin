@@ -2,112 +2,116 @@
   <div class="satellite-sync-container">
     <!-- TLE 轨道数据区域 -->
     <t-card title="TLE 轨道数据" :bordered="false" class="section-card tle-section">
-      <div class="section-stats">
-        <div class="stat-main">
-          <span class="stat-label">总数</span>
+      <div class="stats-row">
+        <div class="stat-total">
+          <span class="stat-label">卫星总数</span>
           <span class="stat-value">{{ stats.tleCount.toLocaleString() }}</span>
         </div>
-        <div class="stat-sub">
-          <div class="stat-item">
-            <span class="stat-sub-label">CelesTrak</span>
-            <span class="stat-sub-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</span>
+        <div class="stat-sources">
+          <div class="source-item primary">
+            <span class="source-icon">📡</span>
+            <span class="source-name">KeepTrack</span>
+            <span class="source-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</span>
+            <span class="source-badge">主数据源</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-sub-label">Space-Track</span>
-            <span class="stat-sub-value">{{ (stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0)).toLocaleString() }}</span>
+          <div class="source-item">
+            <span class="source-icon">🛰️</span>
+            <span class="source-name">Space-Track</span>
+            <span class="source-value">{{ (stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0)).toLocaleString() }}</span>
+            <span class="source-badge">备用</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-sub-label">KeepTrack</span>
-            <span class="stat-sub-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</span>
+          <div class="source-item">
+            <span class="source-icon">🌐</span>
+            <span class="source-name">CelesTrak</span>
+            <span class="source-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</span>
+            <span class="source-badge">兜底</span>
           </div>
         </div>
       </div>
-      <div class="section-actions">
-        <t-button
-          theme="primary"
-          size="large"
-          :loading="syncing === 'keeptrack-tle'"
-          :disabled="!!syncing"
-          @click="handleSync('keeptrack-tle')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 KeepTrack TLE（主）
-        </t-button>
-        <t-button
-          theme="default"
-          size="large"
-          variant="outline"
-          :loading="syncing === 'space-track'"
-          :disabled="!!syncing"
-          @click="handleSync('space-track')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 Space-Track（备用）
-        </t-button>
-        <t-button
-          theme="default"
-          size="large"
-          variant="outline"
-          :loading="syncing === 'celestrak'"
-          :disabled="!!syncing"
-          @click="handleSync('celestrak')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 CelesTrak（兜底）
-        </t-button>
-      </div>
-      <div class="section-info">
-        <t-tag theme="default" size="small" variant="outline">
-          最近同步：{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}
-        </t-tag>
+      <div class="actions-row">
+        <div class="actions">
+          <t-button
+            theme="primary"
+            :loading="syncing === 'keeptrack-tle'"
+            :disabled="!!syncing"
+            @click="handleSync('keeptrack-tle')"
+          >
+            <template #icon><CloudDownloadIcon /></template>
+            同步 KeepTrack TLE
+          </t-button>
+          <t-button
+            variant="outline"
+            :loading="syncing === 'space-track'"
+            :disabled="!!syncing"
+            @click="handleSync('space-track')"
+          >
+            <template #icon><CloudDownloadIcon /></template>
+            同步 Space-Track
+          </t-button>
+          <t-button
+            variant="outline"
+            :loading="syncing === 'celestrak'"
+            :disabled="!!syncing"
+            @click="handleSync('celestrak')"
+          >
+            <template #icon><CloudDownloadIcon /></template>
+            同步 CelesTrak
+          </t-button>
+        </div>
+        <div class="sync-status">
+          <check-circle-filled v-if="stats.lastCelestrakSync" :style="{ color: 'var(--td-success-color)' }" />
+          <span>最近同步：{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}</span>
+        </div>
       </div>
     </t-card>
 
     <!-- 卫星元数据区域 -->
     <t-card title="卫星元数据" :bordered="false" class="section-card meta-section">
-      <div class="section-stats">
-        <div class="stat-main">
-          <span class="stat-label">总数</span>
+      <div class="stats-row">
+        <div class="stat-total">
+          <span class="stat-label">卫星总数</span>
           <span class="stat-value">{{ stats.metadataCount.toLocaleString() }}</span>
         </div>
-        <div class="stat-sub">
-          <div class="stat-item">
-            <span class="stat-sub-label">KeepTrack</span>
-            <span class="stat-sub-value">待 API Key</span>
+        <div class="stat-sources">
+          <div class="source-item primary">
+            <span class="source-icon">📡</span>
+            <span class="source-name">KeepTrack</span>
+            <span class="source-value">待 API Key</span>
+            <span class="source-badge">主数据源</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-sub-label">ESA DISCOS</span>
-            <span class="stat-sub-value highlight">{{ stats.discosCount.toLocaleString() }} ({{ stats.discosCoverage }})</span>
+          <div class="source-item">
+            <span class="source-icon">🇪🇺</span>
+            <span class="source-name">ESA DISCOS</span>
+            <span class="source-value highlight">{{ stats.discosCount.toLocaleString() }}</span>
+            <span class="source-badge">备用</span>
           </div>
         </div>
       </div>
-      <div class="section-actions">
-        <t-button
-          theme="primary"
-          size="large"
-          :loading="syncing === 'keeptrack-meta'"
-          :disabled="!!syncing"
-          @click="handleSync('keeptrack-meta')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 KeepTrack 元数据（主）
-        </t-button>
-        <t-button
-          theme="default"
-          size="large"
-          variant="outline"
-          :loading="syncing === 'discos'"
-          :disabled="!!syncing"
-          @click="handleSync('discos')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          同步 ESA DISCOS（备用）
-        </t-button>
-      </div>
-      <div class="section-info">
-        <t-tag theme="default" size="small" variant="outline">
-          最近 KeepTrack 同步：{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}
-        </t-tag>
+      <div class="actions-row">
+        <div class="actions">
+          <t-button
+            theme="primary"
+            :loading="syncing === 'keeptrack-meta'"
+            :disabled="!!syncing"
+            @click="handleSync('keeptrack-meta')"
+          >
+            <template #icon><CloudDownloadIcon /></template>
+            同步 KeepTrack 元数据
+          </t-button>
+          <t-button
+            variant="outline"
+            :loading="syncing === 'discos'"
+            :disabled="!!syncing"
+            @click="handleSync('discos')"
+          >
+            <template #icon><CloudDownloadIcon /></template>
+            同步 ESA DISCOS
+          </t-button>
+        </div>
+        <div class="sync-status">
+          <check-circle-filled v-if="stats.lastKeepTrackSync" :style="{ color: 'var(--td-success-color)' }" />
+          <span>最近同步：{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}</span>
+        </div>
       </div>
     </t-card>
 
@@ -176,7 +180,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { CloudDownloadIcon, RefreshIcon } from 'tdesign-icons-vue-next'
+import { CloudDownloadIcon, RefreshIcon, CheckCircleFilledIcon } from 'tdesign-icons-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { satelliteSyncApi, type SyncType, type SyncStatus, type SyncStats, type SyncTask } from '@/api'
 
@@ -325,18 +329,27 @@ onUnmounted(() => {
 
 /* 区域卡片通用样式 */
 .section-card {
-  border-radius: 8px;
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .section-card :deep(.t-card__header) {
   padding: 16px 24px;
   border-bottom: 1px solid var(--td-border-level-1-color);
+  background: var(--td-bg-color-container);
+}
+
+.section-card :deep(.t-card__title) {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
 }
 
 .section-card :deep(.t-card__body) {
-  padding: 24px;
+  padding: 20px 24px;
 }
 
+/* 顶部彩色边框 */
 .tle-section {
   border-top: 3px solid var(--td-brand-color);
 }
@@ -349,80 +362,147 @@ onUnmounted(() => {
   border-top: 3px solid var(--td-warning-color);
 }
 
-/* 统计区域 */
-.section-stats {
-  display: flex;
-  gap: 48px;
-  margin-bottom: 24px;
-  padding: 16px;
-  background: var(--td-bg-color-container);
-  border-radius: 8px;
+/* 统计行 */
+.stats-row {
+  margin-bottom: 20px;
 }
 
-.stat-main {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 32px;
-  border-right: 2px solid var(--td-border-level-1-color);
+.stat-total {
+  margin-bottom: 16px;
 }
 
 .stat-label {
-  font-size: 14px;
+  display: block;
+  font-size: 13px;
   color: var(--td-text-color-secondary);
+  margin-bottom: 4px;
 }
 
 .stat-value {
-  font-size: 36px;
-  font-weight: 600;
+  font-size: 32px;
+  font-weight: 700;
   color: var(--td-text-color-primary);
+  letter-spacing: -0.5px;
 }
 
-.stat-sub {
-  display: flex;
-  gap: 32px;
-  align-items: center;
-}
-
-.stat-item {
+/* 数据源列表 */
+.stat-sources {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
 }
 
-.stat-sub-label {
-  font-size: 13px;
-  color: var(--td-text-color-secondary);
+.source-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--td-bg-color-container);
+  transition: all 0.2s ease;
 }
 
-.stat-sub-value {
-  font-size: 20px;
+.source-item:hover {
+  background: var(--td-bg-color-container-hover);
+}
+
+.source-item.primary {
+  background: linear-gradient(135deg, var(--td-brand-color-1) 0%, var(--td-brand-color-2) 100%);
+}
+
+.source-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.source-name {
+  font-size: 14px;
   font-weight: 500;
   color: var(--td-text-color-primary);
+  min-width: 90px;
 }
 
-.stat-sub-value.highlight {
+.source-item.primary .source-name {
   color: var(--td-brand-color);
   font-weight: 600;
 }
 
-/* 按钮区域 */
-.section-actions {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
+.source-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+  margin-left: auto;
+  margin-right: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
-.section-info {
+.source-value.highlight {
+  color: var(--td-brand-color);
+}
+
+.source-item.primary .source-value {
+  color: var(--td-brand-color);
+}
+
+.source-badge {
+  font-size: 12px;
+  color: var(--td-text-color-placeholder);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--td-bg-color-component);
+  flex-shrink: 0;
+}
+
+.source-item.primary .source-badge {
+  background: var(--td-brand-color);
+  color: #fff;
+}
+
+/* 操作行 */
+.actions-row {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid var(--td-border-level-1-color);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions .t-button {
+  height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+}
+
+.actions .t-button:first-child {
+  min-width: 140px;
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--td-text-color-secondary);
+}
+
+.sync-status :deep(.t-icon) {
+  font-size: 16px;
 }
 
 /* 快速操作 */
 .quick-actions {
   display: flex;
   justify-content: center;
-  padding: 12px 0;
+  padding: 8px 0;
+}
+
+.quick-actions .t-button {
+  min-width: 200px;
 }
 
 /* 进度卡片 */
@@ -438,9 +518,9 @@ onUnmounted(() => {
 }
 
 .progress-task-id {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--td-text-color-secondary);
-  font-family: monospace;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .progress-bar {
@@ -450,7 +530,7 @@ onUnmounted(() => {
 .progress-stats {
   display: flex;
   gap: 24px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--td-text-color-secondary);
 }
 
@@ -467,22 +547,27 @@ onUnmounted(() => {
 }
 
 /* 信息卡片 */
+.info-card :deep(.t-card__header) {
+  background: transparent;
+}
+
 .info-card h4 {
   margin: 0 0 12px;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--td-text-color-primary);
 }
 
 .info-card ul {
   margin: 0;
-  padding-left: 20px;
+  padding-left: 18px;
 }
 
 .info-card li {
-  margin-bottom: 8px;
-  line-height: 1.6;
+  margin-bottom: 6px;
+  line-height: 1.7;
   color: var(--td-text-color-secondary);
+  font-size: 14px;
 }
 
 .info-card li strong {
