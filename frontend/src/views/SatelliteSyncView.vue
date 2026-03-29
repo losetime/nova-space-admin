@@ -1,182 +1,179 @@
 <template>
   <div class="satellite-sync-container">
-    <!-- 数据统计卡片 -->
-    <t-row :gutter="16" class="stats-row">
-      <t-col :span="3">
-        <t-card title="TLE 数据总数" :bordered="false" class="stats-card">
-          <div class="stats-value">{{ stats.tleCount.toLocaleString() }}</div>
-          <div class="stats-label">轨道数据总条数</div>
-        </t-card>
-      </t-col>
-      <t-col :span="3">
-        <t-card title="CelesTrak" :bordered="false" class="stats-card">
-          <div class="stats-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</div>
-          <div class="stats-label">CelesTrak 数据源</div>
-        </t-card>
-      </t-col>
-      <t-col :span="3">
-        <t-card title="KeepTrack" :bordered="false" class="stats-card">
-          <div class="stats-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</div>
-          <div class="stats-label">KeepTrack 数据源</div>
-        </t-card>
-      </t-col>
-      <t-col :span="3">
-        <t-card title="元数据总数" :bordered="false" class="stats-card">
-          <div class="stats-value">{{ stats.metadataCount.toLocaleString() }}</div>
-          <div class="stats-label">卫星元数据条数</div>
-        </t-card>
-      </t-col>
-      <t-col :span="3">
-        <t-card title="ESA DISCOS" :bordered="false" class="stats-card">
-          <div class="stats-value">{{ stats.discosCount.toLocaleString() }}</div>
-          <div class="stats-label">DISCOS 扩展数据</div>
-        </t-card>
-      </t-col>
-      <t-col :span="3">
-        <t-card title="数据覆盖率" :bordered="false" class="stats-card stats-card--highlight">
-          <div class="stats-value">{{ stats.discosCoverage }}</div>
-          <div class="stats-label">DISCOS 数据覆盖率</div>
-        </t-card>
-      </t-col>
-    </t-row>
-
-    <!-- 同步操作区 -->
-    <t-card title="数据同步" :bordered="false" class="sync-card">
-      <div class="sync-actions">
+    <!-- TLE 轨道数据区域 -->
+    <t-card title="TLE 轨道数据" :bordered="false" class="section-card tle-section">
+      <div class="section-stats">
+        <div class="stat-main">
+          <span class="stat-label">总数</span>
+          <span class="stat-value">{{ stats.tleCount.toLocaleString() }}</span>
+        </div>
+        <div class="stat-sub">
+          <div class="stat-item">
+            <span class="stat-sub-label">CelesTrak</span>
+            <span class="stat-sub-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-sub-label">Space-Track</span>
+            <span class="stat-sub-value">{{ (stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0)).toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-sub-label">KeepTrack</span>
+            <span class="stat-sub-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-actions">
         <t-button
           theme="primary"
+          size="large"
           :loading="syncing === 'celestrak'"
           :disabled="!!syncing"
           @click="handleSync('celestrak')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          CelesTrak TLE
+          同步 CelesTrak（主）
         </t-button>
         <t-button
-          theme="primary"
+          theme="default"
+          size="large"
           variant="outline"
           :loading="syncing === 'space-track'"
           :disabled="!!syncing"
           @click="handleSync('space-track')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          Space-Track TLE
+          同步 Space-Track（备用）
         </t-button>
         <t-button
-          theme="primary"
-          variant="outline"
-          :loading="syncing === 'discos'"
-          :disabled="!!syncing"
-          @click="handleSync('discos')"
-        >
-          <template #icon><CloudDownloadIcon /></template>
-          ESA DISCOS
-        </t-button>
-        <t-button
-          theme="primary"
+          theme="default"
+          size="large"
           variant="outline"
           :loading="syncing === 'keeptrack-tle'"
           :disabled="!!syncing"
           @click="handleSync('keeptrack-tle')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          KeepTrack TLE
+          同步 KeepTrack TLE
         </t-button>
+      </div>
+      <div class="section-info">
+        <t-tag theme="default" size="small" variant="outline">
+          最近同步：{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}
+        </t-tag>
+      </div>
+    </t-card>
+
+    <!-- 卫星元数据区域 -->
+    <t-card title="卫星元数据" :bordered="false" class="section-card meta-section">
+      <div class="section-stats">
+        <div class="stat-main">
+          <span class="stat-label">总数</span>
+          <span class="stat-value">{{ stats.metadataCount.toLocaleString() }}</span>
+        </div>
+        <div class="stat-sub">
+          <div class="stat-item">
+            <span class="stat-sub-label">ESA DISCOS</span>
+            <span class="stat-sub-value">{{ stats.discosCount.toLocaleString() }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-sub-label">覆盖率</span>
+            <span class="stat-sub-value highlight">{{ stats.discosCoverage }}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-sub-label">KeepTrack</span>
+            <span class="stat-sub-value">待 API Key</span>
+          </div>
+        </div>
+      </div>
+      <div class="section-actions">
         <t-button
           theme="primary"
+          size="large"
+          :loading="syncing === 'discos'"
+          :disabled="!!syncing"
+          @click="handleSync('discos')"
+        >
+          <template #icon><CloudDownloadIcon /></template>
+          同步 ESA DISCOS（主）
+        </t-button>
+        <t-button
+          theme="default"
+          size="large"
           variant="outline"
           :loading="syncing === 'keeptrack-meta'"
           :disabled="!!syncing"
           @click="handleSync('keeptrack-meta')"
         >
           <template #icon><CloudDownloadIcon /></template>
-          KeepTrack 元数据
+          同步 KeepTrack 元数据
         </t-button>
+      </div>
+      <div class="section-info">
+        <t-tag theme="default" size="small" variant="outline">
+          最近 DISCOS 同步：{{ stats.lastDiscosSync ? formatDate(stats.lastDiscosSync) : '暂无记录' }}
+        </t-tag>
+      </div>
+    </t-card>
+
+    <!-- 完整同步 -->
+    <t-card title="快速操作" :bordered="false" class="section-card quick-section">
+      <div class="quick-actions">
         <t-button
           theme="warning"
+          size="large"
           :loading="syncing === 'all'"
           :disabled="!!syncing"
           @click="handleSync('all')"
         >
           <template #icon><RefreshIcon /></template>
-          完整同步
+          完整同步（所有数据源）
         </t-button>
       </div>
+    </t-card>
 
-      <!-- 同步进度 -->
-      <div v-if="syncStatus && syncStatus.progress" class="sync-progress">
-        <div class="sync-progress-header">
-          <span class="sync-task-id">任务 ID: {{ syncStatus.taskId }}</span>
-          <t-tag :theme="getStatusTheme(syncStatus.status)">{{ getStatusText(syncStatus.status) }}</t-tag>
-        </div>
-
-        <div class="sync-progress-bar">
-          <t-progress
-            :percentage="syncStatus.progress.percentage || 0"
-            :theme="syncStatus.status === 'failed' ? 'warning' : 'primary'"
-            :label="false"
-          />
-        </div>
-
-        <div class="sync-progress-stats">
-          <span>总数: {{ syncStatus.progress.total || 0 }}</span>
-          <span>已处理: {{ syncStatus.progress.processed || 0 }}</span>
-          <span class="success">成功: {{ syncStatus.progress.success || 0 }}</span>
-          <span class="failed">失败: {{ syncStatus.progress.failed || 0 }}</span>
-        </div>
-
-        <div v-if="syncStatus.error" class="sync-error">
-          <t-alert theme="error" :message="syncStatus.error" />
-        </div>
+    <!-- 同步进度 -->
+    <t-card v-if="syncStatus && syncStatus.progress" title="当前同步进度" :bordered="false" class="progress-card">
+      <div class="progress-header">
+        <span class="progress-task-id">任务 ID: {{ syncStatus.taskId }}</span>
+        <t-tag :theme="getStatusTheme(syncStatus.status)">{{ getStatusText(syncStatus.status) }}</t-tag>
+      </div>
+      <div class="progress-bar">
+        <t-progress
+          :percentage="syncStatus.progress.percentage || 0"
+          :theme="syncStatus.status === 'failed' ? 'warning' : 'primary'"
+          :label="true"
+        />
+      </div>
+      <div class="progress-stats">
+        <span>总数：{{ syncStatus.progress.total || 0 }}</span>
+        <span>已处理：{{ syncStatus.progress.processed || 0 }}</span>
+        <span class="success">成功：{{ syncStatus.progress.success || 0 }}</span>
+        <span class="failed">失败：{{ syncStatus.progress.failed || 0 }}</span>
+      </div>
+      <div v-if="syncStatus.error" class="progress-error">
+        <t-alert theme="error" :message="syncStatus.error" />
       </div>
     </t-card>
 
-    <!-- 最近同步记录 -->
-    <t-card title="最近同步" :bordered="false" class="last-sync-card">
-      <div class="last-sync-info">
-        <div class="last-sync-item">
-          <span class="label">最近 CelesTrak 同步:</span>
-          <span class="value">{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}</span>
-        </div>
-        <div class="last-sync-item">
-          <span class="label">最近 KeepTrack 同步:</span>
-          <span class="value">{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}</span>
-        </div>
-        <div class="last-sync-item">
-          <span class="label">最近 DISCOS 同步:</span>
-          <span class="value">{{ stats.lastDiscosSync ? formatDate(stats.lastDiscosSync) : '暂无记录' }}</span>
-        </div>
-      </div>
-    </t-card>
-
-    <!-- 说明信息 -->
+    <!-- 数据源说明 -->
     <t-card title="数据源说明" :bordered="false" class="info-card">
-      <t-list>
-        <t-list-item>
-          <t-list-item-meta
-            title="CelesTrak TLE"
-            description="从 CelesTrak 获取活跃卫星的轨道根数数据（GROUP=active），约 14,879 颗卫星，免费无需认证。"
-          />
-        </t-list-item>
-        <t-list-item>
-          <t-list-item-meta
-            title="Space-Track TLE"
-            description="从 Space-Track 获取卫星轨道数据，作为 CelesTrak 的备用数据源，需要账号认证。"
-          />
-        </t-list-item>
-        <t-list-item>
-          <t-list-item-meta
-            title="ESA DISCOS 元数据"
-            description="从欧洲航天局 DISCOS 数据库获取卫星扩展元数据，包括质量、尺寸、运营商、任务类型等信息。"
-          />
-        </t-list-item>
-        <t-list-item>
-          <t-list-item-meta
-            title="KeepTrack（需 API Key）"
-            description="从 KeepTrack.space 获取卫星 TLE 和详细元数据，包括制造商、平台、设备等扩展信息。"
-          />
-        </t-list-item>
-      </t-list>
+      <t-row :gutter="16">
+        <t-col :span="12">
+          <h4>TLE 轨道数据</h4>
+          <ul>
+            <li><strong>CelesTrak</strong> - 主数据源，获取活跃卫星 GROUP=active，约 14,879 颗，免费无需认证</li>
+            <li><strong>Space-Track</strong> - 备用数据源，需要账号认证</li>
+            <li><strong>KeepTrack</strong> - 备用数据源，需要 API Key</li>
+          </ul>
+        </t-col>
+        <t-col :span="12">
+          <h4>卫星元数据</h4>
+          <ul>
+            <li><strong>ESA DISCOS</strong> - 主数据源，欧洲航天局官方数据库，提供质量、尺寸、运营商等信息</li>
+            <li><strong>KeepTrack</strong> - 备用数据源，提供制造商、平台、设备等扩展信息，需要 API Key</li>
+          </ul>
+        </t-col>
+      </t-row>
     </t-card>
   </div>
 </template>
@@ -330,119 +327,169 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.stats-row {
-  margin-bottom: 0;
+/* 区域卡片通用样式 */
+.section-card {
+  border-radius: 8px;
 }
 
-.stats-card {
-  text-align: center;
+.section-card :deep(.t-card__header) {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--td-border-level-1-color);
 }
 
-.stats-card :deep(.t-card__header) {
-  padding: 16px 16px 0;
+.section-card :deep(.t-card__body) {
+  padding: 24px;
 }
 
-.stats-card :deep(.t-card__body) {
+.tle-section {
+  border-top: 3px solid var(--td-brand-color);
+}
+
+.meta-section {
+  border-top: 3px solid var(--td-success-color);
+}
+
+.quick-section {
+  border-top: 3px solid var(--td-warning-color);
+}
+
+/* 统计区域 */
+.section-stats {
+  display: flex;
+  gap: 48px;
+  margin-bottom: 24px;
   padding: 16px;
+  background: var(--td-bg-color-container);
+  border-radius: 8px;
 }
 
-.stats-card--highlight {
-  background: linear-gradient(135deg, #0052D9 0%, #266FE8 100%);
+.stat-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 32px;
+  border-right: 2px solid var(--td-border-level-1-color);
 }
 
-.stats-card--highlight :deep(.t-card__title),
-.stats-card--highlight .stats-value,
-.stats-card--highlight .stats-label {
-  color: #fff;
-}
-
-.stats-value {
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  margin-bottom: 8px;
-}
-
-.stats-label {
+.stat-label {
   font-size: 14px;
   color: var(--td-text-color-secondary);
 }
 
-.sync-card :deep(.t-card__body) {
-  padding: 24px;
+.stat-value {
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
 }
 
-.sync-actions {
+.stat-sub {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-sub-label {
+  font-size: 13px;
+  color: var(--td-text-color-secondary);
+}
+
+.stat-sub-value {
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--td-text-color-primary);
+}
+
+.stat-sub-value.highlight {
+  color: var(--td-brand-color);
+  font-weight: 600;
+}
+
+/* 按钮区域 */
+.section-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.section-info {
   display: flex;
   gap: 16px;
-  margin-bottom: 24px;
 }
 
-.sync-progress {
-  background: var(--td-bg-color-container);
-  border-radius: 8px;
-  padding: 16px;
+/* 快速操作 */
+.quick-actions {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0;
 }
 
-.sync-progress-header {
+/* 进度卡片 */
+.progress-card {
+  border-top: 3px solid var(--td-info-color);
+}
+
+.progress-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.sync-task-id {
+.progress-task-id {
   font-size: 14px;
   color: var(--td-text-color-secondary);
+  font-family: monospace;
 }
 
-.sync-progress-bar {
-  margin-bottom: 16px;
+.progress-bar {
+  margin-bottom: 12px;
 }
 
-.sync-progress-stats {
+.progress-stats {
   display: flex;
   gap: 24px;
   font-size: 14px;
   color: var(--td-text-color-secondary);
 }
 
-.sync-progress-stats .success {
+.progress-stats .success {
   color: var(--td-success-color);
 }
 
-.sync-progress-stats .failed {
+.progress-stats .failed {
   color: var(--td-error-color);
 }
 
-.sync-error {
-  margin-top: 16px;
+.progress-error {
+  margin-top: 12px;
 }
 
-.last-sync-card :deep(.t-card__body) {
-  padding: 24px;
+/* 信息卡片 */
+.info-card h4 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
 }
 
-.last-sync-info {
-  display: flex;
-  gap: 48px;
+.info-card ul {
+  margin: 0;
+  padding-left: 20px;
 }
 
-.last-sync-item {
-  display: flex;
-  gap: 8px;
-}
-
-.last-sync-item .label {
+.info-card li {
+  margin-bottom: 8px;
+  line-height: 1.6;
   color: var(--td-text-color-secondary);
 }
 
-.last-sync-item .value {
+.info-card li strong {
   color: var(--td-text-color-primary);
-  font-weight: 500;
-}
-
-.info-card :deep(.t-card__body) {
-  padding: 16px 24px;
 }
 </style>
