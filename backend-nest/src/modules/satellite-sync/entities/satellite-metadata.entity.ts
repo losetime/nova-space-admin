@@ -125,6 +125,34 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   contractor: string;
 
+  // KeepTrack 扩展字段
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  bus: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  purpose: string;
+
+  @Column({ type: 'float', nullable: true })
+  length: number;
+
+  @Column({ type: 'float', nullable: true })
+  diameter: number;
+
+  @Column({ type: 'float', nullable: true })
+  dryMass: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  equipment: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  adcs: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  payload: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  constellationName: string;
+
   @Column({ type: 'varchar', length: 50, nullable: true })
   lifetime: string;
 

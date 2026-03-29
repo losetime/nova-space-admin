@@ -25,7 +25,7 @@ export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 /**
  * 卫星同步任务实体
- * 记录每次同步任务的执行状态和进度
+ * 映射主项目的 satellite_sync_tasks 表
  */
 @Entity('satellite_sync_tasks')
 @Index(['status'])
@@ -35,36 +35,36 @@ export class SatelliteSyncTaskEntity {
   @PrimaryColumn({ type: 'varchar', length: 50 })
   id: string; // 如 sync-20260326-001
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: 'varchar', length: 20, name: 'type' })
   type: SyncType;
 
-  @Column({ type: 'varchar', length: 20 })
+  @Column({ type: 'varchar', length: 20, name: 'status' })
   status: SyncStatus;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, name: 'total' })
   total: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, name: 'processed' })
   processed: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, name: 'success' })
   success: number;
 
-  @Column({ type: 'int', default: 0 })
+  @Column({ type: 'int', default: 0, name: 'failed' })
   failed: number;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'timestamp', name: 'startedat' })
   startedAt: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ type: 'timestamp', nullable: true, name: 'completedat' })
   completedAt: Date;
 
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', nullable: true, name: 'error' })
   error: string;
 
-  @CreateDateColumn()
+  @CreateDateColumn({ type: 'timestamp', name: 'createdat' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ type: 'timestamp', name: 'updatedat' })
   updatedAt: Date;
 }
