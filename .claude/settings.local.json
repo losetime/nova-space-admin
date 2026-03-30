@@ -83,7 +83,26 @@
       "Bash(node dist/main.js)",
       "Bash(curl:*)",
       "Bash(PGPASSWORD=postgres psql -h localhost -U postgres -d nova_space -c \"SELECT source, COUNT\\(*\\) as count FROM satellite_tle GROUP BY source;\" 2>&1)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(node -e \":*)",
+      "Bash(ls -la *cache.json)",
+      "Bash(cd:*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(powershell -Command \"Get-Content 'F:\\\\wwp-work\\\\nova-space-admin\\\\backend-nest\\\\data\\\\keeptrack-tle-cache.json' -TotalCount 10\")",
+      "Bash(powershell -Command \"\\(Get-Content 'F:\\\\wwp-work\\\\nova-space-admin\\\\backend-nest\\\\data\\\\keeptrack-tle-cache.json' | Select-String 'source' | Measure-Object\\).Count\")",
+      "Bash(powershell -Command \"Get-ChildItem 'F:\\\\wwp-work\\\\nova-space-admin\\\\backend-nest\\\\src\\\\modules\\\\satellite-sync' -Recurse -Filter '*.ts' | Select-Object FullName\")",
+      "Bash(powershell -Command \"$json = Get-Content 'F:\\\\wwp-work\\\\nova-space-admin\\\\backend-nest\\\\data\\\\keeptrack-tle-cache.json' -Raw | ConvertFrom-Json; $json.count\")",
+      "Bash(powershell -Command \"$json = Get-Content 'F:\\\\wwp-work\\\\nova-space-admin\\\\backend-nest\\\\data\\\\keeptrack-tle-cache.json' -Raw | ConvertFrom-Json; $withName = 0; $json.data | ForEach-Object { if\\($_.name\\) { $withName++ } }; $withName\")",
+      "Bash(node:*)",
+      "Bash(npx vue-tsc:*)",
+      "WebFetch(domain:api.keeptrack.space)",
+      "Read(//c/Users/EDY/Projects/agent-scripts/skills/**)",
+      "Bash(./search.js \"keeptrack.space API documentation v4 sats brief active satellites filter\" -n 5 --content)",
+      "Bash(npm ci:*)",
+      "Bash(grep -c '\"\"status\"\"' \"F:/wwp-work/nova-space-admin/backend-nest/data/keeptrack-tle-cache.json\")",
+      "WebFetch(domain:discosweb.esoc.esa.int)",
+      "Bash(python3:*)",
+      "Bash(python:*)"
     ]
   }
 }
