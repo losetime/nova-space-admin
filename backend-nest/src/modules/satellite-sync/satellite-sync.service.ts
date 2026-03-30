@@ -205,6 +205,7 @@ export class SatelliteSyncService {
   private sessionCookie: string = '';
   private cookieExpiry: Date | null = null;
   private useMockData: boolean = false; // 是否使用模拟数据（从本地缓存文件读取）
+  private stopRequested: boolean = false; // 是否请求停止同步
 
   // 限流参数
   private readonly BATCH_INTERVAL_MS = 3000; // 批次间隔 3 秒
@@ -237,6 +238,7 @@ export class SatelliteSyncService {
   async getCurrentStatus(): Promise<SatelliteSyncTaskEntity | null> {
     // 优先返回内存中正在运行的任务
     if (this.currentTask) {
+      this.logger.debug(`返回内存中的任务：${this.currentTask.id}, status: ${this.currentTask.status}`);
       return this.currentTask;
     }
 
@@ -246,7 +248,22 @@ export class SatelliteSyncService {
       order: { startedAt: 'DESC' },
     });
 
+    // 如果有 running 任务，检查是否超时（超过 10 分钟无进度）
     if (runningTask) {
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const taskAge = Date.now() - runningTask.startedAt.getTime();
+      this.logger.log(`找到 running 任务：${runningTask.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${runningTask.processed}/${runningTask.total}`);
+
+      // 如果任务运行超过 10 分钟且进度没有更新，标记为失败
+      if (runningTask.startedAt < tenMinutesAgo) {
+        // 任务超时，标记为失败
+        this.logger.warn(`发现超时任务 ${runningTask.id}，启动时间：${runningTask.startedAt}，标记为失败`);
+        runningTask.status = 'failed';
+        runningTask.error = '任务超时（超过 10 分钟未完成）';
+        runningTask.completedAt = new Date();
+        await this.taskRepository.save(runningTask);
+        return null;
+      }
       return runningTask;
     }
 
@@ -259,7 +276,37 @@ export class SatelliteSyncService {
       .orderBy('task.completedAt', 'DESC')
       .getOne();
 
+    if (recentTask) {
+      this.logger.debug(`返回最近完成的任务：${recentTask.id}, status: ${recentTask.status}`);
+    }
+
     return recentTask || null;
+  }
+
+  /**
+   * 停止当前同步任务
+   */
+  async stopCurrentTask(): Promise<SatelliteSyncTaskEntity | null> {
+    if (this.currentTask && this.currentTask.status === 'running') {
+      this.logger.log(`收到停止请求，任务 ID: ${this.currentTask.id}`);
+      this.stopRequested = true;
+      return this.currentTask;
+    }
+
+    // 如果没有运行中的任务，查找数据库中的 running 任务
+    const runningTask = await this.taskRepository.findOne({
+      where: { status: 'running' },
+      order: { startedAt: 'DESC' },
+    });
+
+    if (runningTask) {
+      this.logger.log(`收到停止请求，任务 ID: ${runningTask.id}`);
+      this.stopRequested = true;
+      return runningTask;
+    }
+
+    this.logger.warn('没有运行中的任务，无法停止');
+    return null;
   }
 
   /**
@@ -410,6 +457,17 @@ export class SatelliteSyncService {
   }
 
   /**
+   * 获取最近的错误日志（用于运行中的任务实时显示）
+   */
+  async getRecentErrors(taskId: string, limit: number = 5): Promise<SatelliteSyncErrorLogEntity[]> {
+    return this.errorLogRepository.find({
+      where: { taskId },
+      order: { timestamp: 'DESC' },
+      take: limit,
+    });
+  }
+
+  /**
    * 获取 TLE 数据列表
    */
   async getTleList(query: TleListQueryDto): Promise<TleListResponse> {
@@ -536,6 +594,9 @@ export class SatelliteSyncService {
    * 执行同步（智能降级策略）
    */
   private async executeSync(task: SatelliteSyncTaskEntity): Promise<void> {
+    // 重置停止标志
+    this.stopRequested = false;
+
     try {
       switch (task.type) {
         case 'celestrak':
@@ -630,11 +691,21 @@ export class SatelliteSyncService {
           break;
       }
 
-      // 更新任务状态为完成
-      task.status = 'completed';
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
-      this.logger.log(`同步任务完成: ${task.id}`);
+
+      // 检查是否被停止
+      if (this.stopRequested) {
+        task.status = 'failed';
+        task.error = '用户请求停止同步';
+        task.completedAt = new Date();
+        await this.taskRepository.save(task);
+        this.logger.log(`同步任务被用户停止：${task.id}`);
+      } else {
+        // 更新任务状态为完成
+        task.status = 'completed';
+        task.completedAt = new Date();
+        await this.taskRepository.save(task);
+        this.logger.log(`同步任务完成：${task.id}`);
+      }
     } catch (error) {
       this.logger.error(`同步任务失败: ${error.message}`, error.stack);
       task.status = 'failed';
@@ -643,6 +714,17 @@ export class SatelliteSyncService {
       await this.taskRepository.save(task);
     } finally {
       this.currentTask = null;
+      this.stopRequested = false;
+    }
+  }
+
+  /**
+   * 检查是否请求停止，如果是则抛出异常
+   */
+  protected checkStopRequested(): void {
+    if (this.stopRequested) {
+      this.logger.log('检测到停止请求，提前退出同步');
+      throw new Error('用户请求停止同步');
     }
   }
 
@@ -882,6 +964,9 @@ export class SatelliteSyncService {
     let batchErrors: string[] = [];
 
     for (const batch of batches) {
+      // 检查停止请求
+      this.checkStopRequested();
+
       this.logger.log(`获取批次：${batch.name} (NORAD ID ${batch.range})`);
 
       try {
@@ -889,7 +974,7 @@ export class SatelliteSyncService {
         this.logger.log(`批次 ${batch.name} 获取到 ${gpData.length} 条数据`);
 
         // 处理数据
-        const result = await this.processAndStoreGpData(gpData);
+        const result = await this.processAndStoreGpData(task.id, gpData);
         totalProcessed += gpData.length;
         totalSuccess += result.success;
         totalFailed += result.failed;
@@ -905,7 +990,7 @@ export class SatelliteSyncService {
 
         // 批次间隔
         await this.sleep(this.BATCH_INTERVAL_MS);
-      } catch (error) {
+      } catch (error: any) {
         this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
         batchErrors.push(`${batch.name}: ${error.message}`);
       }
@@ -1028,7 +1113,7 @@ export class SatelliteSyncService {
   /**
    * 处理并存储 GP 数据（Space-Track）
    */
-  private async processAndStoreGpData(gpData: SpaceTrackGpResponse[]): Promise<{ success: number; failed: number }> {
+  private async processAndStoreGpData(taskId: string, gpData: SpaceTrackGpResponse[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
@@ -1056,9 +1141,19 @@ export class SatelliteSyncService {
         // 更新或创建元数据
         await this.upsertMetadata(item);
         success++;
-      } catch (error) {
+      } catch (error: any) {
         this.logger.warn(`保存 Space-Track 数据失败 (${item.OBJECT_NAME}, NORAD ${item.NORAD_CAT_ID}): ${error.message}`);
         failed++;
+        // 记录错误日志
+        await this.logSyncError(
+          taskId,
+          this.formatNoradId(item.NORAD_CAT_ID),
+          item.OBJECT_NAME,
+          'space-track',
+          'database',
+          error.message,
+          undefined,
+        );
       }
     }
 
@@ -1219,9 +1314,12 @@ export class SatelliteSyncService {
     this.logger.log(`需要同步 ${satellites.length} 颗卫星的 KeepTrack 元数据`);
 
     let success = 0;
-    let processed = 0;
+    let failed = 0;
 
     for (const sat of satellites) {
+      // 检查停止请求
+      this.checkStopRequested();
+
       try {
         const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
         const response = await fetch(url, {
@@ -1232,21 +1330,47 @@ export class SatelliteSyncService {
           const detail: KeepTrackSatDetailResponse = await response.json();
           await this.saveKeepTrackMetadata(sat.noradId, detail);
           success++;
+        } else {
+          // API 返回非 200 状态码，记录错误
+          failed++;
+          await this.logSyncError(
+            task.id,
+            sat.noradId,
+            undefined,
+            'keeptrack',
+            'api_error',
+            `API 返回 ${response.status}`,
+            undefined,
+          );
         }
 
         // 限流：1000 次/小时
         await this.sleep(3600);
-      } catch (error) {
-        this.logger.warn(`获取元数据失败 (${sat.noradId}): ${error.message}`);
+      } catch (error: any) {
+        // 检查是否是停止请求
+        if (error.message === '用户请求停止同步') {
+          throw error;
+        }
+        // 其他错误，记录失败
+        failed++;
+        await this.logSyncError(
+          task.id,
+          sat.noradId,
+          undefined,
+          'keeptrack',
+          'network',
+          error.message,
+          undefined,
+        );
       }
 
-      processed++;
-      task.processed = processed;
+      task.processed = success + failed;
       task.success = success;
+      task.failed = failed;
       await this.taskRepository.save(task);
     }
 
-    this.logger.log(`KeepTrack 元数据同步完成：成功 ${success}/${processed}`);
+    this.logger.log(`KeepTrack 元数据同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
   /**
@@ -1448,6 +1572,27 @@ export class SatelliteSyncService {
       return result;
     }
 
+    // 调试：打印第一个数据的详细结构，确定哪个字段可能超长
+    if (json.data.length > 0) {
+      const attrs = json.data[0].attributes;
+      this.logger.log(`DISCOS 返回数据示例 - NORAD: ${attrs.satno}`);
+      this.logger.log(`  cosparId: "${attrs.cosparId}" (${attrs.cosparId?.length || 0})`);
+      this.logger.log(`  objectClass: "${attrs.objectClass}" (${attrs.objectClass?.length || 0})`);
+      this.logger.log(`  shape: "${attrs.shape}" (${attrs.shape?.length || 0})`);
+      this.logger.log(`  mission: "${attrs.mission?.substring(0, 50)}..." (${attrs.mission?.length || 0})`);
+
+      // 检查 included 中的运营商和发射信息
+      const included = json.included || [];
+      if (included.length > 0) {
+        this.logger.log(`  included 数量：${included.length}`);
+        included.forEach((inc, idx) => {
+          if (idx < 3) {
+            this.logger.log(`    [${inc.type}] ${inc.id}: ${JSON.stringify(inc.attributes).substring(0, 100)}...`);
+          }
+        });
+      }
+    }
+
     const included = json.included || [];
 
     for (const item of json.data) {
@@ -1613,6 +1758,17 @@ export class SatelliteSyncService {
    */
   private async updateMetadataWithDiscos(noradId: string, info: any): Promise<void> {
     const dimensions = this.formatDimensions(info);
+
+    // 调试：打印所有字段的长度
+    this.logger.log(`NORAD ${noradId} 字段长度检查:`);
+    this.logger.log(`  cosparId: "${info.cosparId}" (${info.cosparId?.length || 0})`);
+    this.logger.log(`  objectClass: "${info.objectClass}" (${info.objectClass?.length || 0})`);
+    this.logger.log(`  shape: "${info.shape}" (${info.shape?.length || 0})`);
+    this.logger.log(`  dimensions: "${dimensions}" (${dimensions?.length || 0})`);
+    this.logger.log(`  mission: "${info.mission?.substring(0, 30)}..." (${info.mission?.length || 0})`);
+    this.logger.log(`  operator: "${info.operator?.substring(0, 30)}..." (${info.operator?.length || 0})`);
+    this.logger.log(`  launchVehicle: "${info.launchVehicle?.substring(0, 30)}..." (${info.launchVehicle?.length || 0})`);
+    this.logger.log(`  launchSiteName: "${info.launchSiteName?.substring(0, 30)}..." (${info.launchSiteName?.length || 0})`);
 
     const updateData: Partial<SatelliteMetadataEntity> = {
       cosparId: info.cosparId,

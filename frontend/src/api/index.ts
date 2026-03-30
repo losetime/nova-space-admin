@@ -345,6 +345,16 @@ export interface SyncTask {
   completedAt?: string
   progress: SyncProgress
   error?: string
+  recentErrors?: SyncErrorLogEntry[]
+}
+
+// 错误日志摘要（用于实时显示）
+export interface SyncErrorLogEntry {
+  noradId: string
+  name?: string
+  errorType: string
+  errorMessage: string
+  timestamp: string
 }
 
 export interface SyncStats {
@@ -415,6 +425,9 @@ export const satelliteSyncApi = {
 
   getStatus: () =>
     api.get<any, ApiResponse<SyncTask | null>>('/satellite-sync/status'),
+
+  stopSync: () =>
+    api.post<any, ApiResponse<{ taskId: string; status: SyncStatus }>>('/satellite-sync/stop'),
 
   getStats: () =>
     api.get<any, ApiResponse<SyncStats>>('/satellite-sync/stats'),

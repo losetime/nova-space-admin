@@ -31,6 +31,17 @@ export interface SyncProgress {
 }
 
 /**
+ * 错误日志摘要（用于实时显示）
+ */
+export interface SyncErrorLogEntry {
+  noradId: string;
+  name?: string;
+  errorType: string;
+  errorMessage: string;
+  timestamp: string;
+}
+
+/**
  * 同步状态响应
  */
 export interface SyncStatusResponse {
@@ -41,6 +52,7 @@ export interface SyncStatusResponse {
   completedAt?: string;
   progress: SyncProgress;
   error?: string;
+  recentErrors?: SyncErrorLogEntry[]; // 最近 N 条错误日志
 }
 
 /**
@@ -228,3 +240,8 @@ export interface ErrorLogItem {
   errorMessage: string;
   timestamp: string;
 }
+
+/**
+ * 停止同步请求 DTO
+ */
+export class StopSyncDto {}

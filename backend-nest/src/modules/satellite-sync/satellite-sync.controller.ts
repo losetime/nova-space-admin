@@ -17,6 +17,7 @@ import {
   TaskListQueryDto,
   TleListQueryDto,
   MetadataListQueryDto,
+  StopSyncDto,
 } from './dto/sync.dto';
 
 /**
@@ -66,6 +67,19 @@ export class SatelliteSyncController {
       return null;
     }
 
+    // 获取最近的错误日志（用于运行中的任务）
+    let recentErrors = [];
+    if (task.status === 'running') {
+      const errors = await this.syncService.getRecentErrors(task.id, 5);
+      recentErrors = errors.map(err => ({
+        noradId: err.noradId,
+        name: err.name,
+        errorType: err.errorType,
+        errorMessage: err.errorMessage,
+        timestamp: err.timestamp.toISOString(),
+      }));
+    }
+
     return {
       taskId: task.id,
       type: task.type,
@@ -80,6 +94,21 @@ export class SatelliteSyncController {
         percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
       },
       error: task.error,
+      recentErrors,
+    };
+  }
+
+  /**
+   * 停止同步
+   * POST /api/satellite-sync/stop
+   */
+  @Post('stop')
+  @HttpCode(HttpStatus.OK)
+  async stopSync() {
+    const task = await this.syncService.stopCurrentTask();
+    return {
+      taskId: task?.id,
+      status: task?.status,
     };
   }
 

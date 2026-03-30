@@ -109,7 +109,18 @@
     <t-card v-if="syncStatus && syncStatus.progress" title="当前同步进度" :bordered="false" class="progress-card">
       <div class="progress-header">
         <span class="progress-task-id">任务 ID: {{ syncStatus.taskId }}</span>
-        <t-tag :theme="getStatusTheme(syncStatus.status)">{{ getStatusText(syncStatus.status) }}</t-tag>
+        <div class="progress-header-actions">
+          <t-tag :theme="getStatusTheme(syncStatus.status)">{{ getStatusText(syncStatus.status) }}</t-tag>
+          <t-button
+            v-if="syncStatus.status === 'running'"
+            theme="danger"
+            size="small"
+            :loading="stopping"
+            @click="handleStop"
+          >
+            停止
+          </t-button>
+        </div>
       </div>
       <t-progress
         :percentage="syncStatus.progress.percentage || 0"
@@ -121,6 +132,21 @@
         <span>已处理：{{ syncStatus.progress.processed || 0 }}</span>
         <span class="success">成功：{{ syncStatus.progress.success || 0 }}</span>
         <span class="failed">失败：{{ syncStatus.progress.failed || 0 }}</span>
+      </div>
+      <!-- 最近错误日志 -->
+      <div v-if="syncStatus.recentErrors && syncStatus.recentErrors.length > 0" class="recent-errors">
+        <t-alert theme="warning" title="最近错误" style="margin-top: 12px">
+          <template #message>
+            <div class="error-list">
+              <div v-for="(err, idx) in syncStatus.recentErrors" :key="idx" class="error-item">
+                <span class="error-norad">[{{ err.noradId }}]</span>
+                <span class="error-name">{{ err.name }}</span>
+                <span class="error-type">{{ getErrorTypeText(err.errorType) }}</span>
+                <span class="error-message">{{ err.errorMessage }}</span>
+              </div>
+            </div>
+          </template>
+        </t-alert>
       </div>
       <t-alert v-if="syncStatus.error" theme="error" :message="syncStatus.error" style="margin-top: 12px" />
     </t-card>
@@ -159,7 +185,23 @@
               {{ formatDate(row.startedAt) }}
             </template>
             <template #action="{ row }">
-              <t-link theme="primary" @click="showTaskErrors(row)">查看失败记录</t-link>
+              <t-link
+                v-if="row.failed > 0"
+                theme="primary"
+                @click="showTaskErrors(row)"
+              >
+                查看失败记录 ({{ row.failed }})
+              </t-link>
+              <t-link
+                v-else-if="row.status === 'failed'"
+                theme="primary"
+                @click="showTaskErrors(row)"
+              >
+                查看错误日志
+              </t-link>
+              <span v-else style="color: var(--td-text-color-disabled)">
+                无失败记录
+              </span>
             </template>
           </t-table>
         </div>
@@ -192,7 +234,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { RefreshIcon } from 'tdesign-icons-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
 import {
@@ -221,7 +263,9 @@ const stats = reactive<SyncStats>({
 // 同步状态
 const syncing = ref<SyncType | null>(null)
 const syncStatus = ref<SyncTask | null>(null)
+const stopping = ref(false) // 标记是否正在停止
 let pollTimer: number | null = null
+const isPolling = ref(false) // 标记是否正在轮询
 
 // TLE 数据源表格
 const tleSourceColumns = [
@@ -342,10 +386,21 @@ async function loadStats() {
 async function loadSyncStatus() {
   try {
     const res = await satelliteSyncApi.getStatus()
+    console.log('[Sync] getStatus response:', res)
     if (res.success && res.data) {
       syncStatus.value = res.data
-      syncing.value = res.data.status === 'running' ? res.data.type : null
+      console.log('[Sync] syncStatus updated:', syncStatus.value)
+      // 只有运行中的任务才设置 syncing 状态
+      if (res.data.status === 'running') {
+        console.log('[Sync] status is running, setting syncing to:', res.data.type)
+        syncing.value = res.data.type
+      } else {
+        // 任务已完成或失败，清除 syncing 状态
+        console.log('[Sync] status is not running, clearing syncing')
+        syncing.value = null
+      }
     } else {
+      console.log('[Sync] no data, clearing status')
       syncStatus.value = null
       syncing.value = null
     }
@@ -356,12 +411,17 @@ async function loadSyncStatus() {
 
 // 开始同步
 async function handleSync(type: SyncType) {
+  console.log('[Sync] handleSync called with type:', type)
   try {
     syncing.value = type
     const res = await satelliteSyncApi.startSync(type)
+    console.log('[Sync] startSync response:', res)
     if (res.success) {
       syncStatus.value = res.data
+      console.log('[Sync] syncStatus set to:', syncStatus.value)
       MessagePlugin.success('同步任务已启动')
+      // 开始轮询
+      startPolling()
     } else {
       MessagePlugin.error(res.message || '启动同步失败')
       syncing.value = null
@@ -380,6 +440,25 @@ async function showSyncDetail(type: SyncType) {
   selectedTask.value = null
   taskErrors.value = []
   await loadSyncTasks(type)
+}
+
+// 停止同步
+async function handleStop() {
+  try {
+    stopping.value = true
+    const res = await satelliteSyncApi.stopSync()
+    console.log('[Sync] stopSync response:', res)
+    if (res.success) {
+      MessagePlugin.success('已请求停止同步任务')
+      // 继续轮询直到任务状态变为 failed
+    } else {
+      MessagePlugin.error(res.message || '停止同步失败')
+    }
+  } catch (error: any) {
+    MessagePlugin.error(error.message || '停止同步失败')
+  } finally {
+    stopping.value = false
+  }
 }
 
 // 加载该类型的同步任务
@@ -428,39 +507,48 @@ async function showTaskErrors(task: SyncTaskItem) {
 
 // 轮询（只在同步运行时）
 function startPolling() {
-  if (pollTimer) return
-  pollTimer = window.setInterval(async () => {
+  // 如果已经在轮询中，不要重复启动
+  if (isPolling.value) {
+    console.log('[Sync] already polling, skipping')
+    return
+  }
+
+  console.log('[Sync] starting polling')
+  isPolling.value = true
+
+  const poll = async () => {
     await loadSyncStatus()
-    // 同步完成或没有任务时停止轮询
-    if (syncStatus.value?.status !== 'running') {
+
+    // 同步完成、失败或没有任务时停止轮询
+    if (!syncStatus.value || syncStatus.value?.status !== 'running') {
+      console.log('[Sync] stopping poll, status:', syncStatus.value?.status)
       stopPolling()
+      // 同步完成后刷新统计数据
       await loadStats()
+      // 清除 syncing 状态，解锁按钮
+      syncing.value = null
+    } else {
+      console.log('[Sync] continuing poll, status:', syncStatus.value?.status)
+      // 继续轮询
+      pollTimer = window.setTimeout(poll, 2000)
     }
-  }, 2000)
+  }
+
+  poll()
 }
 
 function stopPolling() {
+  isPolling.value = false
   if (pollTimer) {
-    clearInterval(pollTimer)
+    clearTimeout(pollTimer)
     pollTimer = null
   }
 }
 
 // 监听同步状态，运行时开始轮询
-watch(syncStatus, (status) => {
-  if (status?.status === 'running') {
-    startPolling()
-  }
-})
+// 注意：不再使用 watch 自动触发轮询，避免逻辑混乱
+// 轮询只在 onMounted 和 handleSync 中手动控制
 
-function getStatusTheme(status: SyncStatus) {
-  switch (status) {
-    case 'completed': return 'success'
-    case 'failed': return 'danger'
-    case 'running': return 'primary'
-    default: return 'default'
-  }
-}
 
 function getStatusText(status: SyncStatus) {
   switch (status) {
@@ -484,11 +572,16 @@ function getTypeText(type: SyncType) {
 }
 
 function getErrorTypeTheme(type: string) {
+  if (!type) return 'default'
   const map: Record<string, string> = {
     'missing_name': 'warning',
     'parse_error': 'danger',
     'duplicate': 'default',
     'database': 'danger',
+    'api_error': 'danger',
+    'network': 'danger',
+    'timeout': 'warning',
+    'other': 'default',
   }
   return map[type] || 'default'
 }
@@ -499,8 +592,21 @@ function getErrorTypeText(type: string) {
     'parse_error': '解析失败',
     'duplicate': '重复数据',
     'database': '数据库错误',
+    'api_error': 'API 错误',
+    'network': '网络错误',
+    'timeout': '超时',
+    'other': '其他错误',
   }
   return map[type] || type
+}
+
+function getStatusTheme(status: SyncStatus) {
+  switch (status) {
+    case 'completed': return 'success'
+    case 'failed': return 'danger'
+    case 'running': return 'primary'
+    default: return 'default'
+  }
 }
 
 function formatDate(dateStr: string) {
@@ -515,10 +621,17 @@ function formatDate(dateStr: string) {
 }
 
 onMounted(async () => {
+  console.log('[Sync] onMounted, loading initial state')
   await Promise.all([loadStats(), loadSyncStatus()])
+  console.log('[Sync] initial state loaded, syncStatus:', syncStatus.value)
   // 如果有任务正在运行，才开始轮询
   if (syncStatus.value?.status === 'running') {
+    console.log('[Sync] initial status is running, starting polling')
     startPolling()
+  } else {
+    console.log('[Sync] initial status is not running, clearing syncing')
+    // 页面加载时任务已完成或失败，清除 syncing 状态
+    syncing.value = null
   }
 })
 
@@ -584,6 +697,12 @@ onUnmounted(() => stopPolling())
   margin-bottom: 12px;
 }
 
+.progress-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .progress-task-id {
   font-size: 13px;
   color: var(--td-text-color-secondary);
@@ -608,6 +727,51 @@ onUnmounted(() => stopPolling())
 .failed-highlight {
   color: var(--td-error-color);
   font-weight: 600;
+}
+
+/* 最近错误列表 */
+.error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--td-border-level-1-color);
+}
+
+.error-item:last-child {
+  border-bottom: none;
+}
+
+.error-norad {
+  font-weight: 600;
+  color: var(--td-error-color);
+  white-space: nowrap;
+}
+
+.error-name {
+  color: var(--td-text-color-primary);
+  white-space: nowrap;
+}
+
+.error-type {
+  color: var(--td-text-color-secondary);
+  white-space: nowrap;
+}
+
+.error-message {
+  color: var(--td-text-color-secondary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sync-detail-content {
