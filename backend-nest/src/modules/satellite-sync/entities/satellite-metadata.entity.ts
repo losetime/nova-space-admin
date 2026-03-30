@@ -104,7 +104,7 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'float', nullable: true })
   launchMass: number;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   shape: string;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
