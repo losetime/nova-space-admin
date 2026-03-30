@@ -27,7 +27,7 @@ export class SatelliteSyncController {
   @Post()
   @HttpCode(HttpStatus.OK)
   async startSync(@Body() dto: SyncRequestDto) {
-    this.logger.log(`收到同步请求: type=${dto.type}, force=${dto.force}`);
+    this.logger.log(`收到同步请求：type=${dto.type}, force=${dto.force}`);
 
     const task = await this.syncService.startSync(dto.type);
 
@@ -80,6 +80,6 @@ export class SatelliteSyncController {
    */
   @Get('stats')
   async getStats() {
-    return await this.syncService.getStats();
+    return this.syncService.getStats();
   }
 }

@@ -13,9 +13,13 @@ import {
  */
 @Entity('satellite_tle')
 @Index(['updatedAt'])
+@Index(['source'])
 export class SatelliteTle {
   @PrimaryColumn({ type: 'varchar', length: 10 })
   noradId: string;
+
+  @Column({ type: 'varchar', length: 20, default: 'celestrak' })
+  source: string; // 'celestrak' | 'space-track' | 'keeptrack'
 
   @Column({ type: 'varchar', length: 100 })
   name: string;

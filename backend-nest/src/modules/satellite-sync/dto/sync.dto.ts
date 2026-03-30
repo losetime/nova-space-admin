@@ -5,12 +5,16 @@ import { SyncType } from '../entities/sync-task.entity';
  * 同步请求 DTO
  */
 export class SyncRequestDto {
-  @IsEnum(['tle', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
   type: SyncType;
 
   @IsOptional()
   @IsBoolean()
   force?: boolean; // 是否强制同步（忽略缓存）
+
+  @IsOptional()
+  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  sourceType?: SyncType; // 用于指定数据源类型
 }
 
 /**
@@ -46,6 +50,10 @@ export interface SyncStatsResponse {
   metadataCount: number;
   discosCount: number;
   discosCoverage: string; // DISCOS 数据覆盖率百分比
+  celestrakCount?: number;
+  keepTrackCount?: number;
   lastTleSync?: string;
   lastDiscosSync?: string;
+  lastCelestrakSync?: string;
+  lastKeepTrackSync?: string;
 }

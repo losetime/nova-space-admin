@@ -1,0 +1,8 @@
+{
+  "source": "celestrak",
+  "description": "CelesTrak TLE 数据缓存 - GROUP=active (活跃卫星)",
+  "url": "https://celestrak.org/NORAD/elements/gp.php?GROUP=active&FORMAT=json",
+  "cachedAt": null,
+  "count": 0,
+  "data": []
+}
