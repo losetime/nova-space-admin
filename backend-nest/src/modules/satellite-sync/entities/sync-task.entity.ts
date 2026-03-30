@@ -53,7 +53,7 @@ export class SatelliteSyncTaskEntity {
   @Column({ type: 'int', default: 0, name: 'failed' })
   failed: number;
 
-  @Column({ type: 'timestamp', name: 'startedat' })
+  @Column({ type: 'timestamp', nullable: true, name: 'startedat' })
   startedAt: Date;
 
   @Column({ type: 'timestamp', nullable: true, name: 'completedat' })

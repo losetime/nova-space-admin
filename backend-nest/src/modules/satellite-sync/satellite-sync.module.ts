@@ -6,6 +6,7 @@ import {
   SatelliteSyncTaskEntity,
   SatelliteTle,
   SatelliteMetadataEntity,
+  SatelliteSyncErrorLogEntity,
 } from './entities';
 
 @Module({
@@ -14,6 +15,7 @@ import {
       SatelliteSyncTaskEntity,
       SatelliteTle,
       SatelliteMetadataEntity,
+      SatelliteSyncErrorLogEntity,
     ]),
   ],
   controllers: [SatelliteSyncController],

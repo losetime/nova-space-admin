@@ -129,7 +129,7 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   bus: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'text', nullable: true })
   purpose: string;
 
   @Column({ type: 'float', nullable: true })
@@ -141,13 +141,13 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'float', nullable: true })
   dryMass: number;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'text', nullable: true })
   equipment: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'text', nullable: true })
   adcs: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'text', nullable: true })
   payload: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })

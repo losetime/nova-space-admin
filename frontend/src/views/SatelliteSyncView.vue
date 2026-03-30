@@ -1,121 +1,94 @@
 <template>
   <div class="satellite-sync-container">
-    <!-- TLE 轨道数据区域 -->
-    <t-card title="TLE 轨道数据" :bordered="false" class="section-card tle-section">
-      <div class="stats-row">
-        <div class="stat-total">
-          <span class="stat-label">卫星总数</span>
-          <span class="stat-value">{{ stats.tleCount.toLocaleString() }}</span>
-        </div>
-        <div class="stat-sources">
-          <div class="source-item primary">
-            <span class="source-icon">📡</span>
-            <span class="source-name">KeepTrack</span>
-            <span class="source-value">{{ (stats.keepTrackCount || 0).toLocaleString() }}</span>
-            <span class="source-badge">主数据源</span>
+    <!-- TLE 轨道数据表格 -->
+    <t-card title="TLE 轨道数据" :bordered="false" class="section-card">
+      <t-table
+        bordered
+        :columns="tleSourceColumns"
+        :data="tleSourceData"
+        row-key="source"
+      >
+        <template #source="{ row }">
+          <div class="source-cell">
+            <span class="source-icon">{{ row.icon }}</span>
+            <span class="source-name">{{ row.name }}</span>
           </div>
-          <div class="source-item">
-            <span class="source-icon">🛰️</span>
-            <span class="source-name">Space-Track</span>
-            <span class="source-value">{{ (stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0)).toLocaleString() }}</span>
-            <span class="source-badge">备用</span>
-          </div>
-          <div class="source-item">
-            <span class="source-icon">🌐</span>
-            <span class="source-name">CelesTrak</span>
-            <span class="source-value">{{ (stats.celestrakCount || 0).toLocaleString() }}</span>
-            <span class="source-badge">兜底</span>
-          </div>
-        </div>
-      </div>
-      <div class="actions-row">
-        <div class="actions">
-          <t-button
-            theme="primary"
-            :loading="syncing === 'keeptrack-tle'"
-            :disabled="!!syncing"
-            @click="handleSync('keeptrack-tle')"
-          >
-            <template #icon><CloudDownloadIcon /></template>
-            同步 KeepTrack TLE
-          </t-button>
-          <t-button
-            variant="outline"
-            :loading="syncing === 'space-track'"
-            :disabled="!!syncing"
-            @click="handleSync('space-track')"
-          >
-            <template #icon><CloudDownloadIcon /></template>
-            同步 Space-Track
-          </t-button>
-          <t-button
-            variant="outline"
-            :loading="syncing === 'celestrak'"
-            :disabled="!!syncing"
-            @click="handleSync('celestrak')"
-          >
-            <template #icon><CloudDownloadIcon /></template>
-            同步 CelesTrak
-          </t-button>
-        </div>
-        <div class="sync-status">
-          <check-circle-filled v-if="stats.lastCelestrakSync" :style="{ color: 'var(--td-success-color)' }" />
-          <span>最近同步：{{ stats.lastCelestrakSync ? formatDate(stats.lastCelestrakSync) : '暂无记录' }}</span>
-        </div>
-      </div>
+        </template>
+        <template #count="{ row }">
+          <span class="count-value">{{ row.count.toLocaleString() }}</span>
+        </template>
+        <template #role="{ row }">
+          <t-tag :theme="row.roleTheme" size="small">{{ row.role }}</t-tag>
+        </template>
+        <template #lastSync="{ row }">
+          {{ row.lastSync ? formatDate(row.lastSync) : '暂无记录' }}
+        </template>
+        <template #action="{ row }">
+          <t-space>
+            <t-button
+              size="small"
+              :loading="syncing === row.syncType"
+              :disabled="!!syncing"
+              @click="handleSync(row.syncType)"
+            >
+              同步
+            </t-button>
+            <t-link
+              theme="primary"
+              @click="showSyncDetail(row.syncType)"
+            >
+              查看详情
+            </t-link>
+          </t-space>
+        </template>
+      </t-table>
     </t-card>
 
-    <!-- 卫星元数据区域 -->
-    <t-card title="卫星元数据" :bordered="false" class="section-card meta-section">
-      <div class="stats-row">
-        <div class="stat-total">
-          <span class="stat-label">卫星总数</span>
-          <span class="stat-value">{{ stats.metadataCount.toLocaleString() }}</span>
-        </div>
-        <div class="stat-sources">
-          <div class="source-item primary">
-            <span class="source-icon">📡</span>
-            <span class="source-name">KeepTrack</span>
-            <span class="source-value">待 API Key</span>
-            <span class="source-badge">主数据源</span>
+    <!-- 卫星元数据表格 -->
+    <t-card title="卫星元数据" :bordered="false" class="section-card">
+      <t-table
+        bordered
+        :columns="metaSourceColumns"
+        :data="metaSourceData"
+        row-key="source"
+      >
+        <template #source="{ row }">
+          <div class="source-cell">
+            <span class="source-icon">{{ row.icon }}</span>
+            <span class="source-name">{{ row.name }}</span>
           </div>
-          <div class="source-item">
-            <span class="source-icon">🇪🇺</span>
-            <span class="source-name">ESA DISCOS</span>
-            <span class="source-value highlight">{{ stats.discosCount.toLocaleString() }}</span>
-            <span class="source-badge">备用</span>
-          </div>
-        </div>
-      </div>
-      <div class="actions-row">
-        <div class="actions">
-          <t-button
-            theme="primary"
-            :loading="syncing === 'keeptrack-meta'"
-            :disabled="!!syncing"
-            @click="handleSync('keeptrack-meta')"
-          >
-            <template #icon><CloudDownloadIcon /></template>
-            同步 KeepTrack 元数据
-          </t-button>
-          <t-button
-            variant="outline"
-            :loading="syncing === 'discos'"
-            :disabled="!!syncing"
-            @click="handleSync('discos')"
-          >
-            <template #icon><CloudDownloadIcon /></template>
-            同步 ESA DISCOS
-          </t-button>
-        </div>
-        <div class="sync-status">
-          <check-circle-filled v-if="stats.lastKeepTrackSync" :style="{ color: 'var(--td-success-color)' }" />
-          <span>最近同步：{{ stats.lastKeepTrackSync ? formatDate(stats.lastKeepTrackSync) : '暂无记录' }}</span>
-        </div>
-      </div>
+        </template>
+        <template #count="{ row }">
+          <span class="count-value">{{ row.count }}</span>
+        </template>
+        <template #role="{ row }">
+          <t-tag :theme="row.roleTheme" size="small">{{ row.role }}</t-tag>
+        </template>
+        <template #lastSync="{ row }">
+          {{ row.lastSync ? formatDate(row.lastSync) : '暂无记录' }}
+        </template>
+        <template #action="{ row }">
+          <t-space>
+            <t-button
+              size="small"
+              :loading="syncing === row.syncType"
+              :disabled="!!syncing"
+              @click="handleSync(row.syncType)"
+            >
+              同步
+            </t-button>
+            <t-link
+              theme="primary"
+              @click="showSyncDetail(row.syncType)"
+            >
+              查看详情
+            </t-link>
+          </t-space>
+        </template>
+      </t-table>
     </t-card>
 
-    <!-- 完整同步 -->
+    <!-- 快速操作 -->
     <t-card title="快速操作" :bordered="false" class="section-card quick-section">
       <div class="quick-actions">
         <t-button
@@ -128,6 +101,7 @@
           <template #icon><RefreshIcon /></template>
           完整同步（所有数据源）
         </t-button>
+        <t-link theme="primary" size="small" @click="showSyncDetail('all')">查看详情</t-link>
       </div>
     </t-card>
 
@@ -137,53 +111,101 @@
         <span class="progress-task-id">任务 ID: {{ syncStatus.taskId }}</span>
         <t-tag :theme="getStatusTheme(syncStatus.status)">{{ getStatusText(syncStatus.status) }}</t-tag>
       </div>
-      <div class="progress-bar">
-        <t-progress
-          :percentage="syncStatus.progress.percentage || 0"
-          :theme="syncStatus.status === 'failed' ? 'warning' : 'primary'"
-          :label="true"
-        />
-      </div>
+      <t-progress
+        :percentage="syncStatus.progress.percentage || 0"
+        :theme="syncStatus.status === 'failed' ? 'warning' : 'primary'"
+        :label="true"
+      />
       <div class="progress-stats">
         <span>总数：{{ syncStatus.progress.total || 0 }}</span>
         <span>已处理：{{ syncStatus.progress.processed || 0 }}</span>
         <span class="success">成功：{{ syncStatus.progress.success || 0 }}</span>
         <span class="failed">失败：{{ syncStatus.progress.failed || 0 }}</span>
       </div>
-      <div v-if="syncStatus.error" class="progress-error">
-        <t-alert theme="error" :message="syncStatus.error" />
-      </div>
+      <t-alert v-if="syncStatus.error" theme="error" :message="syncStatus.error" style="margin-top: 12px" />
     </t-card>
 
-    <!-- 数据源说明 -->
-    <t-card title="数据源说明" :bordered="false" class="info-card">
-      <t-row :gutter="16">
-        <t-col :span="12">
-          <h4>TLE 轨道数据</h4>
-          <ul>
-            <li><strong>KeepTrack</strong> - 主数据源，提供 TLE 和扩展元数据，需要 API Key</li>
-            <li><strong>Space-Track</strong> - 备用数据源，需要账号认证</li>
-            <li><strong>CelesTrak</strong> - 兜底数据源，获取活跃卫星 GROUP=active，免费无需认证</li>
-          </ul>
-        </t-col>
-        <t-col :span="12">
-          <h4>卫星元数据</h4>
-          <ul>
-            <li><strong>KeepTrack</strong> - 主数据源，提供制造商、平台、设备等扩展信息，需要 API Key</li>
-            <li><strong>ESA DISCOS</strong> - 备用数据源，欧洲航天局官方数据库，提供质量、尺寸、运营商等信息</li>
-          </ul>
-        </t-col>
-      </t-row>
-    </t-card>
+    <!-- 同步详情弹窗 -->
+    <t-dialog
+      v-model:visible="syncDetailVisible"
+      :header="syncDetailTitle"
+      width="800px"
+      :footer="false"
+    >
+      <div class="sync-detail-content">
+        <!-- 历史任务列表 -->
+        <div class="task-history">
+          <h4>同步任务历史</h4>
+          <t-table
+            bordered
+            :columns="taskColumns"
+            :data="syncTasks"
+            :loading="tasksLoading"
+            :pagination="taskPagination"
+            row-key="id"
+            size="small"
+            @page-change="onTaskPageChange"
+          >
+            <template #status="{ row }">
+              <t-tag :theme="getStatusTheme(row.status)" size="small">
+                {{ getStatusText(row.status) }}
+              </t-tag>
+            </template>
+            <template #progress="{ row }">
+              <span>{{ row.success }}/{{ row.total }}</span>
+              <span v-if="row.failed > 0" class="failed-highlight"> (失败 {{ row.failed }})</span>
+            </template>
+            <template #startedAt="{ row }">
+              {{ formatDate(row.startedAt) }}
+            </template>
+            <template #action="{ row }">
+              <t-link theme="primary" @click="showTaskErrors(row)">查看失败记录</t-link>
+            </template>
+          </t-table>
+        </div>
+
+        <!-- 失败记录 -->
+        <div v-if="selectedTask" class="error-records">
+          <h4>失败记录 - {{ selectedTask.id }}</h4>
+          <t-table
+            bordered
+            :columns="errorColumns"
+            :data="taskErrors"
+            :loading="errorsLoading"
+            row-key="id"
+            size="small"
+            max-height="200px"
+          >
+            <template #errorType="{ row }">
+              <t-tag :theme="getErrorTypeTheme(row.errorType)" size="small">
+                {{ getErrorTypeText(row.errorType) }}
+              </t-tag>
+            </template>
+            <template #timestamp="{ row }">
+              {{ formatDate(row.timestamp) }}
+            </template>
+          </t-table>
+        </div>
+      </div>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { CloudDownloadIcon, RefreshIcon, CheckCircleFilledIcon } from 'tdesign-icons-vue-next'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
+import { RefreshIcon } from 'tdesign-icons-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { satelliteSyncApi, type SyncType, type SyncStatus, type SyncStats, type SyncTask } from '@/api'
+import {
+  satelliteSyncApi,
+  type SyncType,
+  type SyncStatus,
+  type SyncStats,
+  type SyncTask,
+  type SyncTaskItem,
+  type SyncErrorLog,
+} from '@/api'
 
+// 统计数据
 const stats = reactive<SyncStats>({
   tleCount: 0,
   metadataCount: 0,
@@ -196,11 +218,115 @@ const stats = reactive<SyncStats>({
   lastDiscosSync: undefined,
 })
 
+// 同步状态
 const syncing = ref<SyncType | null>(null)
 const syncStatus = ref<SyncTask | null>(null)
 let pollTimer: number | null = null
 
-// 获取统计数据
+// TLE 数据源表格
+const tleSourceColumns = [
+  { colKey: 'source', title: '数据源', width: 150 },
+  { colKey: 'count', title: '数据数量', width: 100 },
+  { colKey: 'role', title: '角色', width: 100 },
+  { colKey: 'lastSync', title: '最近同步', width: 140 },
+  { colKey: 'action', title: '操作', width: 160 },
+]
+
+const tleSourceData = computed(() => [
+  {
+    source: 'keeptrack',
+    name: 'KeepTrack',
+    icon: '📡',
+    count: stats.keepTrackCount || 0,
+    role: '主数据源',
+    roleTheme: 'primary',
+    lastSync: stats.lastKeepTrackSync,
+    syncType: 'keeptrack-tle' as SyncType,
+  },
+  {
+    source: 'space-track',
+    name: 'Space-Track',
+    icon: '🛰️',
+    count: stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0),
+    role: '备用',
+    roleTheme: 'default',
+    lastSync: stats.lastCelestrakSync,
+    syncType: 'space-track' as SyncType,
+  },
+  {
+    source: 'celestrak',
+    name: 'CelesTrak',
+    icon: '🌐',
+    count: stats.celestrakCount || 0,
+    role: '备用',
+    roleTheme: 'default',
+    lastSync: stats.lastCelestrakSync,
+    syncType: 'celestrak' as SyncType,
+  },
+])
+
+// 元数据表格
+const metaSourceColumns = [
+  { colKey: 'source', title: '数据源', width: 150 },
+  { colKey: 'count', title: '数据数量', width: 100 },
+  { colKey: 'role', title: '角色', width: 100 },
+  { colKey: 'lastSync', title: '最近同步', width: 140 },
+  { colKey: 'action', title: '操作', width: 160 },
+]
+
+const metaSourceData = computed(() => [
+  {
+    source: 'keeptrack-meta',
+    name: 'KeepTrack',
+    icon: '📡',
+    count: stats.metadataCount.toLocaleString(),
+    role: '主数据源',
+    roleTheme: 'primary',
+    lastSync: stats.lastKeepTrackSync,
+    syncType: 'keeptrack-meta' as SyncType,
+  },
+  {
+    source: 'discos',
+    name: 'ESA DISCOS',
+    icon: '🇪🇺',
+    count: stats.discosCount.toLocaleString(),
+    role: '备用',
+    roleTheme: 'default',
+    lastSync: stats.lastDiscosSync,
+    syncType: 'discos' as SyncType,
+  },
+])
+
+// 同步详情弹窗
+const syncDetailVisible = ref(false)
+const syncDetailTitle = ref('')
+const currentSyncType = ref<SyncType | null>(null)
+const syncTasks = ref<SyncTaskItem[]>([])
+const tasksLoading = ref(false)
+const taskPagination = reactive({ current: 1, pageSize: 5, total: 0 })
+
+// 失败记录
+const selectedTask = ref<SyncTaskItem | null>(null)
+const taskErrors = ref<SyncErrorLog[]>([])
+const errorsLoading = ref(false)
+
+const taskColumns = [
+  { colKey: 'id', title: '任务 ID', width: 140, ellipsis: true },
+  { colKey: 'status', title: '状态', width: 80 },
+  { colKey: 'progress', title: '进度', width: 100 },
+  { colKey: 'startedAt', title: '开始时间', width: 120 },
+  { colKey: 'action', title: '操作', width: 100 },
+]
+
+const errorColumns = [
+  { colKey: 'noradId', title: 'NORAD ID', width: 80 },
+  { colKey: 'name', title: '名称', ellipsis: true },
+  { colKey: 'errorType', title: '错误类型', width: 100 },
+  { colKey: 'errorMessage', title: '错误信息', ellipsis: true },
+  { colKey: 'timestamp', title: '时间', width: 120 },
+]
+
+// 加载统计数据
 async function loadStats() {
   try {
     const res = await satelliteSyncApi.getStats()
@@ -212,17 +338,13 @@ async function loadStats() {
   }
 }
 
-// 获取同步状态
+// 加载同步状态
 async function loadSyncStatus() {
   try {
     const res = await satelliteSyncApi.getStatus()
     if (res.success && res.data) {
       syncStatus.value = res.data
-      if (res.data.status === 'running') {
-        syncing.value = res.data.type
-      } else {
-        syncing.value = null
-      }
+      syncing.value = res.data.status === 'running' ? res.data.type : null
     } else {
       syncStatus.value = null
       syncing.value = null
@@ -250,12 +372,68 @@ async function handleSync(type: SyncType) {
   }
 }
 
-// 轮询同步状态
+// 显示同步详情
+async function showSyncDetail(type: SyncType) {
+  currentSyncType.value = type
+  syncDetailTitle.value = `${getTypeText(type)} 同步详情`
+  syncDetailVisible.value = true
+  selectedTask.value = null
+  taskErrors.value = []
+  await loadSyncTasks(type)
+}
+
+// 加载该类型的同步任务
+async function loadSyncTasks(type: SyncType) {
+  tasksLoading.value = true
+  try {
+    const res = await satelliteSyncApi.getTaskList({
+      page: taskPagination.current,
+      limit: taskPagination.pageSize,
+      type,
+    })
+    if (res.success) {
+      syncTasks.value = res.data.data
+      taskPagination.total = res.data.total
+    }
+  } catch (error) {
+    console.error('Failed to load tasks:', error)
+  } finally {
+    tasksLoading.value = false
+  }
+}
+
+function onTaskPageChange(page: number) {
+  taskPagination.current = page
+  if (currentSyncType.value) {
+    loadSyncTasks(currentSyncType.value)
+  }
+}
+
+// 显示任务失败记录
+async function showTaskErrors(task: SyncTaskItem) {
+  selectedTask.value = task
+  taskErrors.value = []
+  errorsLoading.value = true
+  try {
+    const res = await satelliteSyncApi.getTaskErrors(task.id)
+    if (res.success) {
+      taskErrors.value = res.data.data
+    }
+  } catch (error) {
+    console.error('Failed to load errors:', error)
+  } finally {
+    errorsLoading.value = false
+  }
+}
+
+// 轮询（只在同步运行时）
 function startPolling() {
+  if (pollTimer) return
   pollTimer = window.setInterval(async () => {
     await loadSyncStatus()
-    // 如果同步完成，刷新统计数据
+    // 同步完成或没有任务时停止轮询
     if (syncStatus.value?.status !== 'running') {
+      stopPolling()
       await loadStats()
     }
   }, 2000)
@@ -268,39 +446,67 @@ function stopPolling() {
   }
 }
 
-// 获取状态主题
+// 监听同步状态，运行时开始轮询
+watch(syncStatus, (status) => {
+  if (status?.status === 'running') {
+    startPolling()
+  }
+})
+
 function getStatusTheme(status: SyncStatus) {
   switch (status) {
-    case 'completed':
-      return 'success'
-    case 'failed':
-      return 'danger'
-    case 'running':
-      return 'primary'
-    default:
-      return 'default'
+    case 'completed': return 'success'
+    case 'failed': return 'danger'
+    case 'running': return 'primary'
+    default: return 'default'
   }
 }
 
-// 获取状态文本
 function getStatusText(status: SyncStatus) {
   switch (status) {
-    case 'completed':
-      return '已完成'
-    case 'failed':
-      return '失败'
-    case 'running':
-      return '同步中'
-    default:
-      return '等待中'
+    case 'completed': return '已完成'
+    case 'failed': return '失败'
+    case 'running': return '运行中'
+    default: return '等待中'
   }
 }
 
-// 格式化日期
+function getTypeText(type: SyncType) {
+  const map: Record<SyncType, string> = {
+    'celestrak': 'CelesTrak',
+    'space-track': 'Space-Track',
+    'keeptrack-tle': 'KeepTrack TLE',
+    'keeptrack-meta': 'KeepTrack 元数据',
+    'discos': 'ESA DISCOS',
+    'all': '完整同步',
+  }
+  return map[type] || type
+}
+
+function getErrorTypeTheme(type: string) {
+  const map: Record<string, string> = {
+    'missing_name': 'warning',
+    'parse_error': 'danger',
+    'duplicate': 'default',
+    'database': 'danger',
+  }
+  return map[type] || 'default'
+}
+
+function getErrorTypeText(type: string) {
+  const map: Record<string, string> = {
+    'missing_name': '缺少名称',
+    'parse_error': '解析失败',
+    'duplicate': '重复数据',
+    'database': '数据库错误',
+  }
+  return map[type] || type
+}
+
 function formatDate(dateStr: string) {
+  if (!dateStr) return '-'
   const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
-    year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -310,12 +516,13 @@ function formatDate(dateStr: string) {
 
 onMounted(async () => {
   await Promise.all([loadStats(), loadSyncStatus()])
-  startPolling()
+  // 如果有任务正在运行，才开始轮询
+  if (syncStatus.value?.status === 'running') {
+    startPolling()
+  }
 })
 
-onUnmounted(() => {
-  stopPolling()
-})
+onUnmounted(() => stopPolling())
 </script>
 
 <style scoped>
@@ -325,204 +532,61 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-/* 区域卡片通用样式 */
 .section-card {
   border-radius: 12px;
-  overflow: hidden;
 }
 
 .section-card :deep(.t-card__header) {
   padding: 16px 24px;
-  border-bottom: 1px solid var(--td-border-level-1-color);
-  background: var(--td-bg-color-container);
-}
-
-.section-card :deep(.t-card__title) {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
 }
 
 .section-card :deep(.t-card__body) {
-  padding: 20px 24px;
+  padding: 16px 24px;
 }
 
-/* 顶部彩色边框 */
-.tle-section {
-  border-top: 3px solid var(--td-brand-color);
+.quick-section :deep(.t-card__body) {
+  padding: 16px 24px;
 }
 
-.meta-section {
-  border-top: 3px solid var(--td-success-color);
-}
-
-.quick-section {
-  border-top: 3px solid var(--td-warning-color);
-}
-
-/* 统计行 */
-.stats-row {
-  margin-bottom: 20px;
-}
-
-.stat-total {
-  margin-bottom: 16px;
-}
-
-.stat-label {
-  display: block;
-  font-size: 13px;
-  color: var(--td-text-color-secondary);
-  margin-bottom: 4px;
-}
-
-.stat-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--td-text-color-primary);
-  letter-spacing: -0.5px;
-}
-
-/* 数据源列表 */
-.stat-sources {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.source-item {
+.quick-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--td-bg-color-container);
-  transition: all 0.2s ease;
+  gap: 16px;
 }
 
-.source-item:hover {
-  background: var(--td-bg-color-container-hover);
-}
-
-.source-item.primary {
-  background: linear-gradient(135deg, var(--td-brand-color-1) 0%, var(--td-brand-color-2) 100%);
+.source-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .source-icon {
   font-size: 18px;
-  flex-shrink: 0;
 }
 
 .source-name {
-  font-size: 14px;
   font-weight: 500;
-  color: var(--td-text-color-primary);
-  min-width: 90px;
 }
 
-.source-item.primary .source-name {
-  color: var(--td-brand-color);
+.count-value {
   font-weight: 600;
-}
-
-.source-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-  margin-left: auto;
-  margin-right: 12px;
   font-variant-numeric: tabular-nums;
 }
 
-.source-value.highlight {
-  color: var(--td-brand-color);
-}
-
-.source-item.primary .source-value {
-  color: var(--td-brand-color);
-}
-
-.source-badge {
-  font-size: 12px;
-  color: var(--td-text-color-placeholder);
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--td-bg-color-component);
-  flex-shrink: 0;
-}
-
-.source-item.primary .source-badge {
-  background: var(--td-brand-color);
-  color: #fff;
-}
-
-/* 操作行 */
-.actions-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-top: 16px;
-  border-top: 1px solid var(--td-border-level-1-color);
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-}
-
-.actions .t-button {
-  height: 36px;
-  padding: 0 16px;
-  font-size: 14px;
-}
-
-.actions .t-button:first-child {
-  min-width: 140px;
-}
-
-.sync-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--td-text-color-secondary);
-}
-
-.sync-status :deep(.t-icon) {
-  font-size: 16px;
-}
-
-/* 快速操作 */
-.quick-actions {
-  display: flex;
-  justify-content: center;
-  padding: 8px 0;
-}
-
-.quick-actions .t-button {
-  min-width: 200px;
-}
-
-/* 进度卡片 */
 .progress-card {
-  border-top: 3px solid var(--td-info-color);
+  border-top: 3px solid var(--td-brand-color);
 }
 
 .progress-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .progress-task-id {
   font-size: 13px;
   color: var(--td-text-color-secondary);
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.progress-bar {
-  margin-bottom: 12px;
 }
 
 .progress-stats {
@@ -530,45 +594,32 @@ onUnmounted(() => {
   gap: 24px;
   font-size: 13px;
   color: var(--td-text-color-secondary);
-}
-
-.progress-stats .success {
-  color: var(--td-success-color);
-}
-
-.progress-stats .failed {
-  color: var(--td-error-color);
-}
-
-.progress-error {
   margin-top: 12px;
 }
 
-/* 信息卡片 */
-.info-card :deep(.t-card__header) {
-  background: transparent;
+.success {
+  color: var(--td-success-color);
 }
 
-.info-card h4 {
+.failed {
+  color: var(--td-error-color);
+}
+
+.failed-highlight {
+  color: var(--td-error-color);
+  font-weight: 600;
+}
+
+.sync-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.task-history h4,
+.error-records h4 {
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--td-text-color-primary);
-}
-
-.info-card ul {
-  margin: 0;
-  padding-left: 18px;
-}
-
-.info-card li {
-  margin-bottom: 6px;
-  line-height: 1.7;
-  color: var(--td-text-color-secondary);
-  font-size: 14px;
-}
-
-.info-card li strong {
-  color: var(--td-text-color-primary);
 }
 </style>

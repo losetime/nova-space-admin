@@ -360,6 +360,55 @@ export interface SyncStats {
   lastKeepTrackSync?: string
 }
 
+// 同步任务列表项
+export interface SyncTaskItem {
+  id: string
+  type: SyncType
+  status: SyncStatus
+  total: number
+  processed: number
+  success: number
+  failed: number
+  startedAt: string
+  completedAt?: string
+  error?: string
+}
+
+// 错误日志项
+export interface SyncErrorLog {
+  id: string
+  noradId: string
+  name?: string
+  source: string
+  errorType: string
+  errorMessage: string
+  timestamp: string
+}
+
+// TLE 数据项
+export interface TleItem {
+  noradId: string
+  name: string
+  source: string
+  epoch?: string
+  inclination?: number
+  raan?: number
+  eccentricity?: number
+  line1?: string
+  line2?: string
+}
+
+// 元数据项
+export interface MetadataItem {
+  noradId: string
+  name: string
+  countryCode?: string
+  launchDate?: string
+  objectType?: string
+  status?: string
+  hasExtendedData?: boolean
+}
+
 export const satelliteSyncApi = {
   startSync: (type: SyncType, force?: boolean) =>
     api.post<any, ApiResponse<SyncTask>>('/satellite-sync', { type, force }),
@@ -369,6 +418,26 @@ export const satelliteSyncApi = {
 
   getStats: () =>
     api.get<any, ApiResponse<SyncStats>>('/satellite-sync/stats'),
+
+  // 获取同步任务列表
+  getTaskList: (params?: { page?: number; limit?: number; status?: SyncStatus; type?: SyncType }) =>
+    api.get<any, ApiResponse<PaginatedResponse<SyncTaskItem>>>('/satellite-sync/tasks', { params }),
+
+  // 获取任务详情
+  getTaskById: (taskId: string) =>
+    api.get<any, ApiResponse<SyncTaskItem | null>>(`/satellite-sync/tasks/${taskId}`),
+
+  // 获取任务错误日志
+  getTaskErrors: (taskId: string) =>
+    api.get<any, ApiResponse<{ data: SyncErrorLog[]; total: number }>>(`/satellite-sync/tasks/${taskId}/errors`),
+
+  // 获取 TLE 数据列表
+  getTleList: (params?: { page?: number; limit?: number; search?: string; source?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<TleItem>>>('/satellite-sync/tle', { params }),
+
+  // 获取卫星元数据列表
+  getMetadataList: (params?: { page?: number; limit?: number; search?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<MetadataItem>>>('/satellite-sync/metadata', { params }),
 }
 
 export default api

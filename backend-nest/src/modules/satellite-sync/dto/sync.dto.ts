@@ -1,5 +1,6 @@
-import { IsEnum, IsOptional, IsBoolean } from 'class-validator';
-import { SyncType } from '../entities/sync-task.entity';
+import { IsEnum, IsOptional, IsBoolean, IsInt, Min, Max } from 'class-validator';
+import { Type } from 'class-transformer';
+import { SyncType, SyncStatus } from '../entities/sync-task.entity';
 
 /**
  * 同步请求 DTO
@@ -56,4 +57,174 @@ export interface SyncStatsResponse {
   lastDiscosSync?: string;
   lastCelestrakSync?: string;
   lastKeepTrackSync?: string;
+}
+
+/**
+ * 任务列表查询 DTO
+ */
+export class TaskListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+
+  @IsOptional()
+  @IsEnum(['pending', 'running', 'completed', 'failed'])
+  status?: SyncStatus;
+
+  @IsOptional()
+  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  type?: SyncType;
+}
+
+/**
+ * 任务列表响应
+ */
+export interface TaskListResponse {
+  data: SyncTaskItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * 任务项
+ */
+export interface SyncTaskItem {
+  id: string;
+  type: SyncType;
+  status: SyncStatus;
+  total: number;
+  processed: number;
+  success: number;
+  failed: number;
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+}
+
+/**
+ * TLE 数据查询 DTO
+ */
+export class TleListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  search?: string; // 搜索名称或 NORAD ID
+
+  @IsOptional()
+  @IsEnum(['celestrak', 'space-track', 'keeptrack'])
+  source?: string;
+}
+
+/**
+ * TLE 数据列表响应
+ */
+export interface TleListResponse {
+  data: TleItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * TLE 数据项
+ */
+export interface TleItem {
+  noradId: string;
+  name: string;
+  source: string;
+  epoch?: string;
+  inclination?: number;
+  raan?: number;
+  eccentricity?: number;
+  line1?: string;
+  line2?: string;
+}
+
+/**
+ * 元数据查询 DTO
+ */
+export class MetadataListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  search?: string; // 搜索名称或 NORAD ID
+}
+
+/**
+ * 元数据列表响应
+ */
+export interface MetadataListResponse {
+  data: MetadataItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * 元数据项
+ */
+export interface MetadataItem {
+  noradId: string;
+  name: string;
+  countryCode?: string;
+  launchDate?: string;
+  objectType?: string;
+  status?: string;
+  hasExtendedData?: boolean;
+}
+
+/**
+ * 错误日志列表响应
+ */
+export interface ErrorLogListResponse {
+  data: ErrorLogItem[];
+  total: number;
+}
+
+/**
+ * 错误日志项
+ */
+export interface ErrorLogItem {
+  id: string;
+  noradId: string;
+  name?: string;
+  source: string;
+  errorType: string;
+  errorMessage: string;
+  timestamp: string;
 }
