@@ -6,7 +6,7 @@ import { SyncType, SyncStatus } from '../entities/sync-task.entity';
  * 同步请求 DTO
  */
 export class SyncRequestDto {
-  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
   type: SyncType;
 
   @IsOptional()
@@ -14,7 +14,7 @@ export class SyncRequestDto {
   force?: boolean; // 是否强制同步（忽略缓存）
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
   sourceType?: SyncType; // 用于指定数据源类型
 }
 
@@ -62,13 +62,19 @@ export interface SyncStatsResponse {
   tleCount: number;
   metadataCount: number;
   discosCount: number;
+  keepTrackMetadataCount: number; // KeepTrack 元数据数量
+  spaceTrackMetadataCount: number; // Space-Track 元数据数量
   discosCoverage: string; // DISCOS 数据覆盖率百分比
+  keepTrackCoverage: string; // KeepTrack 数据覆盖率百分比
+  spaceTrackCoverage: string; // Space-Track 数据覆盖率百分比
   celestrakCount?: number;
   keepTrackCount?: number;
+  spaceTrackTleCount?: number; // Space-Track TLE 数量
   lastTleSync?: string;
   lastDiscosSync?: string;
   lastCelestrakSync?: string;
   lastKeepTrackSync?: string;
+  lastSpaceTrackSync?: string;
 }
 
 /**
@@ -93,7 +99,7 @@ export class TaskListQueryDto {
   status?: SyncStatus;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
   type?: SyncType;
 }
 
@@ -217,7 +223,9 @@ export interface MetadataItem {
   launchDate?: string;
   objectType?: string;
   status?: string;
-  hasExtendedData?: boolean;
+  hasKeepTrackData?: boolean;
+  hasSpaceTrackData?: boolean;
+  hasDiscosData?: boolean;
 }
 
 /**

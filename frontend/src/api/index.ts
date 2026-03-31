@@ -322,6 +322,7 @@ export const quizApi = {
 export type SyncType =
   | 'celestrak'        // CelesTrak TLE 同步
   | 'space-track'      // Space-Track TLE 同步
+  | 'space-track-meta' // Space-Track 元数据同步
   | 'keeptrack-tle'    // KeepTrack TLE 同步（需 API Key）
   | 'keeptrack-meta'   // KeepTrack 元数据同步（需 API Key）
   | 'discos'           // ESA DISCOS 元数据同步
@@ -361,13 +362,19 @@ export interface SyncStats {
   tleCount: number
   metadataCount: number
   discosCount: number
+  keepTrackMetadataCount: number // KeepTrack 元数据数量
+  spaceTrackMetadataCount: number // Space-Track 元数据数量
   discosCoverage: string
+  keepTrackCoverage: string
+  spaceTrackCoverage: string
   celestrakCount?: number
   keepTrackCount?: number
+  spaceTrackTleCount?: number
   lastTleSync?: string
   lastDiscosSync?: string
   lastCelestrakSync?: string
   lastKeepTrackSync?: string
+  lastSpaceTrackSync?: string
 }
 
 // 同步任务列表项
@@ -416,7 +423,9 @@ export interface MetadataItem {
   launchDate?: string
   objectType?: string
   status?: string
-  hasExtendedData?: boolean
+  hasKeepTrackData?: boolean
+  hasSpaceTrackData?: boolean
+  hasDiscosData?: boolean
 }
 
 export const satelliteSyncApi = {

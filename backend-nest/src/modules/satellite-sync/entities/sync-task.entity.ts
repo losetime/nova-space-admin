@@ -13,6 +13,7 @@ import {
 export type SyncType =
   | 'celestrak'        // CelesTrak TLE 同步
   | 'space-track'      // Space-Track TLE 同步
+  | 'space-track-meta' // Space-Track 元数据同步
   | 'keeptrack-tle'    // KeepTrack TLE 同步（需 API Key）
   | 'keeptrack-meta'   // KeepTrack 元数据同步（需 API Key）
   | 'discos'           // ESA DISCOS 元数据同步

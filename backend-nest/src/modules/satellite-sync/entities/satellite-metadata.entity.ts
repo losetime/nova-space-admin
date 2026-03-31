@@ -25,6 +25,9 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   objectId: string;
 
+  @Column({ name: 'alt_name', type: 'varchar', length: 100, nullable: true })
+  altName: string;
+
   @Column({ type: 'simple-array', nullable: true })
   altNames: string[];
 
@@ -40,8 +43,14 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'date', nullable: true })
   launchDate: string;
 
+  @Column({ name: 'stable_date', type: 'date', nullable: true })
+  stableDate: string;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   launchSite: string;
+
+  @Column({ name: 'launch_pad', type: 'varchar', length: 50, nullable: true })
+  launchPad: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   launchVehicle: string;
@@ -122,6 +131,9 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   operator: string;
 
+  @Column({ name: 'manufacturer', type: 'varchar', length: 100, nullable: true })
+  manufacturer: string;
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   contractor: string;
 
@@ -129,8 +141,17 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   bus: string;
 
+  @Column({ name: 'configuration', type: 'varchar', length: 100, nullable: true })
+  configuration: string;
+
   @Column({ type: 'text', nullable: true })
   purpose: string;
+
+  @Column({ name: 'power', type: 'text', nullable: true })
+  power: string;
+
+  @Column({ name: 'motor', type: 'text', nullable: true })
+  motor: string;
 
   @Column({ type: 'float', nullable: true })
   length: number;
@@ -159,6 +180,36 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   platform: string;
 
+  @Column({ name: 'color', type: 'varchar', length: 20, nullable: true })
+  color: string;
+
+  @Column({ name: 'material_composition', type: 'text', nullable: true })
+  materialComposition: string;
+
+  @Column({ name: 'major_events', type: 'text', nullable: true })
+  majorEvents: string;
+
+  @Column({ name: 'related_satellites', type: 'text', nullable: true })
+  relatedSatellites: string;
+
+  @Column({ name: 'transmitter_frequencies', type: 'text', nullable: true })
+  transmitterFrequencies: string;
+
+  @Column({ name: 'sources', type: 'text', nullable: true })
+  sources: string;
+
+  @Column({ name: 'reference_urls', type: 'text', nullable: true })
+  referenceUrls: string;
+
+  @Column({ type: 'text', nullable: true })
+  summary: string;
+
+  @Column({ name: 'anomaly_flags', type: 'varchar', length: 50, nullable: true })
+  anomalyFlags: string;
+
+  @Column({ name: 'last_reviewed', type: 'timestamp', nullable: true })
+  lastReviewed: Date;
+
   @Column({ type: 'date', nullable: true })
   predDecayDate: string;
 
@@ -166,7 +217,10 @@ export class SatelliteMetadataEntity {
   hasDiscosData: boolean;
 
   @Column({ type: 'boolean', default: false })
-  hasExtendedData: boolean; // KeepTrack 扩展元数据标记
+  hasKeepTrackData: boolean; // KeepTrack 扩展元数据标记
+
+  @Column({ name: 'hasSpaceTrackData', type: 'boolean', default: false })
+  hasSpaceTrackData: boolean; // Space-Track 元数据标记
 
   @CreateDateColumn()
   createdAt: Date;
