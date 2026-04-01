@@ -441,25 +441,75 @@ export const satelliteSyncApi = {
   getStats: () =>
     api.get<any, ApiResponse<SyncStats>>('/satellite-sync/stats'),
 
-  // 获取同步任务列表
   getTaskList: (params?: { page?: number; limit?: number; status?: SyncStatus; type?: SyncType }) =>
     api.get<any, ApiResponse<PaginatedResponse<SyncTaskItem>>>('/satellite-sync/tasks', { params }),
 
-  // 获取任务详情
   getTaskById: (taskId: string) =>
     api.get<any, ApiResponse<SyncTaskItem | null>>(`/satellite-sync/tasks/${taskId}`),
 
-  // 获取任务错误日志
   getTaskErrors: (taskId: string) =>
     api.get<any, ApiResponse<{ data: SyncErrorLog[]; total: number }>>(`/satellite-sync/tasks/${taskId}/errors`),
 
-  // 获取 TLE 数据列表
   getTleList: (params?: { page?: number; limit?: number; search?: string; source?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<TleItem>>>('/satellite-sync/tle', { params }),
 
-  // 获取卫星元数据列表
   getMetadataList: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<MetadataItem>>>('/satellite-sync/metadata', { params }),
+}
+
+export interface MediaItem {
+  type: 'image' | 'video'
+  url: string
+  caption?: string
+}
+
+export interface Milestone {
+  id: number
+  title: string
+  description: string
+  content?: string
+  eventDate: string
+  category: 'launch' | 'recovery' | 'orbit' | 'mission' | 'other'
+  cover?: string
+  media?: MediaItem[]
+  relatedSatelliteNoradId?: string
+  importance: number
+  location?: string
+  organizer?: string
+  isPublished: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MilestoneQueryParams {
+  page?: number
+  pageSize?: number
+  category?: Milestone['category']
+  importance?: number
+  isPublished?: boolean
+  search?: string
+  sortBy?: 'eventDate' | 'importance' | 'createdAt'
+  sortOrder?: 'ASC' | 'DESC'
+}
+
+export const milestoneApi = {
+  getList: (params?: MilestoneQueryParams) =>
+    api.get<any, ApiResponse<PaginatedResponse<Milestone>>>('/milestones', { params }),
+
+  getOne: (id: number) =>
+    api.get<any, ApiResponse<Milestone>>(`/milestones/${id}`),
+
+  create: (data: Partial<Milestone>) =>
+    api.post<any, ApiResponse<Milestone>>('/milestones', data),
+
+  update: (id: number, data: Partial<Milestone>) =>
+    api.put<any, ApiResponse<Milestone>>(`/milestones/${id}`, data),
+
+  delete: (id: number) =>
+    api.delete<any, ApiResponse<void>>(`/milestones/${id}`),
+
+  togglePublish: (id: number) =>
+    api.patch<any, ApiResponse<Milestone>>(`/milestones/${id}/publish`),
 }
 
 export default api

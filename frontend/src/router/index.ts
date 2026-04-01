@@ -87,6 +87,21 @@ const routes = [
         name: 'SatelliteSync',
         component: () => import('@/views/SatelliteSyncView.vue'),
       },
+      {
+        path: 'milestones',
+        name: 'Milestones',
+        component: () => import('@/views/MilestonesView.vue'),
+      },
+      {
+        path: 'milestones/create',
+        name: 'MilestoneCreate',
+        component: () => import('@/views/MilestoneEditView.vue'),
+      },
+      {
+        path: 'milestones/:id/edit',
+        name: 'MilestoneEdit',
+        component: () => import('@/views/MilestoneEditView.vue'),
+      },
     ],
   },
 ]

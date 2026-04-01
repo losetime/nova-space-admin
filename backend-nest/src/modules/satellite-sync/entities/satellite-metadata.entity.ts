@@ -107,7 +107,7 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   cosparId: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
   objectClass: string;
 
   @Column({ type: 'float', nullable: true })
@@ -174,13 +174,13 @@ export class SatelliteMetadataEntity {
   @Column({ type: 'varchar', length: 100, nullable: true })
   constellationName: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
+  @Column({ type: 'text', nullable: true })
   lifetime: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   platform: string;
 
-  @Column({ name: 'color', type: 'varchar', length: 20, nullable: true })
+  @Column({ name: 'color', type: 'varchar', length: 100, nullable: true })
   color: string;
 
   @Column({ name: 'material_composition', type: 'text', nullable: true })

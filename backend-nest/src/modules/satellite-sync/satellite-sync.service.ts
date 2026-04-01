@@ -1458,6 +1458,38 @@ export class SatelliteSyncService {
   }
 
   /**
+   * 解析 KeepTrack 返回的日期字符串
+   * 修复格式错误如 "2026 Jan 11 1607:07" → "2026 Jan 11 16:07:07"
+   */
+  private parseKeepTrackDate(dateStr: string | undefined): Date | undefined {
+    if (!dateStr) return undefined;
+    try {
+      // 修复时间部分缺少冒号的情况：HHMM:SS → HH:MM:SS
+      // 例如 "2026 Jan 11 1607:07" 中 "1607:07" 应为 "16:07:07"
+      const fixed = dateStr.replace(/(\d{2})(\d{2}):(\d{2})$/, '$1:$2:$3');
+      const parsed = new Date(fixed);
+      if (isNaN(parsed.getTime())) {
+        this.logger.warn(`无法解析日期: "${dateStr}"`);
+        return undefined;
+      }
+      return parsed;
+    } catch {
+      this.logger.warn(`日期解析异常: "${dateStr}"`);
+      return undefined;
+    }
+  }
+
+  /**
+   * 解析 KeepTrack 返回的日期字符串，返回 YYYY-MM-DD 格式
+   * 用于数据库 date 类型字段
+   */
+  private parseKeepTrackDateString(dateStr: string | undefined): string | undefined {
+    const date = this.parseKeepTrackDate(dateStr);
+    if (!date) return undefined;
+    return date.toISOString().split('T')[0];
+  }
+
+  /**
    * 从 TLE 提取 NORAD ID
    */
   private extractNoradId(tle1: string): string {
@@ -1516,8 +1548,8 @@ export class SatelliteSyncService {
       shape: detail.SHAPE,
       lifetime: detail.LIFETIME,
       stdMag: detail.VMAG,
-      launchDate: detail.LAUNCH_DATE,
-      stableDate: detail.STABLE_DATE,
+      launchDate: this.parseKeepTrackDateString(detail.LAUNCH_DATE),
+      stableDate: this.parseKeepTrackDateString(detail.STABLE_DATE),
       launchSite: detail.LAUNCH_SITE,
       launchPad: detail.LAUNCH_PAD,
       launchVehicle: detail.LAUNCH_VEHICLE,
@@ -1543,15 +1575,18 @@ export class SatelliteSyncService {
       referenceUrls: detail.reference_urls,
       summary: detail.summary,
       anomalyFlags: detail.anomaly_flags,
-      lastReviewed: detail.last_reviewed ? new Date(detail.last_reviewed) : undefined,
+      lastReviewed: this.parseKeepTrackDate(detail.last_reviewed),
       // 轨道参数
       period,
       inclination: detail.INCLINATION,
       raan: detail.RA_OF_ASC_NODE,
       argOfPerigee: detail.ARG_OF_PERICENTER,
       rcs: detail.RCS,
-      tleEpoch: detail.EPOCH ? new Date(detail.EPOCH) : undefined,
-      tleAge: detail.EPOCH ? Math.floor((Date.now() - new Date(detail.EPOCH).getTime()) / (1000 * 60 * 60 * 24)) : undefined,
+      tleEpoch: this.parseKeepTrackDate(detail.EPOCH),
+      tleAge: (() => {
+        const epoch = this.parseKeepTrackDate(detail.EPOCH);
+        return epoch ? Math.floor((Date.now() - epoch.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
+      })(),
       decayDate: detail.DECAY_DATE || undefined,
       status: detail.STATUS,
       hasKeepTrackData: true,

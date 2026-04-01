@@ -6,3 +6,6 @@ backend-nest/uploads/
 
 # Environment files
 .env
+
+# Scripts
+backend-nest/scripts/

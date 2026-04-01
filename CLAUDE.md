@@ -8,7 +8,7 @@ Nova Space Admin is a monorepo containing an admin dashboard for managing space 
 - **backend-nest**: NestJS backend API (port 3002)
 - **frontend**: Vue 3 admin dashboard (port 5180)
 
-The admin system shares a PostgreSQL database with a main application (nova-space on port 3001). Database schema is managed by the main project - this admin system uses `synchronize: false`.
+The admin system uses PostgreSQL database. Database schema is managed by this project through migration files in `backend-nest/src/database/migrations/`. TypeORM uses `synchronize: false` in production to prevent automatic schema changes.
 
 ## Common Commands
 

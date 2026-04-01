@@ -13,6 +13,7 @@ import { PushRecordModule } from './modules/push-record/push-record.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { SatelliteSyncModule } from './modules/satellite-sync/satellite-sync.module';
+import { MilestoneModule } from './modules/milestone/milestone.module';
 import { HealthModule } from './common/health/health.module';
 import { AllExceptionsFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
@@ -50,6 +51,7 @@ import appConfig from './config/app.config';
     UploadModule,
     QuizModule,
     SatelliteSyncModule,
+    MilestoneModule,
     HealthModule,
   ],
   providers: [
