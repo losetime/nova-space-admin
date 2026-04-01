@@ -102,7 +102,9 @@
       "Bash(grep -c '\"\"status\"\"' \"F:/wwp-work/nova-space-admin/backend-nest/data/keeptrack-tle-cache.json\")",
       "WebFetch(domain:discosweb.esoc.esa.int)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "WebFetch(domain:www.space-track.org)",
+      "WebFetch(domain:en.wikipedia.org)"
     ]
   }
 }

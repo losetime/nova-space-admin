@@ -43,5 +43,13 @@ export default registerAs('app', () => ({
     apiKey: process.env.KEEPTRACK_API_KEY || '',
     baseUrl: 'https://api.keeptrack.space/v4',
   },
+  minio: {
+    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
+    port: parseInt(process.env.MINIO_PORT || '9000', 10) || 9000,
+    accessKey: process.env.MINIO_ACCESS_KEY || 'admin',
+    secretKey: process.env.MINIO_SECRET_KEY || 'admin123456',
+    bucket: process.env.MINIO_BUCKET || 'nova-space',
+    useSSL: process.env.MINIO_USE_SSL === 'true' || false,
+  },
   useMockData: process.env.USE_MOCK_DATA === 'true' || false,
 }));

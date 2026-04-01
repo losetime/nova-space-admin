@@ -23,6 +23,6 @@ export class UploadController {
       throw new BadRequestException('请上传图片文件');
     }
 
-    return this.uploadService.getImageInfo(file);
+    return this.uploadService.uploadImage(file);
   }
 }
