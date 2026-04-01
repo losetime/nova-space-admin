@@ -1,6 +1,26 @@
-version: "3.8"
-
 services:
+  # MinIO 对象存储服务
+  minio:
+    image: minio/minio:latest
+    container_name: nova-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # API 端口
+      - "9001:9001"  # Console 端口
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-admin123456}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - nova-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
   # 后端服务 - 连接共享数据库
   backend:
     build:
@@ -8,6 +28,9 @@ services:
       dockerfile: Dockerfile
     container_name: nova-admin-backend
     restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
       - DB_HOST=nova-postgres # 指向共享数据库容器名
@@ -21,6 +44,12 @@ services:
       - FRONTEND_URL=http://47.236.101.87
       - SPACE_TRACK_USERNAME=${SPACE_TRACK_USERNAME}
       - SPACE_TRACK_PASSWORD=${SPACE_TRACK_PASSWORD}
+      - MINIO_ENDPOINT=minio
+      - MINIO_PORT=9000
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-admin}
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-admin123456}
+      - MINIO_BUCKET=${MINIO_BUCKET:-nova-space}
+      - MINIO_USE_SSL=false
     networks:
       - nova-network
     extra_hosts:
@@ -56,3 +85,6 @@ networks:
   nova-network:
     name: nova-network # 使用共享网络
     external: true # 标记为外部网络（已存在）
+
+volumes:
+  minio-data:
