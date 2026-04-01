@@ -50,6 +50,19 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-admin123456}
       - MINIO_BUCKET=${MINIO_BUCKET:-nova-space}
       - MINIO_USE_SSL=false
+      
+      # SMTP 邮件配置
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-noreply@nova-space.com}
+      
+      # ESA DISCOS API
+      - ESA_DISCOS_API_TOKEN=${ESA_DISCOS_API_TOKEN:-}
+      
+      # KeepTrack API
+      - KEEPTRACK_API_KEY=${KEEPTRACK_API_KEY:-}
     networks:
       - nova-network
     extra_hosts:
