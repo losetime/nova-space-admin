@@ -223,6 +223,8 @@ export const feedbackApi = {
 // Push Record API
 export type PushTriggerType = 'scheduled' | 'manual'
 export type PushRecordStatus = 'sent' | 'failed'
+export type PushSubscriptionStatus = 'active' | 'paused' | 'cancelled'
+export type SubscriptionType = 'space_weather' | 'intelligence'
 
 export interface PushRecordUser {
   id: string
@@ -243,8 +245,21 @@ export interface PushRecord {
   createdAt: string
 }
 
+export interface PushSubscription {
+  id: string
+  userId: string
+  user?: { id: string; username: string }
+  email: string
+  subscriptionTypes: SubscriptionType[]
+  enabled: boolean
+  status: PushSubscriptionStatus
+  lastPushAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const pushRecordApi = {
-  getList: (params?: { page?: number; limit?: number; triggerType?: PushTriggerType; status?: PushRecordStatus; userId?: string }) =>
+  getList: (params?: { page?: number; limit?: number; triggerType?: PushTriggerType; status?: PushRecordStatus; userId?: string; email?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<PushRecord>>>('/push-records', { params }),
 
   getOne: (id: string) =>
@@ -267,6 +282,23 @@ export const pushRecordApi = {
 
   testDigestPush: (email: string) =>
     api.post<any, ApiResponse<{ success: boolean; message: string }>>('/push-records/test-digest', { email }),
+
+  getSubscriptions: (params?: { 
+    page?: number; 
+    limit?: number; 
+    status?: PushSubscriptionStatus;
+    email?: string;
+  }) =>
+    api.get<any, ApiResponse<PaginatedResponse<PushSubscription>>>('/push-records/subscriptions', { params }),
+
+  updateSubscription: (id: string, data: { enabled?: boolean; status?: PushSubscriptionStatus }) =>
+    api.put<any, ApiResponse<PushSubscription>>(`/push-records/subscriptions/${id}`, data),
+
+  getSubscriptionStatistics: () =>
+    api.get<any, ApiResponse<{ total: number; active: number; paused: number }>>('/push-records/subscriptions/statistics'),
+
+  triggerPush: () =>
+    api.post<any, ApiResponse<void>>('/push-records/trigger'),
 }
 
 // Upload API
@@ -510,6 +542,39 @@ export const milestoneApi = {
 
   togglePublish: (id: number) =>
     api.patch<any, ApiResponse<Milestone>>(`/milestones/${id}/publish`),
+}
+
+// Company API
+export interface Company {
+  id: number
+  name: string
+  country?: string
+  foundedYear?: number
+  website?: string
+  description?: string
+  logoUrl?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const companyApi = {
+  getList: (params?: { page?: number; limit?: number; name?: string; country?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<Company>>>('/companies', { params }),
+
+  getOne: (id: number) =>
+    api.get<any, ApiResponse<Company>>(`/companies/${id}`),
+
+  create: (data: Partial<Company>) =>
+    api.post<any, ApiResponse<Company>>('/companies', data),
+
+  update: (id: number, data: Partial<Company>) =>
+    api.put<any, ApiResponse<Company>>(`/companies/${id}`, data),
+
+  delete: (id: number) =>
+    api.delete<any, ApiResponse<void>>(`/companies/${id}`),
+
+  getStatistics: () =>
+    api.get<any, ApiResponse<{ total: number; countries: any[] }>>('/companies/statistics'),
 }
 
 export default api

@@ -51,5 +51,11 @@ export default registerAs('app', () => ({
     bucket: process.env.MINIO_BUCKET || 'nova-space',
     useSSL: process.env.MINIO_USE_SSL === 'true' || false,
   },
+  push: {
+    enabled: process.env.PUSH_ENABLED === 'true' || true,
+    scheduleTime: parseInt(process.env.PUSH_SCHEDULE_TIME || '8', 10) || 8,
+    batchSize: parseInt(process.env.PUSH_BATCH_SIZE || '10', 10) || 10,
+    batchInterval: parseInt(process.env.PUSH_BATCH_INTERVAL || '1', 10) || 1,
+  },
   useMockData: process.env.USE_MOCK_DATA === 'true' || false,
 }));

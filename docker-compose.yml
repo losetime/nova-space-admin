@@ -63,6 +63,12 @@ services:
       
       # KeepTrack API
       - KEEPTRACK_API_KEY=${KEEPTRACK_API_KEY:-}
+      
+      # 推送配置
+      - PUSH_ENABLED=${PUSH_ENABLED:-true}
+      - PUSH_SCHEDULE_TIME=${PUSH_SCHEDULE_TIME:-8}
+      - PUSH_BATCH_SIZE=${PUSH_BATCH_SIZE:-10}
+      - PUSH_BATCH_INTERVAL=${PUSH_BATCH_INTERVAL:-1}
     networks:
       - nova-network
     extra_hosts:

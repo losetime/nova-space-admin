@@ -1,13 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
+import { Repository, In, Like, Between } from 'typeorm';
 import { PushRecord } from './entities/push-record.entity';
 import { PushSubscription } from './entities/push-subscription.entity';
-import { PushRecordStatus } from '../../common/enums/push.enum';
+import { PushRecordStatus, PushSubscriptionStatus } from '../../common/enums/push.enum';
 import {
   CreatePushRecordDto,
   UpdatePushRecordDto,
   QueryPushRecordDto,
+  QuerySubscriptionDto,
+  UpdateSubscriptionDto,
 } from './dto';
 
 @Injectable()
@@ -19,8 +21,8 @@ export class PushRecordService {
     private pushSubscriptionRepository: Repository<PushSubscription>,
   ) {}
 
-  async findAll(query: QueryPushRecordDto) {
-    const { page = 1, limit = 10, triggerType, status, userId } = query;
+  async findAll(query: QueryPushRecordDto & { email?: string }) {
+    const { page = 1, limit = 10, triggerType, status, userId, email } = query;
     const where: any = {};
 
     if (triggerType) {
@@ -31,6 +33,27 @@ export class PushRecordService {
     }
     if (userId) {
       where.userId = userId;
+    }
+
+    let userIds: string[] = [];
+    if (email) {
+      const subscriptions = await this.pushSubscriptionRepository.find({
+        where: { email: Like(`%${email}%`) },
+        select: ['userId'],
+      });
+      userIds = subscriptions.map(s => s.userId);
+      
+      if (userIds.length === 0) {
+        return {
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
+      
+      where.userId = In(userIds);
     }
 
     const [records, total] = await this.pushRecordRepository.findAndCount({
@@ -47,8 +70,10 @@ export class PushRecordService {
       take: limit,
     });
 
-    // 批量获取订阅邮箱
-    const userIds = [...new Set(records.map(r => r.userId))];
+    if (userIds.length === 0 && !email) {
+      userIds = [...new Set(records.map(r => r.userId))];
+    }
+    
     const subscriptions = userIds.length > 0
       ? await this.pushSubscriptionRepository.find({
           where: { userId: In(userIds) },
@@ -106,5 +131,64 @@ export class PushRecordService {
     });
 
     return { total, sent, failed };
+  }
+
+  async getSubscriptions(query: QuerySubscriptionDto) {
+    const { page = 1, limit = 10, status, email } = query;
+    const where: any = {};
+
+    if (status) {
+      where.status = status;
+    }
+    if (email) {
+      where.email = Like(`%${email}%`);
+    }
+
+    const [subscriptions, total] = await this.pushSubscriptionRepository.findAndCount({
+      where,
+      relations: ['user'],
+      select: {
+        user: {
+          id: true,
+          username: true,
+        },
+      },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      data: subscriptions,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async updateSubscription(id: string, dto: UpdateSubscriptionDto) {
+    const subscription = await this.pushSubscriptionRepository.findOne({
+      where: { id },
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('订阅不存在');
+    }
+
+    Object.assign(subscription, dto);
+    return this.pushSubscriptionRepository.save(subscription);
+  }
+
+  async getSubscriptionStatistics() {
+    const total = await this.pushSubscriptionRepository.count();
+    const active = await this.pushSubscriptionRepository.count({
+      where: { status: PushSubscriptionStatus.ACTIVE },
+    });
+    const paused = await this.pushSubscriptionRepository.count({
+      where: { status: PushSubscriptionStatus.PAUSED },
+    });
+
+    return { total, active, paused };
   }
 }

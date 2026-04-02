@@ -16,6 +16,8 @@ import {
   UpdatePushRecordDto,
   QueryPushRecordDto,
   TestPushDto,
+  QuerySubscriptionDto,
+  UpdateSubscriptionDto,
 } from './dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
@@ -38,6 +40,16 @@ export class PushRecordController {
     return this.pushRecordService.getStatistics();
   }
 
+  @Get('subscriptions')
+  async getSubscriptions(@Query() query: QuerySubscriptionDto) {
+    return this.pushRecordService.getSubscriptions(query);
+  }
+
+  @Get('subscriptions/statistics')
+  async getSubscriptionStatistics() {
+    return this.pushRecordService.getSubscriptionStatistics();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.pushRecordService.findOne(id);
@@ -46,16 +58,6 @@ export class PushRecordController {
   @Post()
   create(@Body() dto: CreatePushRecordDto) {
     return this.pushRecordService.create(dto);
-  }
-
-  @Put(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePushRecordDto) {
-    return this.pushRecordService.update(id, dto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.pushRecordService.remove(id);
   }
 
   @Post('test')
@@ -74,5 +76,28 @@ export class PushRecordController {
       return { success: true, message: '资讯推送已发送，请检查邮箱' };
     }
     return { success: false, message: '推送发送失败，请检查邮件配置' };
+  }
+
+  @Post('trigger')
+  async triggerPush() {
+    return this.pushSchedulerService.handleDailyPush();
+  }
+
+  @Put(':id')
+  update(@Param('id') id: string, @Body() dto: UpdatePushRecordDto) {
+    return this.pushRecordService.update(id, dto);
+  }
+
+  @Put('subscriptions/:id')
+  async updateSubscription(
+    @Param('id') id: string,
+    @Body() dto: UpdateSubscriptionDto,
+  ) {
+    return this.pushRecordService.updateSubscription(id, dto);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.pushRecordService.remove(id);
   }
 }

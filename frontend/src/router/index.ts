@@ -73,9 +73,9 @@ const routes = [
         component: () => import('@/views/FeedbackView.vue'),
       },
       {
-        path: 'push-records',
-        name: 'PushRecords',
-        component: () => import('@/views/PushRecordsView.vue'),
+        path: 'subscriptions',
+        name: 'Subscriptions',
+        component: () => import('@/views/SubscriptionsView.vue'),
       },
       {
         path: 'quiz',
@@ -101,6 +101,21 @@ const routes = [
         path: 'milestones/:id/edit',
         name: 'MilestoneEdit',
         component: () => import('@/views/MilestoneEditView.vue'),
+      },
+      {
+        path: 'companies',
+        name: 'Companies',
+        component: () => import('@/views/CompaniesView.vue'),
+      },
+      {
+        path: 'companies/create',
+        name: 'CompanyCreate',
+        component: () => import('@/views/CompanyEditView.vue'),
+      },
+      {
+        path: 'companies/:id/edit',
+        name: 'CompanyEdit',
+        component: () => import('@/views/CompanyEditView.vue'),
       },
     ],
   },

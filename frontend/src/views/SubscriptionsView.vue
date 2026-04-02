@@ -1,50 +1,62 @@
 <template>
   <div class="page-container">
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-xl font-bold">推送记录</h2>
+      <h2 class="text-xl font-bold">邮件订阅</h2>
       <t-space>
         <t-button theme="primary" @click="showTestDialog = true">
           测试推送
         </t-button>
-        <t-select
-          v-model="filterTriggerType"
-          style="width: 120px"
-          placeholder="触发类型"
+        <t-button theme="warning" @click="handleTriggerPush" :loading="triggerLoading">
+          手动触发推送
+        </t-button>
+        <t-input
+          v-model="searchEmail"
+          placeholder="搜索邮箱"
           clearable
-          @change="handleFilter"
+          @clear="handleSearch"
+          @keyup.enter="handleSearch"
+          style="width: 200px"
         >
-          <t-option value="scheduled" label="定时推送" />
-          <t-option value="manual" label="手动推送" />
-        </t-select>
+          <template #suffix-icon>
+            <SearchIcon />
+          </template>
+        </t-input>
         <t-select
           v-model="filterStatus"
           style="width: 120px"
-          placeholder="推送状态"
+          placeholder="订阅状态"
           clearable
           @change="handleFilter"
         >
-          <t-option value="sent" label="已发送" />
-          <t-option value="failed" label="失败" />
+          <t-option value="active" label="正常" />
+          <t-option value="paused" label="暂停" />
         </t-select>
       </t-space>
     </div>
 
-    <!-- Statistics Cards -->
     <div class="grid grid-cols-3 gap-4 mb-4">
       <t-card>
-        <t-statistic title="总记录" :value="statistics.total" />
+        <t-statistic title="总订阅数" :value="statistics.total" />
       </t-card>
       <t-card>
-        <t-statistic title="已发送" :value="statistics.sent" :trend="statistics.sent > 0 ? 'increase' : undefined" trend-type="increase" />
+        <t-statistic 
+          title="正常订阅" 
+          :value="statistics.active" 
+          :trend="statistics.active > 0 ? 'increase' : undefined" 
+        />
       </t-card>
       <t-card>
-        <t-statistic title="发送失败" :value="statistics.failed" :trend="statistics.failed > 0 ? 'decrease' : undefined" trend-type="decrease" />
+        <t-statistic 
+          title="暂停订阅" 
+          :value="statistics.paused" 
+        />
       </t-card>
     </div>
 
-    <t-table bordered
+    <t-table
+      bordered
       :columns="columns"
-      :data="records"
+      :data="subscriptions"
       :loading="loading"
       :pagination="pagination"
       row-key="id"
@@ -52,52 +64,60 @@
     >
       <template #userId="{ row }">
         <t-tooltip :content="row.userId">
-          <span>{{ row.userId }}</span>
+          <span>{{ row.userId.slice(0, 8) }}...</span>
         </t-tooltip>
       </template>
+      
       <template #username="{ row }">
         {{ row.user?.username || '-' }}
       </template>
+      
       <template #email="{ row }">
-        <t-tooltip v-if="row.subscriptionEmail" :content="row.subscriptionEmail">
-          <span>{{ row.subscriptionEmail }}</span>
-        </t-tooltip>
-        <span v-else>-</span>
+        {{ row.email }}
       </template>
-      <template #triggerType="{ row }">
-        <t-tag :theme="getTriggerTypeTheme(row.triggerType)" variant="light">
-          {{ getTriggerTypeText(row.triggerType) }}
-        </t-tag>
+      
+      <template #subscriptionTypes="{ row }">
+        <t-space>
+          <t-tag 
+            v-for="type in row.subscriptionTypes" 
+            :key="type"
+            theme="primary"
+            variant="light"
+          >
+            {{ getSubscriptionTypeText(type) }}
+          </t-tag>
+        </t-space>
       </template>
-      <template #subject="{ row }">
-        <t-tooltip :content="row.subject">
-          <span class="cursor-pointer">{{ row.subject.slice(0, 30) }}{{ row.subject.length > 30 ? '...' : '' }}</span>
-        </t-tooltip>
-      </template>
+      
       <template #status="{ row }">
         <t-tag :theme="getStatusTheme(row.status)" variant="light">
           {{ getStatusText(row.status) }}
         </t-tag>
       </template>
-      <template #sentAt="{ row }">
-        {{ formatDate(row.sentAt) }}
+      
+      <template #lastPushAt="{ row }">
+        {{ row.lastPushAt ? formatDate(row.lastPushAt) : '从未推送' }}
       </template>
+      
       <template #createdAt="{ row }">
         {{ formatDate(row.createdAt) }}
       </template>
+      
       <template #action="{ row }">
         <t-space>
-          <t-popconfirm
-            content="确定要删除这条推送记录吗？"
-            @confirm="handleDelete(row.id)"
+          <t-link theme="primary" @click="showPushRecordsDialog(row)">
+            推送记录
+          </t-link>
+          <t-link 
+            :theme="row.status === 'active' ? 'warning' : 'success'"
+            @click="handleToggleStatus(row)"
           >
-            <t-link theme="danger">删除</t-link>
-          </t-popconfirm>
+            {{ row.status === 'active' ? '暂停' : '启用' }}
+          </t-link>
         </t-space>
       </template>
     </t-table>
 
-    <!-- Test Push Dialog -->
     <t-dialog
       v-model:visible="showTestDialog"
       header="测试推送"
@@ -120,17 +140,24 @@
         </t-form-item>
       </t-form>
     </t-dialog>
+
+    <PushRecordsDialog
+      v-model:visible="showRecordsDialog"
+      :email="selectedEmail"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
+import { SearchIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
-import { pushRecordApi, type PushRecord, type PushTriggerType, type PushRecordStatus } from '@/api'
+import { pushRecordApi, type PushSubscription, type PushSubscriptionStatus } from '@/api'
+import PushRecordsDialog from '@/components/PushRecordsDialog.vue'
 
 const loading = ref(false)
-const records = ref<PushRecord[]>([])
+const subscriptions = ref<PushSubscription[]>([])
 const pagination = reactive({
   current: 1,
   pageSize: 10,
@@ -138,16 +165,15 @@ const pagination = reactive({
   showJumper: true,
 })
 
-const filterTriggerType = ref<PushTriggerType | undefined>()
-const filterStatus = ref<PushRecordStatus | undefined>()
+const searchEmail = ref('')
+const filterStatus = ref<PushSubscriptionStatus | undefined>()
 
 const statistics = reactive({
   total: 0,
-  sent: 0,
-  failed: 0,
+  active: 0,
+  paused: 0,
 })
 
-// Test push dialog
 const showTestDialog = ref(false)
 const testLoading = ref(false)
 const testFormRef = ref()
@@ -162,35 +188,35 @@ const testRules = {
   ],
 }
 
+const triggerLoading = ref(false)
+
+const showRecordsDialog = ref(false)
+const selectedEmail = ref('')
+
 const columns = [
-  { colKey: 'id', title: 'ID', width: 280, ellipsis: true },
-  { colKey: 'userId', title: '用户ID', width: 280, ellipsis: true },
+  { colKey: 'userId', title: '用户ID', width: 150, ellipsis: true },
   { colKey: 'username', title: '用户名', width: 120 },
-  { colKey: 'email', title: '订阅邮箱', width: 180, ellipsis: true },
-  { colKey: 'triggerType', title: '触发类型', width: 100 },
-  { colKey: 'subject', title: '主题', ellipsis: true },
-  { colKey: 'status', title: '状态', width: 80 },
-  { colKey: 'sentAt', title: '发送时间', width: 140 },
-  { colKey: 'createdAt', title: '创建时间', width: 140 },
-  { colKey: 'action', title: '操作', width: 80 },
+  { colKey: 'email', title: '订阅邮箱', width: 200, ellipsis: true },
+  { colKey: 'subscriptionTypes', title: '订阅类型', width: 200 },
+  { colKey: 'status', title: '推送状态', width: 100 },
+  { colKey: 'lastPushAt', title: '上次推送', width: 140 },
+  { colKey: 'createdAt', title: '订阅时间', width: 140 },
+  { colKey: 'action', title: '操作', width: 160 },
 ]
 
-const triggerTypeMap: Record<string, { text: string; theme: 'primary' | 'warning' }> = {
-  scheduled: { text: '定时推送', theme: 'primary' },
-  manual: { text: '手动推送', theme: 'warning' },
+const subscriptionTypeMap = {
+  space_weather: '空间天气',
+  intelligence: '航天情报',
 }
 
-const statusMap: Record<string, { text: string; theme: 'success' | 'danger' }> = {
-  sent: { text: '已发送', theme: 'success' },
-  failed: { text: '失败', theme: 'danger' },
+const statusMap = {
+  active: { text: '正常', theme: 'success' },
+  paused: { text: '暂停', theme: 'warning' },
+  cancelled: { text: '已取消', theme: 'default' },
 }
 
-function getTriggerTypeText(type: string) {
-  return triggerTypeMap[type]?.text || type
-}
-
-function getTriggerTypeTheme(type: string) {
-  return triggerTypeMap[type]?.theme || 'default'
+function getSubscriptionTypeText(type: string) {
+  return subscriptionTypeMap[type] || type
 }
 
 function getStatusText(status: string) {
@@ -205,21 +231,21 @@ function formatDate(date: string) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
 
-async function fetchRecords() {
+async function fetchSubscriptions() {
   loading.value = true
   try {
-    const res = await pushRecordApi.getList({
+    const res = await pushRecordApi.getSubscriptions({
       page: pagination.current,
       limit: pagination.pageSize,
-      triggerType: filterTriggerType.value,
       status: filterStatus.value,
+      email: searchEmail.value || undefined,
     })
     if (res.success) {
-      records.value = res.data.data
+      subscriptions.value = res.data.data
       pagination.total = res.data.total
     }
   } catch (error) {
-    MessagePlugin.error('获取推送记录失败')
+    MessagePlugin.error('获取订阅列表失败')
   } finally {
     loading.value = false
   }
@@ -227,7 +253,7 @@ async function fetchRecords() {
 
 async function fetchStatistics() {
   try {
-    const res = await pushRecordApi.getStatistics()
+    const res = await pushRecordApi.getSubscriptionStatistics()
     if (res.success) {
       Object.assign(statistics, res.data)
     }
@@ -239,22 +265,34 @@ async function fetchStatistics() {
 function handleTableChange(pageInfo: { current: number; pageSize: number }) {
   pagination.current = pageInfo.current
   pagination.pageSize = pageInfo.pageSize
-  fetchRecords()
+  fetchSubscriptions()
+}
+
+function handleSearch() {
+  pagination.current = 1
+  fetchSubscriptions()
 }
 
 function handleFilter() {
   pagination.current = 1
-  fetchRecords()
+  fetchSubscriptions()
 }
 
-async function handleDelete(id: string) {
+function showPushRecordsDialog(row: any) {
+  selectedEmail.value = row.email
+  showRecordsDialog.value = true
+}
+
+async function handleToggleStatus(row: any) {
+  const newStatus = row.status === 'active' ? 'paused' : 'active'
+  
   try {
-    await pushRecordApi.delete(id)
-    MessagePlugin.success('删除成功')
-    fetchRecords()
+    await pushRecordApi.updateSubscription(row.id, { status: newStatus })
+    MessagePlugin.success('更新成功')
+    fetchSubscriptions()
     fetchStatistics()
   } catch (error) {
-    MessagePlugin.error('删除失败')
+    MessagePlugin.error('更新失败')
   }
 }
 
@@ -272,8 +310,6 @@ async function handleTestPush() {
       MessagePlugin.success(res.data.message)
       showTestDialog.value = false
       testForm.email = ''
-      fetchRecords()
-      fetchStatistics()
     } else {
       MessagePlugin.error(res.data.message)
     }
@@ -284,8 +320,20 @@ async function handleTestPush() {
   }
 }
 
+async function handleTriggerPush() {
+  triggerLoading.value = true
+  try {
+    await pushRecordApi.triggerPush()
+    MessagePlugin.success('推送任务已触发，请稍后查看推送记录')
+  } catch (error) {
+    MessagePlugin.error('触发推送失败')
+  } finally {
+    triggerLoading.value = false
+  }
+}
+
 onMounted(() => {
-  fetchRecords()
+  fetchSubscriptions()
   fetchStatistics()
 })
 </script>

@@ -1,6 +1,6 @@
-import { IsEnum, IsInt, IsOptional, IsString, IsDateString, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsDateString, Min, IsBoolean, IsEmail } from 'class-validator';
 import { Type } from 'class-transformer';
-import { PushTriggerType, PushRecordStatus } from '../../../common/enums/push.enum';
+import { PushTriggerType, PushRecordStatus, PushSubscriptionStatus } from '../../../common/enums/push.enum';
 
 export class CreatePushRecordDto {
   @IsString()
@@ -59,4 +59,36 @@ export class QueryPushRecordDto {
 export class TestPushDto {
   @IsString()
   email: string;
+}
+
+export class QuerySubscriptionDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  limit?: number = 10;
+
+  @IsOptional()
+  @IsEnum(PushSubscriptionStatus)
+  status?: PushSubscriptionStatus;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+}
+
+export class UpdateSubscriptionDto {
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @IsOptional()
+  @IsEnum(PushSubscriptionStatus)
+  status?: PushSubscriptionStatus;
 }

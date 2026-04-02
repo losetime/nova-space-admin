@@ -11,8 +11,8 @@
       >
         <template #logo>
           <div class="side-nav-logo" @click="router.push('/dashboard')">
-            <RocketIcon v-if="!collapsed" class="logo-icon" />
-            <RocketIcon v-else class="logo-icon-small" />
+            <img v-if="!collapsed" src="/favicon.svg" class="logo-icon" />
+            <img v-else src="/favicon.svg" class="logo-icon-small" />
             <span v-if="!collapsed" class="logo-text">Nova Space</span>
           </div>
         </template>
@@ -37,9 +37,9 @@
           <template #icon><ChatIcon /></template>
           反馈管理
         </t-menu-item>
-        <t-menu-item value="pushRecords">
+        <t-menu-item value="subscriptions">
           <template #icon><SendIcon /></template>
-          推送记录
+          邮件订阅
         </t-menu-item>
         <t-menu-item value="quiz">
           <template #icon><QuestionnaireIcon /></template>
@@ -52,6 +52,10 @@
         <t-menu-item value="milestones">
           <template #icon><TimeFilledIcon /></template>
           里程碑管理
+        </t-menu-item>
+        <t-menu-item value="companies">
+          <template #icon><BuildingIcon /></template>
+          公司管理
         </t-menu-item>
 
         <template #operations>
@@ -126,11 +130,11 @@ import {
   LogoutIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  RocketIcon,
   ChevronDownIcon,
   QuestionnaireIcon,
   CloudDownloadIcon,
   TimeFilledIcon,
+  BuildingIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
@@ -153,12 +157,15 @@ const routeTitleMap: Record<string, string> = {
   UserCreate: '新建用户',
   UserEdit: '编辑用户',
   Feedback: '反馈管理',
-  PushRecords: '推送记录',
+  Subscriptions: '邮件订阅',
   Quiz: '问答管理',
   SatelliteSync: '卫星数据同步',
   Milestones: '里程碑管理',
   MilestoneCreate: '新建里程碑',
   MilestoneEdit: '编辑里程碑',
+  Companies: '公司管理',
+  CompanyCreate: '新建公司',
+  CompanyEdit: '编辑公司',
 }
 
 const currentRouteTitle = computed(() => {
@@ -176,14 +183,16 @@ watch(
       activeMenu.value = 'users'
     } else if (name === 'Feedback') {
       activeMenu.value = 'feedback'
-    } else if (name === 'PushRecords') {
-      activeMenu.value = 'pushRecords'
+    } else if (name === 'Subscriptions') {
+      activeMenu.value = 'subscriptions'
     } else if (name === 'Quiz') {
       activeMenu.value = 'quiz'
     } else if (name === 'SatelliteSync') {
       activeMenu.value = 'satelliteSync'
     } else if (name === 'Milestones' || name === 'MilestoneCreate' || name === 'MilestoneEdit') {
       activeMenu.value = 'milestones'
+    } else if (name === 'Companies' || name === 'CompanyCreate' || name === 'CompanyEdit') {
+      activeMenu.value = 'companies'
     } else {
       activeMenu.value = 'dashboard'
     }
@@ -198,10 +207,11 @@ function handleMenuClick(value: string) {
     intelligence: 'Intelligence',
     users: 'Users',
     feedback: 'Feedback',
-    pushRecords: 'PushRecords',
+    subscriptions: 'Subscriptions',
     quiz: 'Quiz',
     satelliteSync: 'SatelliteSync',
     milestones: 'Milestones',
+    companies: 'Companies',
   }
   router.push({ name: routeNameMap[value] || value })
 }
@@ -244,11 +254,13 @@ function handleLogout() {
 }
 
 .logo-icon {
-  font-size: 32px;
+  width: 32px;
+  height: 32px;
 }
 
 .logo-icon-small {
-  font-size: 28px;
+  width: 28px;
+  height: 28px;
 }
 
 .logo-text {
