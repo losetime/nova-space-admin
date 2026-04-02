@@ -4,19 +4,15 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
+  OneToOne,
 } from 'typeorm';
+import { UserRole, UserLevel } from '../enums/user.enum';
+import { Subscription } from './subscription.entity';
+import { PointsRecord } from './points-record.entity';
+import { UserFavorite } from './user-favorite.entity';
 
-export enum UserRole {
-  USER = 'user',
-  ADMIN = 'admin',
-  SUPER_ADMIN = 'super_admin',
-}
-
-export enum UserLevel {
-  BASIC = 'basic',
-  ADVANCED = 'advanced',
-  PROFESSIONAL = 'professional',
-}
+export { UserRole, UserLevel } from '../enums/user.enum';
 
 @Entity('users')
 export class User {
@@ -69,6 +65,18 @@ export class User {
 
   @Column({ nullable: true })
   lastLoginAt: Date;
+
+  @Column({ nullable: true })
+  lastLoginIp: string;
+
+  @OneToOne(() => Subscription, (subscription) => subscription.user)
+  subscription: Subscription;
+
+  @OneToMany(() => PointsRecord, (record) => record.user)
+  pointsRecords: PointsRecord[];
+
+  @OneToMany(() => UserFavorite, (favorite) => favorite.user)
+  favorites: UserFavorite[];
 
   @CreateDateColumn()
   createdAt: Date;
