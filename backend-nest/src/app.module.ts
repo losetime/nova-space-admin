@@ -37,7 +37,7 @@ import appConfig from './config/app.config';
         password: configService.get<string>('app.database.password'),
         database: configService.get<string>('app.database.database'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: true, // 管理后台自动同步表结构
+        synchronize: false, // 不允许修改为true
         autoLoadEntities: true,
       }),
       inject: [ConfigService],
