@@ -99,7 +99,7 @@ const onSubmit = async (ctx: SubmitContext) => {
       MessagePlugin.success('登录成功')
       const redirect = route.query.redirect as string
       const redirectUrl = redirect ? decodeURIComponent(redirect) : '/dashboard'
-      router.push(redirectUrl)
+      await router.push(redirectUrl)
     }
   } catch (error: any) {
     MessagePlugin.error(error.message || '登录失败')
