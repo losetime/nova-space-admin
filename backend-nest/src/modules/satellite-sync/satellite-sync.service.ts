@@ -227,7 +227,6 @@ export class SatelliteSyncService {
   // KeepTrack 限流参数（API Key 用户：2000 次/小时，约 33 次/分钟）
   private readonly KEEPTRACK_MIN_DELAY_MS = 1000; // 最小延迟 1秒
   private readonly KEEPTRACK_MAX_DELAY_MS = 20000; // 最大延迟 20秒（纯随机策略）
-  private readonly KEEPTRACK_RETRY_LIMIT = 3; // 限流重试次数上限
 
   constructor(
     private readonly configService: ConfigService,
@@ -1350,9 +1349,6 @@ export class SatelliteSyncService {
         } catch (error) {
           this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
         }
-
-        // 随机延迟 1-20秒，避免固定间隔触发限流
-        await this.sleep(this.getRandomKeepTrackDelay());
       }
 
       task.success = success;
@@ -1408,80 +1404,45 @@ export class SatelliteSyncService {
     for (const sat of satellites) {
       this.checkStopRequested();
 
-      let retryCount = 0;
-      let processed = false;
+      try {
+        const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
+        const response = await fetch(url, {
+          headers: { 'X-API-Key': this.keepTrackApiKey },
+        });
 
-      while (!processed && retryCount < this.KEEPTRACK_RETRY_LIMIT) {
-        try {
-          const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
-          const response = await fetch(url, {
-            headers: { 'X-API-Key': this.keepTrackApiKey },
-          });
-
-          if (response.ok) {
-            const detail: KeepTrackSatDetailResponse = await response.json();
-            await this.saveKeepTrackMetadata(sat.noradId, detail);
-            success++;
-            processed = true;
-          } else if (response.status === 403 || response.status === 429) {
-            const retryAfter = response.headers.get('Retry-After') || '60';
-            const waitSeconds = parseInt(retryAfter, 10) || 60;
-            retryCount++;
-            if (retryCount < this.KEEPTRACK_RETRY_LIMIT) {
-              this.logger.warn(`[KeepTrack] NORAD ${sat.noradId} 触发限流 ${response.status}，等待 ${waitSeconds}s 后重试 (${retryCount}/${this.KEEPTRACK_RETRY_LIMIT})`);
-              await this.sleep(waitSeconds * 1000);
-            } else {
-              failed++;
-              await this.logSyncError(
-                task.id,
-                sat.noradId,
-                undefined,
-                'keeptrack',
-                'rate_limit',
-                `限流 ${response.status}，重试 ${retryCount} 次后放弃`,
-                undefined,
-              );
-              processed = true;
-            }
-          } else {
-            failed++;
-            await this.logSyncError(
-              task.id,
-              sat.noradId,
-              undefined,
-              'keeptrack',
-              'api_error',
-              `API 返回 ${response.status}`,
-              undefined,
-            );
-            processed = true;
-          }
-
-          if (processed && response.ok) {
-            await this.sleep(this.getRandomKeepTrackDelay());
-          }
-        } catch (error: any) {
-          if (error.message === '用户请求停止同步') {
-            throw error;
-          }
-          retryCount++;
-          if (retryCount < this.KEEPTRACK_RETRY_LIMIT) {
-            this.logger.warn(`[KeepTrack] NORAD ${sat.noradId} 网络错误: ${error.message}，重试 (${retryCount}/${this.KEEPTRACK_RETRY_LIMIT})`);
-            await this.sleep(5000);
-          } else {
-            failed++;
-            await this.logSyncError(
-              task.id,
-              sat.noradId,
-              undefined,
-              'keeptrack',
-              'network',
-              `${error.message}，重试 ${retryCount} 次后放弃`,
-              undefined,
-            );
-            processed = true;
-          }
+        if (response.ok) {
+          const detail: KeepTrackSatDetailResponse = await response.json();
+          await this.saveKeepTrackMetadata(sat.noradId, detail);
+          success++;
+        } else {
+          failed++;
+          const errorType = response.status === 403 || response.status === 429 ? 'rate_limit' : 'api_error';
+          await this.logSyncError(
+            task.id,
+            sat.noradId,
+            undefined,
+            'keeptrack',
+            errorType,
+            `API 返回 ${response.status}`,
+            undefined,
+          );
         }
+
+        await this.sleep(this.getRandomKeepTrackDelay());
+      } catch (error: any) {
+        if (error.message === '用户请求停止同步') {
+          throw error;
+        }
+        failed++;
+        await this.logSyncError(
+          task.id,
+          sat.noradId,
+          undefined,
+          'keeptrack',
+          'network',
+          error.message,
+          undefined,
+        );
       }
 
       task.processed = success + failed;
