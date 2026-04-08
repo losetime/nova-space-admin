@@ -224,6 +224,11 @@ export class SatelliteSyncService {
   private readonly RATE_LIMIT_WAIT_MS = 60000; // 限流等待 60 秒
   private readonly DISCOS_MIN_INTERVAL_MS = 500; // DISCOS 最小请求间隔
 
+  // KeepTrack 限流参数（API Key 用户：2000 次/小时，约 33 次/分钟）
+  private readonly KEEPTRACK_MIN_DELAY_MS = 1000; // 最小延迟 1秒
+  private readonly KEEPTRACK_MAX_DELAY_MS = 20000; // 最大延迟 20秒（纯随机策略）
+  private readonly KEEPTRACK_RETRY_LIMIT = 3; // 限流重试次数上限
+
   constructor(
     private readonly configService: ConfigService,
     private readonly dataSource: DataSource,
@@ -1346,8 +1351,8 @@ export class SatelliteSyncService {
           this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
         }
 
-        // 限流：1000 次/小时
-        await this.sleep(3600);
+        // 随机延迟 1-20秒，避免固定间隔触发限流
+        await this.sleep(this.getRandomKeepTrackDelay());
       }
 
       task.success = success;
@@ -1401,51 +1406,82 @@ export class SatelliteSyncService {
     let failed = 0;
 
     for (const sat of satellites) {
-      // 检查停止请求
       this.checkStopRequested();
 
-      try {
-        const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
-        const response = await fetch(url, {
-          headers: { 'X-API-Key': this.keepTrackApiKey },
-        });
+      let retryCount = 0;
+      let processed = false;
 
-        if (response.ok) {
-          const detail: KeepTrackSatDetailResponse = await response.json();
-          await this.saveKeepTrackMetadata(sat.noradId, detail);
-          success++;
-        } else {
-          // API 返回非 200 状态码，记录错误
-          failed++;
-          await this.logSyncError(
-            task.id,
-            sat.noradId,
-            undefined,
-            'keeptrack',
-            'api_error',
-            `API 返回 ${response.status}`,
-            undefined,
-          );
-        }
+      while (!processed && retryCount < this.KEEPTRACK_RETRY_LIMIT) {
+        try {
+          const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
+          const response = await fetch(url, {
+            headers: { 'X-API-Key': this.keepTrackApiKey },
+          });
 
-        // 限流：1000 次/小时
-        await this.sleep(3600);
-      } catch (error: any) {
-        // 检查是否是停止请求
-        if (error.message === '用户请求停止同步') {
-          throw error;
+          if (response.ok) {
+            const detail: KeepTrackSatDetailResponse = await response.json();
+            await this.saveKeepTrackMetadata(sat.noradId, detail);
+            success++;
+            processed = true;
+          } else if (response.status === 403 || response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After') || '60';
+            const waitSeconds = parseInt(retryAfter, 10) || 60;
+            retryCount++;
+            if (retryCount < this.KEEPTRACK_RETRY_LIMIT) {
+              this.logger.warn(`[KeepTrack] NORAD ${sat.noradId} 触发限流 ${response.status}，等待 ${waitSeconds}s 后重试 (${retryCount}/${this.KEEPTRACK_RETRY_LIMIT})`);
+              await this.sleep(waitSeconds * 1000);
+            } else {
+              failed++;
+              await this.logSyncError(
+                task.id,
+                sat.noradId,
+                undefined,
+                'keeptrack',
+                'rate_limit',
+                `限流 ${response.status}，重试 ${retryCount} 次后放弃`,
+                undefined,
+              );
+              processed = true;
+            }
+          } else {
+            failed++;
+            await this.logSyncError(
+              task.id,
+              sat.noradId,
+              undefined,
+              'keeptrack',
+              'api_error',
+              `API 返回 ${response.status}`,
+              undefined,
+            );
+            processed = true;
+          }
+
+          if (processed && response.ok) {
+            await this.sleep(this.getRandomKeepTrackDelay());
+          }
+        } catch (error: any) {
+          if (error.message === '用户请求停止同步') {
+            throw error;
+          }
+          retryCount++;
+          if (retryCount < this.KEEPTRACK_RETRY_LIMIT) {
+            this.logger.warn(`[KeepTrack] NORAD ${sat.noradId} 网络错误: ${error.message}，重试 (${retryCount}/${this.KEEPTRACK_RETRY_LIMIT})`);
+            await this.sleep(5000);
+          } else {
+            failed++;
+            await this.logSyncError(
+              task.id,
+              sat.noradId,
+              undefined,
+              'keeptrack',
+              'network',
+              `${error.message}，重试 ${retryCount} 次后放弃`,
+              undefined,
+            );
+            processed = true;
+          }
         }
-        // 其他错误，记录失败
-        failed++;
-        await this.logSyncError(
-          task.id,
-          sat.noradId,
-          undefined,
-          'keeptrack',
-          'network',
-          error.message,
-          undefined,
-        );
       }
 
       task.processed = success + failed;
@@ -1870,20 +1906,17 @@ export class SatelliteSyncService {
             if (discosInfo) {
               await this.updateMetadataWithDiscos(meta.noradId, discosInfo);
               success++;
-            } else {
+} else {
               await this.metadataRepository.update(meta.noradId, { hasDiscosData: true });
               success++;
             }
-          } catch (e) {
-            this.logger.warn(`获取 DISCOS 数据失败 (${meta.noradId}): ${e.message}`);
+          } catch (error: any) {
+            this.logger.warn(`更新 DISCOS 数据失败 (${meta.noradId}): ${error.message}`);
             failed++;
           }
-          processed++;
         }
       }
 
-      // 更新进度
-      task.processed = processed;
       task.success = success;
       task.failed = failed;
       await this.taskRepository.save(task);
@@ -2190,6 +2223,16 @@ export class SatelliteSyncService {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * 生成 KeepTrack 请求的随机延迟（纯随机策略）
+   * 范围: 1-20秒，避免固定间隔被检测为自动化脚本
+   */
+  private getRandomKeepTrackDelay(): number {
+    const min = this.KEEPTRACK_MIN_DELAY_MS;
+    const max = this.KEEPTRACK_MAX_DELAY_MS;
+    return Math.floor(Math.random() * (max - min + 1)) + min;
   }
 
   /**

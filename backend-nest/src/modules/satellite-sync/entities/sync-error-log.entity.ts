@@ -14,6 +14,7 @@ export type SyncErrorType =
   | 'duplicate'       // 重复 noradId（已有其他源数据）
   | 'database'        // 数据库保存失败
   | 'api_error'       // API 调用失败
+  | 'rate_limit'      // API 限流（403/429）
   | 'network'         // 网络错误
   | 'timeout'         // 超时
   | 'other';          // 其他错误
