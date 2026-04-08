@@ -130,22 +130,32 @@ export class DigestService {
 
   private async getSpaceWeatherContent(): Promise<any | null> {
     try {
-      const response = await axios.get('https://services.swpc.noaa.gov/json/alerts.json', {
-        timeout: 5000,
-      });
+      const [scalesRes, solarWindRes] = await Promise.all([
+        axios.get('https://services.swpc.noaa.gov/products/noaa-scales.json', { timeout: 5000 }),
+        axios.get('https://services.swpc.noaa.gov/products/summary/solar-wind-speed.json', { timeout: 5000 }),
+      ]);
 
-      const alerts = response.data
-        .slice(0, 5)
-        .map((item: any) => ({
-          type: item.product || 'Space Weather Alert',
-          time: item.issue_datetime,
-          summary: (item.message || '').substring(0, 200),
-        }));
+      const scales = scalesRes.data;
+      const solarWind = solarWindRes.data;
 
       return {
-        alerts,
-        hasAlert: alerts.length > 0,
-        updatedAt: new Date().toISOString(),
+        dateStamp: scales['0']?.DateStamp || null,
+        timeStamp: scales['0']?.TimeStamp || null,
+        radiation: {
+          scale: parseInt(scales['0']?.R?.Scale) || 0,
+          text: scales['0']?.R?.Text || 'none',
+        },
+        solarFlare: {
+          scale: parseInt(scales['0']?.S?.Scale) || 0,
+          text: scales['0']?.S?.Text || 'none',
+        },
+        geomagnetic: {
+          scale: parseInt(scales['0']?.G?.Scale) || 0,
+          text: scales['0']?.G?.Text || 'none',
+        },
+        solarWind: {
+          speed: parseInt(solarWind.WindSpeed) || 0,
+        },
       };
     } catch (error) {
       this.logger.error('Failed to fetch space weather from NOAA API', error);
