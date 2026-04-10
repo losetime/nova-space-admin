@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import {
   SatelliteSyncTaskEntity,
   SyncType,
@@ -218,6 +219,7 @@ export class SatelliteSyncService {
   private cookieExpiry: Date | null = null;
   private useMockData: boolean = false; // 是否使用模拟数据（从本地缓存文件读取）
   private stopRequested: boolean = false; // 是否请求停止同步
+  private cronEnabled: boolean = false; // 定时任务开关（默认关闭）
 
   // 限流参数
   private readonly BATCH_INTERVAL_MS = 3000; // 批次间隔 3 秒
@@ -225,8 +227,8 @@ export class SatelliteSyncService {
   private readonly DISCOS_MIN_INTERVAL_MS = 500; // DISCOS 最小请求间隔
 
   // KeepTrack 限流参数（API Key 用户：2000 次/小时，约 33 次/分钟）
-  private readonly KEEPTRACK_MIN_DELAY_MS = 1000; // 最小延迟 1秒
-  private readonly KEEPTRACK_MAX_DELAY_MS = 20000; // 最大延迟 20秒（纯随机策略）
+  private readonly KEEPTRACK_MIN_DELAY_MS = 10000; // 最小延迟 10秒
+  private readonly KEEPTRACK_MAX_DELAY_MS = 40000; // 最大延迟 40秒
 
   constructor(
     private readonly configService: ConfigService,
@@ -323,6 +325,59 @@ export class SatelliteSyncService {
 
     this.logger.warn('没有运行中的任务，无法停止');
     return null;
+  }
+
+  /**
+   * 获取定时任务开关状态
+   */
+  isCronEnabled(): boolean {
+    return this.cronEnabled;
+  }
+
+  /**
+   * 设置定时任务开关
+   */
+  setCronEnabled(enabled: boolean): void {
+    this.cronEnabled = enabled;
+    this.logger.log(`定时任务已${enabled ? '启用' : '禁用'}`);
+  }
+
+  /**
+   * 定时任务：每小时触发一次 KeepTrack 元数据同步
+   * 如果当前有任务在运行或定时任务已禁用，则跳过并记录日志
+   */
+  @Cron('0 * * * *') // 每小时整点执行
+  async handleKeepTrackMetaSyncCron() {
+    // 检查定时任务是否启用
+    if (!this.cronEnabled) {
+      this.logger.debug('[定时任务] KeepTrack 元数据同步已禁用，跳过');
+      return;
+    }
+
+    this.logger.log('[定时任务] 检查是否需要触发 KeepTrack 元数据同步...');
+
+    // 检查是否有运行中的任务
+    const runningTask = await this.getCurrentStatus();
+    if (runningTask && runningTask.status === 'running') {
+      this.logger.log(
+        `[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id} (${runningTask.processed}/${runningTask.total})`
+      );
+      return;
+    }
+
+    // 检查是否配置了 KeepTrack API Key
+    if (!this.keepTrackApiKey) {
+      this.logger.warn('[定时任务] KeepTrack API Key 未配置，跳过同步');
+      return;
+    }
+
+    // 触发同步
+    this.logger.log('[定时任务] 开始触发 KeepTrack 元数据同步');
+    try {
+      await this.startSync('keeptrack-meta');
+    } catch (error: any) {
+      this.logger.error(`[定时任务] 触发同步失败: ${error.message}`);
+    }
   }
 
   /**
@@ -1381,7 +1436,7 @@ export class SatelliteSyncService {
       .createQueryBuilder('m')
       .select(['m.noradId'])
       .where('m.hasKeepTrackData = :val', { val: false })
-      .limit(1000)
+      .limit(60)
       .getMany();
 
     if (satellites.length === 0) {

@@ -103,6 +103,18 @@
         </t-button>
         <t-link theme="primary" size="small" @click="showSyncDetail('all')">查看详情</t-link>
       </div>
+      
+      <div class="cron-control">
+        <div class="cron-label">
+          <span class="cron-title">定时同步</span>
+          <span class="cron-desc">每小时自动同步 KeepTrack 元数据</span>
+        </div>
+        <t-switch
+          v-model="cronEnabled"
+          :loading="cronLoading"
+          @change="handleCronToggle"
+        />
+      </div>
     </t-card>
 
     <!-- 同步进度 -->
@@ -273,6 +285,10 @@ const stopping = ref(false) // 标记是否正在停止
 let pollTimer: number | null = null
 const isPolling = ref(false) // 标记是否正在轮询
 
+// 定时任务状态
+const cronEnabled = ref(false) // 默认关闭
+const cronLoading = ref(false)
+
 // TLE 数据源表格
 const tleSourceColumns = [
   { colKey: 'source', title: '数据源', width: 150 },
@@ -398,6 +414,38 @@ async function loadStats() {
     }
   } catch (error) {
     console.error('Failed to load stats:', error)
+  }
+}
+
+// 加载定时任务状态
+async function loadCronStatus() {
+  try {
+    const res = await satelliteSyncApi.getCronStatus()
+    if (res.success) {
+      cronEnabled.value = res.data.enabled
+    }
+  } catch (error) {
+    console.error('Failed to load cron status:', error)
+  }
+}
+
+// 切换定时任务
+async function handleCronToggle(enabled: boolean) {
+  try {
+    cronLoading.value = true
+    const res = await satelliteSyncApi.toggleCron(enabled)
+    if (res.success) {
+      cronEnabled.value = res.data.enabled
+      MessagePlugin.success(res.data.message)
+    } else {
+      MessagePlugin.error(res.message || '操作失败')
+      cronEnabled.value = !enabled // 恢复原状态
+    }
+  } catch (error: any) {
+    MessagePlugin.error(error.message || '操作失败')
+    cronEnabled.value = !enabled // 恢复原状态
+  } finally {
+    cronLoading.value = false
   }
 }
 
@@ -642,7 +690,7 @@ function formatDate(dateStr: string) {
 
 onMounted(async () => {
   console.log('[Sync] onMounted, loading initial state')
-  await Promise.all([loadStats(), loadSyncStatus()])
+  await Promise.all([loadStats(), loadSyncStatus(), loadCronStatus()])
   console.log('[Sync] initial state loaded, syncStatus:', syncStatus.value)
   // 如果有任务正在运行，才开始轮询
   if (syncStatus.value?.status === 'running') {
@@ -685,6 +733,34 @@ onUnmounted(() => stopPolling())
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-bottom: 16px;
+}
+
+.cron-control {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--td-bg-color-container);
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.cron-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cron-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.cron-desc {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
 }
 
 .source-cell {

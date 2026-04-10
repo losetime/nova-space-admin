@@ -169,4 +169,29 @@ export class SatelliteSyncController {
   async getMetadataList(@Query() query: MetadataListQueryDto) {
     return this.syncService.getMetadataList(query);
   }
+
+  /**
+   * 获取定时任务开关状态
+   * GET /api/satellite-sync/cron/status
+   */
+  @Get('cron/status')
+  async getCronStatus() {
+    return {
+      enabled: this.syncService.isCronEnabled(),
+    };
+  }
+
+  /**
+   * 切换定时任务开关
+   * POST /api/satellite-sync/cron/toggle
+   */
+  @Post('cron/toggle')
+  @HttpCode(HttpStatus.OK)
+  async toggleCron(@Body() body: { enabled: boolean }) {
+    this.syncService.setCronEnabled(body.enabled);
+    return {
+      enabled: this.syncService.isCronEnabled(),
+      message: `定时任务已${body.enabled ? '启用' : '禁用'}`,
+    };
+  }
 }

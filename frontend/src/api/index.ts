@@ -487,6 +487,12 @@ export const satelliteSyncApi = {
 
   getMetadataList: (params?: { page?: number; limit?: number; search?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<MetadataItem>>>('/satellite-sync/metadata', { params }),
+
+  getCronStatus: () =>
+    api.get<any, ApiResponse<{ enabled: boolean }>>('/satellite-sync/cron/status'),
+
+  toggleCron: (enabled: boolean) =>
+    api.post<any, ApiResponse<{ enabled: boolean; message: string }>>('/satellite-sync/cron/toggle', { enabled }),
 }
 
 export interface MediaItem {
