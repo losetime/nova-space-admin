@@ -4,7 +4,10 @@ import {
   IsOptional,
   IsEnum,
   IsUrl,
+  IsInt,
+  Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum IntelligenceCategory {
   LAUNCH = 'launch',
@@ -119,9 +122,27 @@ export class UpdateIntelligenceDto {
 }
 
 export class QueryIntelligenceDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   limit?: number = 10;
-  category?: string;
-  level?: string;
+
+  @IsOptional()
+  @IsEnum(IntelligenceCategory)
+  category?: IntelligenceCategory;
+
+  @IsOptional()
+  @IsEnum(IntelligenceLevel)
+  level?: IntelligenceLevel;
+
+  @IsOptional()
+  @IsString()
   keyword?: string;
 }

@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsInt, IsArray } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsInt, IsArray, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateArticleDto {
   @IsString()
@@ -77,9 +78,26 @@ export class UpdateArticleDto {
 }
 
 export class QueryArticleDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   limit?: number = 10;
+
+  @IsOptional()
   category?: string;
+
+  @IsOptional()
   keyword?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
   isPublished?: boolean;
 }

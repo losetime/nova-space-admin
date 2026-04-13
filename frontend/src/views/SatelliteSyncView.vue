@@ -548,8 +548,9 @@ async function loadSyncTasks(type: SyncType) {
   }
 }
 
-function onTaskPageChange(page: number) {
-  taskPagination.current = page
+function onTaskPageChange(pageInfo: { current: number; pageSize: number }) {
+  taskPagination.current = pageInfo.current
+  taskPagination.pageSize = pageInfo.pageSize
   if (currentSyncType.value) {
     loadSyncTasks(currentSyncType.value)
   }
