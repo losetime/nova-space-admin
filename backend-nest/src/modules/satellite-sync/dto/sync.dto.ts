@@ -1,38 +1,31 @@
 import { IsEnum, IsOptional, IsBoolean, IsInt, Min, Max } from 'class-validator';
 import { Type } from 'class-transformer';
-import { SyncType, SyncStatus } from '../entities/sync-task.entity';
 
-/**
- * 同步请求 DTO
- */
+export type SyncType = 'celestrak' | 'space-track' | 'space-track-meta' | 'keeptrack-tle' | 'keeptrack-meta' | 'discos';
+export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed';
+
 export class SyncRequestDto {
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
   type: SyncType;
 
   @IsOptional()
   @IsBoolean()
-  force?: boolean; // 是否强制同步（忽略缓存）
+  force?: boolean;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
-  sourceType?: SyncType; // 用于指定数据源类型
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
+  sourceType?: SyncType;
 }
 
-/**
- * 同步进度
- */
 export interface SyncProgress {
   total: number;
   processed: number;
   success: number;
   failed: number;
   percentage: number;
-  estimatedTimeRemaining?: string; // 预计剩余时间
+  estimatedTimeRemaining?: string;
 }
 
-/**
- * 错误日志摘要（用于实时显示）
- */
 export interface SyncErrorLogEntry {
   noradId: string;
   name?: string;
@@ -41,35 +34,29 @@ export interface SyncErrorLogEntry {
   timestamp: string;
 }
 
-/**
- * 同步状态响应
- */
 export interface SyncStatusResponse {
   taskId: string;
   type: SyncType;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: SyncStatus;
   startedAt: string;
   completedAt?: string;
   progress: SyncProgress;
   error?: string;
-  recentErrors?: SyncErrorLogEntry[]; // 最近 N 条错误日志
+  recentErrors?: SyncErrorLogEntry[];
 }
 
-/**
- * 数据统计响应
- */
 export interface SyncStatsResponse {
   tleCount: number;
   metadataCount: number;
   discosCount: number;
-  keepTrackMetadataCount: number; // KeepTrack 元数据数量
-  spaceTrackMetadataCount: number; // Space-Track 元数据数量
-  discosCoverage: string; // DISCOS 数据覆盖率百分比
-  keepTrackCoverage: string; // KeepTrack 数据覆盖率百分比
-  spaceTrackCoverage: string; // Space-Track 数据覆盖率百分比
+  keepTrackMetadataCount: number;
+  spaceTrackMetadataCount: number;
+  discosCoverage: string;
+  keepTrackCoverage: string;
+  spaceTrackCoverage: string;
   celestrakCount?: number;
   keepTrackCount?: number;
-  spaceTrackTleCount?: number; // Space-Track TLE 数量
+  spaceTrackTleCount?: number;
   lastTleSync?: string;
   lastDiscosSync?: string;
   lastCelestrakSync?: string;
@@ -77,9 +64,6 @@ export interface SyncStatsResponse {
   lastSpaceTrackSync?: string;
 }
 
-/**
- * 任务列表查询 DTO
- */
 export class TaskListQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -99,13 +83,10 @@ export class TaskListQueryDto {
   status?: SyncStatus;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'])
+  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
   type?: SyncType;
 }
 
-/**
- * 任务列表响应
- */
 export interface TaskListResponse {
   data: SyncTaskItem[];
   total: number;
@@ -114,9 +95,6 @@ export interface TaskListResponse {
   totalPages: number;
 }
 
-/**
- * 任务项
- */
 export interface SyncTaskItem {
   id: string;
   type: SyncType;
@@ -130,9 +108,6 @@ export interface SyncTaskItem {
   error?: string;
 }
 
-/**
- * TLE 数据查询 DTO
- */
 export class TleListQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -148,16 +123,13 @@ export class TleListQueryDto {
   limit?: number = 20;
 
   @IsOptional()
-  search?: string; // 搜索名称或 NORAD ID
+  search?: string;
 
   @IsOptional()
   @IsEnum(['celestrak', 'space-track', 'keeptrack'])
   source?: string;
 }
 
-/**
- * TLE 数据列表响应
- */
 export interface TleListResponse {
   data: TleItem[];
   total: number;
@@ -166,9 +138,6 @@ export interface TleListResponse {
   totalPages: number;
 }
 
-/**
- * TLE 数据项
- */
 export interface TleItem {
   noradId: string;
   name: string;
@@ -181,9 +150,6 @@ export interface TleItem {
   line2?: string;
 }
 
-/**
- * 元数据查询 DTO
- */
 export class MetadataListQueryDto {
   @IsOptional()
   @Type(() => Number)
@@ -199,12 +165,9 @@ export class MetadataListQueryDto {
   limit?: number = 20;
 
   @IsOptional()
-  search?: string; // 搜索名称或 NORAD ID
+  search?: string;
 }
 
-/**
- * 元数据列表响应
- */
 export interface MetadataListResponse {
   data: MetadataItem[];
   total: number;
@@ -213,9 +176,6 @@ export interface MetadataListResponse {
   totalPages: number;
 }
 
-/**
- * 元数据项
- */
 export interface MetadataItem {
   noradId: string;
   name: string;
@@ -228,17 +188,11 @@ export interface MetadataItem {
   hasDiscosData?: boolean;
 }
 
-/**
- * 错误日志列表响应
- */
 export interface ErrorLogListResponse {
   data: ErrorLogItem[];
   total: number;
 }
 
-/**
- * 错误日志项
- */
 export interface ErrorLogItem {
   id: string;
   noradId: string;
@@ -249,7 +203,4 @@ export interface ErrorLogItem {
   timestamp: string;
 }
 
-/**
- * 停止同步请求 DTO
- */
 export class StopSyncDto {}

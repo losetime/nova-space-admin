@@ -13,3 +13,8 @@ export * from './satellite-tle';
 export * from './satellite-metadata';
 export * from './satellite-sync-tasks';
 export * from './satellite-sync-error-logs';
+export * from './article-likes';
+export * from './notifications';
+export * from './intelligence-collects';
+export * from './article-collects';
+export * from './quiz-answers';

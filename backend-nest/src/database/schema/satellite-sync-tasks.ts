@@ -1,7 +1,7 @@
 import { pgTable, varchar, timestamp, boolean, integer, text, index } from 'drizzle-orm/pg-core';
 
 export const syncStatusEnum = ['pending', 'running', 'completed', 'failed'] as const;
-export const syncTypeEnum = ['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos', 'all'] as const;
+export const syncTypeEnum = ['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'] as const;
 
 export const satelliteSyncTasks = pgTable(
   'satellite_sync_tasks',

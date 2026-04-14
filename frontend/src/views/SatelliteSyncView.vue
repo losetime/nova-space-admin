@@ -86,24 +86,6 @@
           </t-space>
         </template>
       </t-table>
-    </t-card>
-
-    <!-- 快速操作 -->
-    <t-card title="快速操作" :bordered="false" class="section-card quick-section">
-      <div class="quick-actions">
-        <t-button
-          theme="warning"
-          size="large"
-          :loading="syncing === 'all'"
-          :disabled="!!syncing"
-          @click="handleSync('all')"
-        >
-          <template #icon><RefreshIcon /></template>
-          完整同步（所有数据源）
-        </t-button>
-        <t-link theme="primary" size="small" @click="showSyncDetail('all')">查看详情</t-link>
-      </div>
-      
       <div class="cron-control">
         <div class="cron-label">
           <span class="cron-title">定时同步</span>
@@ -247,7 +229,6 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { RefreshIcon } from 'tdesign-icons-vue-next'
 import { MessagePlugin } from 'tdesign-vue-next'
 import {
   satelliteSyncApi,
@@ -635,7 +616,6 @@ function getTypeText(type: SyncType) {
     'keeptrack-tle': 'KeepTrack TLE',
     'keeptrack-meta': 'KeepTrack 元数据',
     'discos': 'ESA DISCOS',
-    'all': '完整同步',
   }
   return map[type] || type
 }
@@ -724,17 +704,6 @@ onUnmounted(() => stopPolling())
 
 .section-card :deep(.t-card__body) {
   padding: 16px 24px;
-}
-
-.quick-section :deep(.t-card__body) {
-  padding: 16px 24px;
-}
-
-.quick-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 16px;
 }
 
 .cron-control {

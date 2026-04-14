@@ -1,21 +1,17 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
 import { Cron } from '@nestjs/schedule';
-import {
-  SatelliteSyncTaskEntity,
-  SyncType,
-  SyncStatus,
-} from './entities/sync-task.entity';
-import { SatelliteTle } from './entities/satellite-tle.entity';
-import { SatelliteMetadataEntity } from './entities/satellite-metadata.entity';
-import { SatelliteSyncErrorLogEntity, SyncErrorType } from './entities/sync-error-log.entity';
+import { eq, and, or, like, desc, asc, sql, lte, gte, inArray, SQL } from 'drizzle-orm';
+import { Database } from '../../database';
+import { satelliteSyncTasks, syncTypeEnum, syncStatusEnum } from '../../database/schema/satellite-sync-tasks';
+import { satelliteTle } from '../../database/schema/satellite-tle';
+import { satelliteMetadata } from '../../database/schema/satellite-metadata';
+import { satelliteSyncErrorLogs, SyncErrorType } from '../../database/schema/satellite-sync-error-logs';
 import { SyncProgress, SyncStatsResponse, TaskListQueryDto, TaskListResponse, SyncTaskItem, TleListQueryDto, TleListResponse, TleItem, MetadataListQueryDto, MetadataListResponse, MetadataItem, ErrorLogListResponse, ErrorLogItem } from './dto/sync.dto';
 
-/**
- * Space-Track API 响应结构
- */
+type SyncType = typeof syncTypeEnum[number];
+type SyncStatus = typeof syncStatusEnum[number];
+
 interface SpaceTrackGpResponse {
   OBJECT_NAME: string;
   OBJECT_ID: string;
@@ -40,9 +36,6 @@ interface SpaceTrackGpResponse {
   PERIOD?: string;
 }
 
-/**
- * ESA DISCOS API 响应结构
- */
 interface DiscosResponse {
   data: Array<{
     id: string;
@@ -63,12 +56,8 @@ interface DiscosResponse {
       predDecayDate?: string;
     };
     relationships?: {
-      operators?: {
-        data?: Array<{ type: string; id: string }>;
-      };
-      launch?: {
-        data?: { type: string; id: string } | null;
-      };
+      operators?: { data?: Array<{ type: string; id: string }> };
+      launch?: { data?: { type: string; id: string } | null };
     };
   }>;
   included?: Array<{
@@ -81,19 +70,12 @@ interface DiscosResponse {
       failure?: boolean;
     };
     relationships?: {
-      vehicle?: {
-        data?: { type: string; id: string };
-      };
-      site?: {
-        data?: { type: string; id: string };
-      };
+      vehicle?: { data?: { type: string; id: string } };
+      site?: { data?: { type: string; id: string } };
     };
   }>;
 }
 
-/**
- * CelesTrak GP 响应结构
- */
 interface CelestrakGpResponse {
   OBJECT_NAME: string;
   OBJECT_ID: string;
@@ -105,18 +87,8 @@ interface CelestrakGpResponse {
   ARG_OF_PERICENTER: number;
   MEAN_ANOMALY: number;
   NORAD_CAT_ID: number;
-  EPHEMERIS_TYPE?: number;
-  CLASSIFICATION_TYPE?: string;
-  ELEMENT_SET_NO?: number;
-  REV_AT_EPOCH?: number;
-  BSTAR?: number;
-  MEAN_MOTION_DOT?: number;
-  MEAN_MOTION_DDOT?: number;
 }
 
-/**
- * KeepTrack Brief 响应结构
- */
 interface KeepTrackBriefResponse {
   tle1: string;
   tle2: string;
@@ -131,14 +103,11 @@ interface KeepTrackBriefResponse {
   status?: string;
 }
 
-/**
- * KeepTrack 卫星详情响应结构
- */
 interface KeepTrackSatDetailResponse {
   NORAD_CAT_ID: string;
   NAME: string;
-  OBJECT_ID?: string;       // 国际编号，如 "1998-067A"
-  ALT_NAME?: string;        // 别名
+  OBJECT_ID?: string;
+  ALT_NAME?: string;
   COUNTRY?: string;
   OWNER?: string;
   MANUFACTURER?: string;
@@ -152,9 +121,9 @@ interface KeepTrackSatDetailResponse {
   DRY_MASS?: string;
   LAUNCH_MASS?: string;
   LAUNCH_DATE?: string;
-  STABLE_DATE?: string;     // 入轨稳定日期
+  STABLE_DATE?: string;
   LAUNCH_SITE?: string;
-  LAUNCH_PAD?: string;      // 发射工位
+  LAUNCH_PAD?: string;
   LAUNCH_VEHICLE?: string;
   MISSION?: string;
   PURPOSE?: string;
@@ -163,84 +132,69 @@ interface KeepTrackSatDetailResponse {
   ADCS?: string;
   RCS?: string;
   STATUS?: string;
-  TYPE?: number;            // 对象类型：1=PAYLOAD, 2=ROCKET_BODY, 3=DEBRIS, etc.
-  SHAPE?: string;           // 形状描述
-  LIFETIME?: string;        // 设计寿命
-  VMAG?: number;            // 视星等
+  TYPE?: number;
+  SHAPE?: string;
+  LIFETIME?: string;
+  VMAG?: number;
   CONSTELLATION_NAME?: string;
-  COLOR?: string;           // 外观颜色
-  MATERIAL_COMPOSITION?: string;  // 材料构成
-  MAJOR_EVENTS?: string;    // 重大事件历史
-  RELATED_SATELLITES?: string;    // 相关卫星
-  TRANSMITTER_FREQUENCIES?: string;  // 发射频率
-  SOURCES?: string;         // 数据来源
-  reference_urls?: string;  // 参考链接
-  summary?: string;         // 详细描述
-  anomaly_flags?: string;   // 异常标记
-  last_reviewed?: string;   // 最后审核日期
+  COLOR?: string;
+  MATERIAL_COMPOSITION?: string;
+  MAJOR_EVENTS?: string;
+  RELATED_SATELLITES?: string;
+  TRANSMITTER_FREQUENCIES?: string;
+  SOURCES?: string;
+  reference_urls?: string;
+  summary?: string;
+  anomaly_flags?: string;
+  last_reviewed?: string;
   TLE_LINE_1?: string;
   TLE_LINE_2?: string;
   EPOCH?: string;
   INCLINATION?: number;
   RA_OF_ASC_NODE?: number;
-  MEAN_MOTION?: number;     // 平均运动（用于推算轨道周期）
+  MEAN_MOTION?: number;
   ARG_OF_PERICENTER?: number;
   MEAN_ANOMALY?: number;
   DECAY_DATE?: string;
 }
 
-/**
- * 卫星同步服务
- * 处理 TLE 和 ESA DISCOS 数据同步
- */
+type TaskRecord = typeof satelliteSyncTasks.$inferSelect;
+type TleRecord = typeof satelliteTle.$inferSelect;
+type MetadataRecord = typeof satelliteMetadata.$inferSelect;
+type ErrorLogRecord = typeof satelliteSyncErrorLogs.$inferSelect;
+
 @Injectable()
 export class SatelliteSyncService {
   private readonly logger = new Logger(SatelliteSyncService.name);
 
-  // Space-Track 配置
   private readonly spaceTrackUsername: string;
   private readonly spaceTrackPassword: string;
   private readonly spaceTrackBaseUrl = 'https://www.space-track.org';
 
-  // ESA DISCOS 配置
   private readonly esaDiscosApiToken: string | undefined;
   private readonly esaDiscosBaseUrl = 'https://discosweb.esoc.esa.int/api';
 
-  // CelesTrak 配置
   private readonly celestrakBaseUrl = 'https://celestrak.org/NORAD/elements';
 
-  // KeepTrack 配置
   private readonly keepTrackApiKey: string;
   private readonly keepTrackBaseUrl = 'https://api.keeptrack.space/v4';
 
-  // 同步状态
-  private currentTask: SatelliteSyncTaskEntity | null = null;
+  private currentTask: TaskRecord | null = null;
   private sessionCookie: string = '';
   private cookieExpiry: Date | null = null;
-  private useMockData: boolean = false; // 是否使用模拟数据（从本地缓存文件读取）
-  private stopRequested: boolean = false; // 是否请求停止同步
-  private cronEnabled: boolean = false; // 定时任务开关（默认关闭）
+  private useMockData: boolean = false;
+  private stopRequested: boolean = false;
+  private cronEnabled: boolean = false;
 
-  // 限流参数
-  private readonly BATCH_INTERVAL_MS = 3000; // 批次间隔 3 秒
-  private readonly RATE_LIMIT_WAIT_MS = 60000; // 限流等待 60 秒
-  private readonly DISCOS_MIN_INTERVAL_MS = 500; // DISCOS 最小请求间隔
-
-  // KeepTrack 限流参数（API Key 用户：2000 次/小时，约 33 次/分钟）
-  private readonly KEEPTRACK_MIN_DELAY_MS = 10000; // 最小延迟 10秒
-  private readonly KEEPTRACK_MAX_DELAY_MS = 40000; // 最大延迟 40秒
+  private readonly BATCH_INTERVAL_MS = 3000;
+  private readonly RATE_LIMIT_WAIT_MS = 60000;
+  private readonly DISCOS_MIN_INTERVAL_MS = 500;
+  private readonly KEEPTRACK_MIN_DELAY_MS = 10000;
+  private readonly KEEPTRACK_MAX_DELAY_MS = 40000;
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly dataSource: DataSource,
-    @InjectRepository(SatelliteSyncTaskEntity)
-    private readonly taskRepository: Repository<SatelliteSyncTaskEntity>,
-    @InjectRepository(SatelliteTle)
-    private readonly tleRepository: Repository<SatelliteTle>,
-    @InjectRepository(SatelliteMetadataEntity)
-    private readonly metadataRepository: Repository<SatelliteMetadataEntity>,
-    @InjectRepository(SatelliteSyncErrorLogEntity)
-    private readonly errorLogRepository: Repository<SatelliteSyncErrorLogEntity>,
+    @Inject('DATABASE') private db: Database,
   ) {
     this.spaceTrackUsername = this.configService.get<string>('app.spaceTrack.username') || '';
     this.spaceTrackPassword = this.configService.get<string>('app.spaceTrack.password') || '';
@@ -249,106 +203,100 @@ export class SatelliteSyncService {
     this.useMockData = this.configService.get<boolean>('app.useMockData') || false;
   }
 
-  /**
-   * 获取当前同步状态
-   * 返回正在运行的任务，或最近完成的任务（5分钟内）
-   */
-  async getCurrentStatus(): Promise<SatelliteSyncTaskEntity | null> {
-    // 优先返回内存中正在运行的任务
-    if (this.currentTask) {
-      this.logger.debug(`返回内存中的任务：${this.currentTask.id}, status: ${this.currentTask.status}`);
-      return this.currentTask;
-    }
+  async getCurrentStatus(): Promise<TaskRecord | null> {
+    // 优先从数据库查询正在运行的任务（获取最新进度）
+    const runningTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(eq(satelliteSyncTasks.status, 'running'))
+      .orderBy(desc(satelliteSyncTasks.started_at))
+      .limit(1);
 
-    // 查找正在运行的任务
-    const runningTask = await this.taskRepository.findOne({
-      where: { status: 'running' },
-      order: { startedAt: 'DESC' },
-    });
-
-    // 如果有 running 任务，检查是否超时（超过 10 分钟无进度）
-    if (runningTask) {
+    if (runningTask[0]) {
+      const task = runningTask[0];
+      this.currentTask = task; // 同步更新内存缓存
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-      const taskAge = Date.now() - runningTask.startedAt.getTime();
-      this.logger.log(`找到 running 任务：${runningTask.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${runningTask.processed}/${runningTask.total}`);
+      const taskAge = Date.now() - (task.started_at?.getTime() || 0);
+      this.logger.log(`找到 running 任务：${task.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${task.processed}/${task.total}`);
 
-      // 如果任务运行超过 10 分钟且进度没有更新，标记为失败
-      if (runningTask.startedAt < tenMinutesAgo) {
-        // 任务超时，标记为失败
-        this.logger.warn(`发现超时任务 ${runningTask.id}，启动时间：${runningTask.startedAt}，标记为失败`);
-        runningTask.status = 'failed';
-        runningTask.error = '任务超时（超过 10 分钟未完成）';
-        runningTask.completedAt = new Date();
-        await this.taskRepository.save(runningTask);
+      if (task.started_at && task.started_at < tenMinutesAgo) {
+        this.logger.warn(`发现超时任务 ${task.id}，标记为失败`);
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({ status: 'failed', error: '任务超时（超过 10 分钟未完成）', completed_at: new Date() })
+          .where(eq(satelliteSyncTasks.id, task.id));
+        this.currentTask = null;
         return null;
       }
-      return runningTask;
+      return task;
     }
 
-    // 查找最近完成的任务（5分钟内），让前端能看到结果
+    // 如果内存中有任务但数据库没有 running 状态，说明任务可能刚完成，查询最新状态
+    if (this.currentTask) {
+      const latestTask = await this.db
+        .select()
+        .from(satelliteSyncTasks)
+        .where(eq(satelliteSyncTasks.id, this.currentTask.id))
+        .limit(1);
+      if (latestTask[0] && latestTask[0].status !== 'running') {
+        return latestTask[0];
+      }
+    }
+
+    // 查找最近完成的任务（5分钟内）
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const recentTask = await this.taskRepository
-      .createQueryBuilder('task')
-      .where('task.status IN (:...statuses)', { statuses: ['completed', 'failed'] })
-      .andWhere('task.completedAt > :fiveMinutesAgo', { fiveMinutesAgo })
-      .orderBy('task.completedAt', 'DESC')
-      .getOne();
+    const recentTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(
+        inArray(satelliteSyncTasks.status, ['completed', 'failed']),
+        gte(satelliteSyncTasks.completed_at, fiveMinutesAgo)
+      ))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    if (recentTask) {
-      this.logger.debug(`返回最近完成的任务：${recentTask.id}, status: ${recentTask.status}`);
+    if (recentTask[0]) {
+      this.logger.debug(`返回最近完成的任务：${recentTask[0].id}, status: ${recentTask[0].status}`);
     }
 
-    return recentTask || null;
+    return recentTask[0] || null;
   }
 
-  /**
-   * 停止当前同步任务
-   */
-  async stopCurrentTask(): Promise<SatelliteSyncTaskEntity | null> {
+  async stopCurrentTask(): Promise<TaskRecord | null> {
     if (this.currentTask && this.currentTask.status === 'running') {
       this.logger.log(`收到停止请求，任务 ID: ${this.currentTask.id}`);
       this.stopRequested = true;
       return this.currentTask;
     }
 
-    // 如果没有运行中的任务，查找数据库中的 running 任务
-    const runningTask = await this.taskRepository.findOne({
-      where: { status: 'running' },
-      order: { startedAt: 'DESC' },
-    });
+    const runningTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(eq(satelliteSyncTasks.status, 'running'))
+      .orderBy(desc(satelliteSyncTasks.started_at))
+      .limit(1);
 
-    if (runningTask) {
-      this.logger.log(`收到停止请求，任务 ID: ${runningTask.id}`);
+    if (runningTask[0]) {
+      this.logger.log(`收到停止请求，任务 ID: ${runningTask[0].id}`);
       this.stopRequested = true;
-      return runningTask;
+      return runningTask[0];
     }
 
     this.logger.warn('没有运行中的任务，无法停止');
     return null;
   }
 
-  /**
-   * 获取定时任务开关状态
-   */
   isCronEnabled(): boolean {
     return this.cronEnabled;
   }
 
-  /**
-   * 设置定时任务开关
-   */
   setCronEnabled(enabled: boolean): void {
     this.cronEnabled = enabled;
     this.logger.log(`定时任务已${enabled ? '启用' : '禁用'}`);
   }
 
-  /**
-   * 定时任务：每小时触发一次 KeepTrack 元数据同步
-   * 如果当前有任务在运行或定时任务已禁用，则跳过并记录日志
-   */
-  @Cron('0 * * * *') // 每小时整点执行
+  @Cron('0 * * * *')
   async handleKeepTrackMetaSyncCron() {
-    // 检查定时任务是否启用
     if (!this.cronEnabled) {
       this.logger.debug('[定时任务] KeepTrack 元数据同步已禁用，跳过');
       return;
@@ -356,22 +304,17 @@ export class SatelliteSyncService {
 
     this.logger.log('[定时任务] 检查是否需要触发 KeepTrack 元数据同步...');
 
-    // 检查是否有运行中的任务
     const runningTask = await this.getCurrentStatus();
     if (runningTask && runningTask.status === 'running') {
-      this.logger.log(
-        `[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id} (${runningTask.processed}/${runningTask.total})`
-      );
+      this.logger.log(`[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id}`);
       return;
     }
 
-    // 检查是否配置了 KeepTrack API Key
     if (!this.keepTrackApiKey) {
       this.logger.warn('[定时任务] KeepTrack API Key 未配置，跳过同步');
       return;
     }
 
-    // 触发同步
     this.logger.log('[定时任务] 开始触发 KeepTrack 元数据同步');
     try {
       await this.startSync('keeptrack-meta');
@@ -380,82 +323,98 @@ export class SatelliteSyncService {
     }
   }
 
-  /**
-   * 获取数据统计
-   */
   async getStats(): Promise<SyncStatsResponse> {
-    const tleCount = await this.tleRepository.count();
-    const metadataCount = await this.metadataRepository.count();
+    const tleCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteTle);
+    const tleCount = Number(tleCountResult[0]?.count || 0);
 
-    // 元数据来源统计
-    const discosCount = await this.metadataRepository.count({
-      where: { hasDiscosData: true },
-    });
+    const metadataCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteMetadata);
+    const metadataCount = Number(metadataCountResult[0]?.count || 0);
 
-    const keepTrackMetadataCount = await this.metadataRepository.count({
-      where: { hasKeepTrackData: true },
-    });
+    const discosCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_discos_data, true));
+    const discosCount = Number(discosCountResult[0]?.count || 0);
 
-    const spaceTrackMetadataCount = await this.metadataRepository.count({
-      where: { hasSpaceTrackData: true },
-    });
+    const keepTrackMetadataCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_keeptrack_data, true));
+    const keepTrackMetadataCount = Number(keepTrackMetadataCountResult[0]?.count || 0);
 
-    // TLE 数据源统计
-    const celestrakCount = await this.tleRepository.count({
-      where: { source: 'celestrak' },
-    });
+    const spaceTrackMetadataCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_spacetrack_data, true));
+    const spaceTrackMetadataCount = Number(spaceTrackMetadataCountResult[0]?.count || 0);
 
-    const keepTrackCount = await this.tleRepository.count({
-      where: { source: 'keeptrack' },
-    });
+    const celestrakCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteTle)
+      .where(eq(satelliteTle.source, 'celestrak'));
+    const celestrakCount = Number(celestrakCountResult[0]?.count || 0);
 
-    const spaceTrackTleCount = await this.tleRepository.count({
-      where: { source: 'space-track' },
-    });
+    const keepTrackCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteTle)
+      .where(eq(satelliteTle.source, 'keeptrack'));
+    const keepTrackCount = Number(keepTrackCountResult[0]?.count || 0);
 
-    // 计算覆盖率
-    const discosCoverage = metadataCount > 0
-      ? ((discosCount / metadataCount) * 100).toFixed(1) + '%'
-      : '0%';
+    const spaceTrackTleCountResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteTle)
+      .where(eq(satelliteTle.source, 'space-track'));
+    const spaceTrackTleCount = Number(spaceTrackTleCountResult[0]?.count || 0);
 
-    const keepTrackCoverage = metadataCount > 0
-      ? ((keepTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%'
-      : '0%';
+    const discosCoverage = metadataCount > 0 ? ((discosCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
+    const keepTrackCoverage = metadataCount > 0 ? ((keepTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
+    const spaceTrackCoverage = metadataCount > 0 ? ((spaceTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
 
-    const spaceTrackCoverage = metadataCount > 0
-      ? ((spaceTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%'
-      : '0%';
+    const lastCelestrakTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'celestrak'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    // 获取最近同步时间
-    const lastCelestrakTask = await this.taskRepository.findOne({
-      where: { type: 'celestrak', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
+    const lastKeepTrackTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'keeptrack-tle'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    const lastKeepTrackTask = await this.taskRepository.findOne({
-      where: { type: 'keeptrack-tle', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
+    const lastKeepTrackMetaTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'keeptrack-meta'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    const lastKeepTrackMetaTask = await this.taskRepository.findOne({
-      where: { type: 'keeptrack-meta', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
+    const lastDiscosTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'discos'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    const lastDiscosTask = await this.taskRepository.findOne({
-      where: { type: 'discos', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
+    const lastSpaceTrackTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'space-track'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
-    const lastSpaceTrackTask = await this.taskRepository.findOne({
-      where: { type: 'space-track', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
-
-    const lastSpaceTrackMetaTask = await this.taskRepository.findOne({
-      where: { type: 'space-track-meta', status: 'completed' },
-      order: { completedAt: 'DESC' },
-    });
+    const lastSpaceTrackMetaTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(and(eq(satelliteSyncTasks.type, 'space-track-meta'), eq(satelliteSyncTasks.status, 'completed')))
+      .orderBy(desc(satelliteSyncTasks.completed_at))
+      .limit(1);
 
     return {
       tleCount,
@@ -469,148 +428,134 @@ export class SatelliteSyncService {
       celestrakCount,
       keepTrackCount,
       spaceTrackTleCount,
-      lastCelestrakSync: lastCelestrakTask?.completedAt?.toISOString(),
-      lastKeepTrackSync: lastKeepTrackMetaTask?.completedAt?.toISOString() || lastKeepTrackTask?.completedAt?.toISOString(),
-      lastDiscosSync: lastDiscosTask?.completedAt?.toISOString(),
-      lastSpaceTrackSync: lastSpaceTrackMetaTask?.completedAt?.toISOString() || lastSpaceTrackTask?.completedAt?.toISOString(),
+      lastCelestrakSync: lastCelestrakTask[0]?.completed_at?.toISOString(),
+      lastKeepTrackSync: lastKeepTrackMetaTask[0]?.completed_at?.toISOString() || lastKeepTrackTask[0]?.completed_at?.toISOString(),
+      lastDiscosSync: lastDiscosTask[0]?.completed_at?.toISOString(),
+      lastSpaceTrackSync: lastSpaceTrackMetaTask[0]?.completed_at?.toISOString() || lastSpaceTrackTask[0]?.completed_at?.toISOString(),
     };
   }
 
-  /**
-   * 获取同步任务列表
-   */
   async getTaskList(query: TaskListQueryDto): Promise<TaskListResponse> {
     const { page = 1, limit = 10, status, type } = query;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const qb = this.taskRepository.createQueryBuilder('task');
+    const conditions: SQL[] = [];
+    if (status) conditions.push(eq(satelliteSyncTasks.status, status));
+    if (type) conditions.push(eq(satelliteSyncTasks.type, type));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (status) {
-      qb.andWhere('task.status = :status', { status });
-    }
+    const tasks = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(whereClause)
+      .orderBy(desc(satelliteSyncTasks.started_at))
+      .limit(limit)
+      .offset(offset);
 
-    if (type) {
-      qb.andWhere('task.type = :type', { type });
-    }
-
-    qb.orderBy('task.startedAt', 'DESC')
-      .skip(skip)
-      .take(limit);
-
-    const [tasks, total] = await qb.getManyAndCount();
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteSyncTasks)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count || 0);
 
     const data: SyncTaskItem[] = tasks.map(task => ({
       id: task.id,
-      type: task.type,
-      status: task.status,
+      type: task.type as SyncType,
+      status: task.status as SyncStatus,
       total: task.total,
       processed: task.processed,
       success: task.success,
       failed: task.failed,
-      startedAt: task.startedAt?.toISOString() || '',
-      completedAt: task.completedAt?.toISOString(),
+      startedAt: task.started_at?.toISOString() || '',
+      completedAt: task.completed_at?.toISOString(),
       error: task.error,
     }));
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  /**
-   * 获取任务详情
-   */
   async getTaskById(taskId: string): Promise<SyncTaskItem | null> {
-    const task = await this.taskRepository.findOne({
-      where: { id: taskId },
-    });
+    const task = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(eq(satelliteSyncTasks.id, taskId))
+      .limit(1);
 
-    if (!task) {
-      return null;
-    }
+    if (!task[0]) return null;
 
     return {
-      id: task.id,
-      type: task.type,
-      status: task.status,
-      total: task.total,
-      processed: task.processed,
-      success: task.success,
-      failed: task.failed,
-      startedAt: task.startedAt?.toISOString() || '',
-      completedAt: task.completedAt?.toISOString(),
-      error: task.error,
+      id: task[0].id,
+      type: task[0].type as SyncType,
+      status: task[0].status as SyncStatus,
+      total: task[0].total,
+      processed: task[0].processed,
+      success: task[0].success,
+      failed: task[0].failed,
+      startedAt: task[0].started_at?.toISOString() || '',
+      completedAt: task[0].completed_at?.toISOString(),
+      error: task[0].error,
     };
   }
 
-  /**
-   * 获取任务错误日志
-   */
   async getTaskErrors(taskId: string): Promise<ErrorLogListResponse> {
-    const errors = await this.errorLogRepository.find({
-      where: { taskId },
-      order: { timestamp: 'DESC' },
-    });
+    const errors = await this.db
+      .select()
+      .from(satelliteSyncErrorLogs)
+      .where(eq(satelliteSyncErrorLogs.task_id, taskId))
+      .orderBy(desc(satelliteSyncErrorLogs.timestamp));
 
     const data: ErrorLogItem[] = errors.map(err => ({
       id: err.id,
-      noradId: err.noradId,
+      noradId: err.norad_id,
       name: err.name,
       source: err.source,
-      errorType: err.errorType,
-      errorMessage: err.errorMessage,
+      errorType: err.error_type as SyncErrorType,
+      errorMessage: err.error_message,
       timestamp: err.timestamp.toISOString(),
     }));
 
-    return {
-      data,
-      total: errors.length,
-    };
+    return { data, total: errors.length };
   }
 
-  /**
-   * 获取最近的错误日志（用于运行中的任务实时显示）
-   */
-  async getRecentErrors(taskId: string, limit: number = 5): Promise<SatelliteSyncErrorLogEntity[]> {
-    return this.errorLogRepository.find({
-      where: { taskId },
-      order: { timestamp: 'DESC' },
-      take: limit,
-    });
+  async getRecentErrors(taskId: string, limit: number = 5): Promise<ErrorLogRecord[]> {
+    return this.db
+      .select()
+      .from(satelliteSyncErrorLogs)
+      .where(eq(satelliteSyncErrorLogs.task_id, taskId))
+      .orderBy(desc(satelliteSyncErrorLogs.timestamp))
+      .limit(limit);
   }
 
-  /**
-   * 获取 TLE 数据列表
-   */
   async getTleList(query: TleListQueryDto): Promise<TleListResponse> {
     const { page = 1, limit = 20, search, source } = query;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const qb = this.tleRepository.createQueryBuilder('tle');
-
+    const conditions: SQL[] = [];
     if (search) {
-      qb.andWhere(
-        '(tle.name ILIKE :search OR tle.noradId ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      conditions.push(or(
+        like(satelliteTle.name, `%${search}%`),
+        like(satelliteTle.norad_id, `%${search}%`)
+      ));
     }
+    if (source) conditions.push(eq(satelliteTle.source, source));
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    if (source) {
-      qb.andWhere('tle.source = :source', { source });
-    }
+    const tles = await this.db
+      .select()
+      .from(satelliteTle)
+      .where(whereClause)
+      .orderBy(desc(satelliteTle.epoch))
+      .limit(limit)
+      .offset(offset);
 
-    qb.orderBy('tle.epoch', 'DESC')
-      .skip(skip)
-      .take(limit);
-
-    const [tles, total] = await qb.getManyAndCount();
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteTle)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count || 0);
 
     const data: TleItem[] = tles.map(tle => ({
-      noradId: tle.noradId,
+      noradId: tle.norad_id,
       name: tle.name,
       source: tle.source,
       epoch: tle.epoch?.toISOString(),
@@ -621,86 +566,74 @@ export class SatelliteSyncService {
       line2: tle.line2,
     }));
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  /**
-   * 获取卫星元数据列表
-   */
   async getMetadataList(query: MetadataListQueryDto): Promise<MetadataListResponse> {
     const { page = 1, limit = 20, search } = query;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-    const qb = this.metadataRepository.createQueryBuilder('meta');
-
+    const conditions: SQL[] = [];
     if (search) {
-      qb.andWhere(
-        '(meta.name ILIKE :search OR meta.noradId ILIKE :search)',
-        { search: `%${search}%` },
-      );
+      conditions.push(or(
+        like(satelliteMetadata.name, `%${search}%`),
+        like(satelliteMetadata.norad_id, `%${search}%`)
+      ));
     }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    qb.orderBy('meta.noradId', 'ASC')
-      .skip(skip)
-      .take(limit);
+    const metas = await this.db
+      .select()
+      .from(satelliteMetadata)
+      .where(whereClause)
+      .orderBy(asc(satelliteMetadata.norad_id))
+      .limit(limit)
+      .offset(offset);
 
-    const [metas, total] = await qb.getManyAndCount();
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(satelliteMetadata)
+      .where(whereClause);
+    const total = Number(countResult[0]?.count || 0);
 
     const data: MetadataItem[] = metas.map(meta => ({
-      noradId: meta.noradId,
+      noradId: meta.norad_id,
       name: meta.name,
-      countryCode: meta.countryCode,
-      launchDate: meta.launchDate,
-      objectType: meta.objectType,
+      countryCode: meta.country_code,
+      launchDate: meta.launch_date ? (typeof meta.launch_date === 'string' ? meta.launch_date : meta.launch_date.toISOString().split('T')[0]) : undefined,
+      objectType: meta.object_type,
       status: meta.status,
-      hasKeepTrackData: meta.hasKeepTrackData,
-      hasSpaceTrackData: meta.hasSpaceTrackData,
-      hasDiscosData: meta.hasDiscosData,
+      hasKeepTrackData: meta.has_keeptrack_data,
+      hasSpaceTrackData: meta.has_spacetrack_data,
+      hasDiscosData: meta.has_discos_data,
     }));
 
-    return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
+    return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  /**
-   * 开始同步
-   */
-  async startSync(type: SyncType): Promise<SatelliteSyncTaskEntity> {
-    // 检查是否有运行中的任务
+  async startSync(type: SyncType): Promise<TaskRecord> {
     const runningTask = await this.getCurrentStatus();
-    // 只有真正正在运行的任务才阻止新任务
     if (runningTask && runningTask.status === 'running') {
       throw new Error('已有同步任务正在运行，请等待完成后再试');
     }
 
-    // 创建新任务
     const taskId = this.generateTaskId();
-    const task = this.taskRepository.create({
-      id: taskId,
-      type,
-      status: 'running',
-      total: 0,
-      processed: 0,
-      success: 0,
-      failed: 0,
-      startedAt: new Date(),
-    });
-
-    await this.taskRepository.save(task);
+    const result = await this.db
+      .insert(satelliteSyncTasks)
+      .values({
+        id: taskId,
+        type,
+        status: 'running',
+        total: 0,
+        processed: 0,
+        success: 0,
+        failed: 0,
+        started_at: new Date(),
+      })
+      .returning();
+    const task = result[0];
     this.currentTask = task;
 
-    // 异步执行同步
     this.executeSync(task).catch((error) => {
       this.logger.error(`同步任务失败：${error.message}`);
     });
@@ -708,11 +641,7 @@ export class SatelliteSyncService {
     return task;
   }
 
-  /**
-   * 执行同步（智能降级策略）
-   */
-  private async executeSync(task: SatelliteSyncTaskEntity): Promise<void> {
-    // 重置停止标志
+  private async executeSync(task: TaskRecord): Promise<void> {
     this.stopRequested = false;
 
     try {
@@ -735,124 +664,33 @@ export class SatelliteSyncService {
         case 'discos':
           await this.syncDiscos(task);
           break;
-        case 'all':
-          // 智能降级策略：主数据源失败才用备用源
-
-          // TLE 数据同步：KeepTrack（主） → Space-Track（备用） → CelesTrak（兜底）
-          let tleSyncSuccess = false;
-
-          // 优先使用 KeepTrack（主数据源，与元数据策略对齐）
-          if (this.keepTrackApiKey) {
-            this.logger.log('[完整同步] 开始 TLE 数据同步 - 主数据源 KeepTrack');
-            try {
-              await this.syncKeepTrackBrief(task);
-              tleSyncSuccess = true;
-              this.logger.log('[完整同步] KeepTrack TLE 同步成功，跳过备用源');
-            } catch (error) {
-              this.logger.warn(`[完整同步] KeepTrack TLE 失败：${error.message}，尝试 Space-Track 备用源`);
-            }
-          } else {
-            this.logger.warn('[完整同步] KeepTrack API Key 未配置，尝试 Space-Track 备用源');
-          }
-
-          if (!tleSyncSuccess) {
-            try {
-              await this.syncTle(task);
-              tleSyncSuccess = true;
-              this.logger.log('[完整同步] Space-Track TLE 同步成功，跳过 CelesTrak');
-            } catch (error) {
-              this.logger.warn(`[完整同步] Space-Track 失败：${error.message}，尝试 CelesTrak 兜底源`);
-            }
-          }
-
-          if (!tleSyncSuccess) {
-            try {
-              await this.syncCelestrak(task);
-              tleSyncSuccess = true;
-              this.logger.log('[完整同步] CelesTrak TLE 同步成功（兜底）');
-            } catch (error) {
-              this.logger.warn(`[完整同步] CelesTrak 失败：${error.message}`);
-            }
-          }
-
-          if (!tleSyncSuccess) {
-            this.logger.error('[完整同步] 所有 TLE 数据源均失败');
-          }
-
-          // 元数据同步：KeepTrack（主） → Space-Track（备用） → ESA DISCOS（备用）
-          let metaSyncSuccess = false;
-
-          if (this.keepTrackApiKey) {
-            this.logger.log('[完整同步] 开始元数据同步 - 主数据源 KeepTrack');
-            try {
-              await this.syncKeepTrackDetail(task);
-              metaSyncSuccess = true;
-              this.logger.log('[完整同步] KeepTrack 元数据同步成功，跳过备用源');
-            } catch (error) {
-              this.logger.warn(`[完整同步] KeepTrack 元数据失败：${error.message}，尝试 Space-Track 备用源`);
-            }
-          } else {
-            this.logger.warn('[完整同步] KeepTrack API Key 未配置，尝试 Space-Track 备用源');
-          }
-
-          // Space-Track 作为元数据备用源
-          if (!metaSyncSuccess) {
-            try {
-              await this.syncSpaceTrackMetadata(task);
-              metaSyncSuccess = true;
-              this.logger.log('[完整同步] Space-Track 元数据同步成功，跳过 ESA DISCOS');
-            } catch (error) {
-              this.logger.warn(`[完整同步] Space-Track 元数据失败：${error.message}，尝试 ESA DISCOS 备用源`);
-            }
-          }
-
-          if (!metaSyncSuccess && this.esaDiscosApiToken) {
-            try {
-              await this.syncDiscos(task);
-              metaSyncSuccess = true;
-              this.logger.log('[完整同步] ESA DISCOS 元数据同步成功');
-            } catch (error) {
-              this.logger.warn(`[完整同步] ESA DISCOS 失败：${error.message}`);
-            }
-          }
-
-          if (!metaSyncSuccess) {
-            this.logger.error('[完整同步] 所有元数据源均失败');
-          }
-
-          break;
       }
 
-
-      // 检查是否被停止
       if (this.stopRequested) {
-        task.status = 'failed';
-        task.error = '用户请求停止同步';
-        task.completedAt = new Date();
-        await this.taskRepository.save(task);
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({ status: 'failed', error: '用户请求停止同步', completed_at: new Date() })
+          .where(eq(satelliteSyncTasks.id, task.id));
         this.logger.log(`同步任务被用户停止：${task.id}`);
       } else {
-        // 更新任务状态为完成
-        task.status = 'completed';
-        task.completedAt = new Date();
-        await this.taskRepository.save(task);
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({ status: 'completed', completed_at: new Date() })
+          .where(eq(satelliteSyncTasks.id, task.id));
         this.logger.log(`同步任务完成：${task.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error(`同步任务失败: ${error.message}`, error.stack);
-      task.status = 'failed';
-      task.error = error.message;
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ status: 'failed', error: error.message, completed_at: new Date() })
+        .where(eq(satelliteSyncTasks.id, task.id));
     } finally {
       this.currentTask = null;
       this.stopRequested = false;
     }
   }
 
-  /**
-   * 检查是否请求停止，如果是则抛出异常
-   */
   protected checkStopRequested(): void {
     if (this.stopRequested) {
       this.logger.log('检测到停止请求，提前退出同步');
@@ -860,13 +698,9 @@ export class SatelliteSyncService {
     }
   }
 
-  /**
-   * CelesTrak TLE 数据同步（兜底数据源）
-   */
-  private async syncCelestrak(task: SatelliteSyncTaskEntity): Promise<void> {
-    this.logger.log('开始 CelesTrak TLE 数据同步（兜底源）...');
+  private async syncCelestrak(task: TaskRecord): Promise<void> {
+    this.logger.log('开始 CelesTrak TLE 数据同步...');
 
-    // 如果使用模拟数据，从本地缓存文件读取
     if (this.useMockData) {
       await this.syncCelestrakMock(task);
       return;
@@ -874,213 +708,142 @@ export class SatelliteSyncService {
 
     const url = `${this.celestrakBaseUrl}/gp.php?GROUP=active&FORMAT=json`;
 
-    try {
-      const response = await fetch(url, {
-        headers: { 'User-Agent': 'Nova-Space-Admin/1.0' },
-      });
+    const response = await fetch(url, { headers: { 'User-Agent': 'Nova-Space-Admin/1.0' } });
+    if (!response.ok) throw new Error(`CelesTrak API 错误：${response.status}`);
 
-      if (!response.ok) {
-        throw new Error(`CelesTrak API 错误：${response.status}`);
-      }
+    const data: CelestrakGpResponse[] = await response.json();
+    this.logger.log(`获取 ${data.length} 条 CelesTrak 数据`);
 
-      const data: CelestrakGpResponse[] = await response.json();
-      this.logger.log(`获取 ${data.length} 条 CelesTrak 数据`);
+    await this.db.update(satelliteSyncTasks).set({ total: data.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-      task.total = data.length;
-      await this.taskRepository.save(task);
+    let success = 0;
+    let skipped = 0;
 
-      let success = 0;
-      let skipped = 0;
-      for (const item of data) {
-        try {
-          const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+    for (const item of data) {
+      try {
+        const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
 
-          // 检查是否已存在数据（避免覆盖其他源的 richer 数据）
-          const existing = await this.tleRepository.findOne({
-            where: { noradId },
-            select: ['source'],
-          });
-
-          if (existing) {
-            // 已有其他源的数据，跳过不覆盖
-            skipped++;
-            continue;
-          }
-
-          await this.tleRepository.upsert({
-            noradId,
-            name: item.OBJECT_NAME,
-            source: 'celestrak',
-            epoch: new Date(item.EPOCH),
-            inclination: item.INCLINATION,
-            raan: item.RA_OF_ASC_NODE,
-            eccentricity: item.ECCENTRICITY,
-            argOfPerigee: item.ARG_OF_PERICENTER,
-            meanMotion: item.MEAN_MOTION,
-          }, ['noradId']);
-
-          success++;
-        } catch (error) {
-          this.logger.warn(`保存失败 (${item.OBJECT_NAME}): ${error.message}`);
+        if (existing[0]) {
+          skipped++;
+          continue;
         }
+
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
+          name: item.OBJECT_NAME,
+          source: 'celestrak',
+          line1: '',
+          line2: '',
+          epoch: new Date(item.EPOCH),
+          inclination: item.INCLINATION,
+          raan: item.RA_OF_ASC_NODE,
+          eccentricity: item.ECCENTRICITY,
+          arg_of_perigee: item.ARG_OF_PERICENTER,
+          mean_motion: item.MEAN_MOTION,
+        }).onConflictDoNothing({ target: satelliteTle.norad_id });
+
+        success++;
+      } catch (error: any) {
+        this.logger.warn(`保存失败 (${item.OBJECT_NAME}): ${error.message}`);
       }
-
-      task.success = success;
-      task.processed = data.length;
-      await this.taskRepository.save(task);
-
-      this.logger.log(`CelesTrak 同步完成：成功 ${success}, 跳过 ${skipped} (已有其他源数据)`);
-    } catch (error) {
-      this.logger.error(`CelesTrak 同步失败：${error.message}`);
-      throw error;
     }
+
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ success, processed: data.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
+
+    this.logger.log(`CelesTrak 同步完成：成功 ${success}, 跳过 ${skipped}`);
   }
 
-  /**
-   * CelesTrak TLE 数据同步（模拟模式 - 从本地缓存文件读取）
-   */
-  private async syncCelestrakMock(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncCelestrakMock(task: TaskRecord): Promise<void> {
     this.logger.log('开始 CelesTrak TLE 数据同步（模拟模式）...');
 
-    const cacheFilePath = require('path').join(
-      process.cwd(),
-      'data',
-      'celestrak-tle-cache.json',
-    );
-
+    const cacheFilePath = require('path').join(process.cwd(), 'data', 'celestrak-tle-cache.json');
     const fs = await import('fs');
 
-    if (!fs.existsSync(cacheFilePath)) {
-      throw new Error(`模拟数据文件不存在：${cacheFilePath}，请先运行 pnpm run cache:tle`);
-    }
+    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
     const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
     this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
 
     if (cacheData.count === 0) {
-      this.logger.warn('CelesTrak 缓存数据为空，跳过同步');
-      task.status = 'completed';
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    task.total = cacheData.count;
-    await this.taskRepository.save(task);
+    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0;
-    let skipped = 0;
-    let failed = 0;
+    let success = 0, skipped = 0, failed = 0;
 
     for (const item of cacheData.data) {
       const noradId = this.formatNoradId(item.NORAD_CAT_ID);
 
-      // 检查是否缺少 name 字段
       if (!item.OBJECT_NAME) {
         failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          undefined,
-          'celestrak',
-          'missing_name',
-          '卫星数据缺少 OBJECT_NAME 字段',
-          undefined,
-        );
+        await this.logSyncError(task.id, noradId, undefined, 'celestrak', 'missing_name', '卫星数据缺少 OBJECT_NAME 字段');
         continue;
       }
 
       try {
-        // 先创建基础元数据记录（如果不存在）
-        await this.metadataRepository
-          .createQueryBuilder()
-          .insert()
-          .values({ noradId, hasDiscosData: false, hasKeepTrackData: false, hasSpaceTrackData: false })
-          .onConflict('("noradId") DO NOTHING')
-          .execute();
+        await this.db.insert(satelliteMetadata).values({
+          norad_id: noradId,
+          has_discos_data: false,
+          has_keeptrack_data: false,
+          has_spacetrack_data: false,
+        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
 
-        // 检查是否已存在数据（避免覆盖其他源的 richer 数据）
-        const existing = await this.tleRepository.findOne({
-          where: { noradId },
-          select: ['source'],
-        });
+        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
 
-        if (existing) {
-          // 已有其他源的数据，记录为 duplicate
+        if (existing[0]) {
           skipped++;
-          await this.logSyncError(
-            task.id,
-            noradId,
-            item.OBJECT_NAME,
-            'celestrak',
-            'duplicate',
-            `已有 ${existing.source} 数据源的数据，跳过覆盖`,
-            undefined,
-          );
+          await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'celestrak', 'duplicate', `已有 ${existing[0].source} 数据源的数据`);
           continue;
         }
 
-        await this.tleRepository.upsert({
-          noradId,
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
           name: item.OBJECT_NAME,
           source: 'celestrak',
+          line1: '',
+          line2: '',
           epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
           inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
           raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
           eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          meanMotion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
-        }, ['noradId']);
+          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+        }).onConflictDoNothing({ target: satelliteTle.norad_id });
 
         success++;
       } catch (dbError: any) {
         failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          item.OBJECT_NAME,
-          'celestrak',
-          'database',
-          dbError.message,
-          undefined,
-        );
+        await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'celestrak', 'database', dbError.message);
       }
 
-      task.processed = success + skipped + failed;
-      task.success = success;
-      task.failed = failed;
-      await this.taskRepository.save(task);
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ processed: success + skipped + failed, success, failed })
+        .where(eq(satelliteSyncTasks.id, task.id));
     }
 
-    task.status = 'completed';
-    task.completedAt = new Date();
-    await this.taskRepository.save(task);
-
+    await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
     this.logger.log(`CelesTrak（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`);
   }
 
-  /**
-   * TLE 数据同步（Space-Track）
-   */
-  private async syncTle(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncTle(task: TaskRecord): Promise<void> {
     this.logger.log('开始 Space-Track TLE 数据同步...');
 
-    // 如果使用模拟数据，从本地缓存文件读取
     if (this.useMockData) {
       await this.syncTleMock(task);
       return;
     }
 
-    if (!this.spaceTrackUsername || !this.spaceTrackPassword) {
-      throw new Error('Space-Track 凭据未配置，请检查环境变量');
-    }
+    if (!this.spaceTrackUsername || !this.spaceTrackPassword) throw new Error('Space-Track 凭据未配置');
 
-    // 登录获取 session
-    this.logger.log('正在登录 Space-Track...');
     await this.loginSpaceTrack();
-    this.logger.log('Space-Track 登录成功');
 
-    // 分批获取数据
     const batches = [
       { range: '1--9999', name: '早期卫星' },
       { range: '10000--19999', name: '1980s-1990s' },
@@ -1090,37 +853,24 @@ export class SatelliteSyncService {
       { range: '50000--99999', name: '2020s 至今' },
     ];
 
-    let totalProcessed = 0;
-    let totalSuccess = 0;
-    let totalFailed = 0;
-    let batchErrors: string[] = [];
+    let totalProcessed = 0, totalSuccess = 0, totalFailed = 0;
+    const batchErrors: string[] = [];
 
     for (const batch of batches) {
-      // 检查停止请求
       this.checkStopRequested();
-
-      this.logger.log(`获取批次：${batch.name} (NORAD ID ${batch.range})`);
 
       try {
         const gpData = await this.fetchGpBatch(batch.range);
-        this.logger.log(`批次 ${batch.name} 获取到 ${gpData.length} 条数据`);
-
-        // 处理数据
         const result = await this.processAndStoreGpData(task.id, gpData);
         totalProcessed += gpData.length;
         totalSuccess += result.success;
         totalFailed += result.failed;
 
-        this.logger.log(`批次 ${batch.name} 处理完成：成功 ${result.success}, 失败 ${result.failed}`);
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({ total: totalProcessed, processed: totalProcessed, success: totalSuccess, failed: totalFailed })
+          .where(eq(satelliteSyncTasks.id, task.id));
 
-        // 更新任务进度
-        task.total = totalProcessed;
-        task.processed = totalProcessed;
-        task.success = totalSuccess;
-        task.failed = totalFailed;
-        await this.taskRepository.save(task);
-
-        // 批次间隔
         await this.sleep(this.BATCH_INTERVAL_MS);
       } catch (error: any) {
         this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
@@ -1128,143 +878,73 @@ export class SatelliteSyncService {
       }
     }
 
-    this.logger.log(`Space-Track TLE 同步完成：成功 ${totalSuccess}, 失败 ${totalFailed}`);
-
-    // 如果所有批次都失败，抛出异常触发兜底源
-    if (totalSuccess === 0 && batchErrors.length > 0) {
-      throw new Error(`Space-Track 所有批次均失败：${batchErrors.join('; ')}`);
-    }
-
-    // 部分成功也记录警告
-    if (totalFailed > 0 && totalSuccess > 0) {
-      this.logger.warn(`Space-Track 部分失败：${totalFailed} 条数据处理失败`);
-    }
+    if (totalSuccess === 0 && batchErrors.length > 0) throw new Error(`所有批次均失败：${batchErrors.join('; ')}`);
   }
 
-  /**
-   * 登录 Space-Track
-   */
   private async loginSpaceTrack(): Promise<void> {
     const https = await import('https');
     const url = `${this.spaceTrackBaseUrl}/ajaxauth/login`;
 
-    this.logger.log('正在登录 Space-Track...');
-
     return new Promise((resolve, reject) => {
-      const req = https.request(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Nova-Space-Admin/1.0',
-          },
-          timeout: 60000,
-        },
-        (res) => {
-          let body = '';
-          res.on('data', (chunk) => { body += chunk; });
-          res.on('end', () => {
-            if (res.statusCode !== 200) {
-              reject(new Error(`登录失败，状态码：${res.statusCode}`));
-              return;
-            }
-            const cookies = res.headers['set-cookie'];
-            if (cookies) {
-              this.sessionCookie = cookies.map((c) => c.split(';')[0]).join('; ');
-              this.cookieExpiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
-              this.logger.log('Space-Track 登录成功');
-              resolve();
-            } else {
-              reject(new Error('未获取到 session cookie'));
-            }
-          });
-        },
-      );
-
-      req.on('error', (err) => {
-        this.logger.error(`Space-Track 登录网络错误: ${err.message}`);
-        reject(err);
-      });
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('登录超时'));
+      const req = https.request(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Nova-Space-Admin/1.0' },
+        timeout: 60000,
+      }, (res) => {
+        let body = '';
+        res.on('data', (chunk) => { body += chunk; });
+        res.on('end', () => {
+          if (res.statusCode !== 200) return reject(new Error(`登录失败，状态码：${res.statusCode}`));
+          const cookies = res.headers['set-cookie'];
+          if (cookies) {
+            this.sessionCookie = cookies.map((c) => c.split(';')[0]).join('; ');
+            this.cookieExpiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
+            resolve();
+          } else reject(new Error('未获取到 session cookie'));
+        });
       });
 
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('登录超时')); });
       req.write(`identity=${encodeURIComponent(this.spaceTrackUsername)}&password=${encodeURIComponent(this.spaceTrackPassword)}`);
       req.end();
     });
   }
 
-  /**
-   * 获取 GP 数据批次
-   */
   private async fetchGpBatch(noradRange: string): Promise<SpaceTrackGpResponse[]> {
     const https = await import('https');
     const url = `${this.spaceTrackBaseUrl}/basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/decay_date/null-val/epoch/%3Enow-10/NORAD_CAT_ID/${noradRange}/format/json`;
 
-    this.logger.debug(`请求：${url}`);
-
     return new Promise((resolve, reject) => {
-      const req = https.get(
-        url,
-        {
-          headers: {
-            Cookie: this.sessionCookie,
-            'User-Agent': 'Nova-Space-Admin/1.0',
-          },
-          timeout: 180000,
-        },
-        (res) => {
-          let data = '';
-          res.on('data', (chunk) => { data += chunk; });
-          res.on('end', () => {
-            // 检查 HTTP 状态码
-            if (res.statusCode === 429) {
-              reject(new Error('429 rate limit exceeded'));
-              return;
-            }
-            if (res.statusCode && res.statusCode !== 200) {
-              reject(new Error(`HTTP ${res.statusCode}`));
-              return;
-            }
-            try {
-              if (data.startsWith('<') || data.startsWith('Invalid')) {
-                reject(new Error(`API 错误：${data.substring(0, 50)}`));
-                return;
-              }
-              const items: SpaceTrackGpResponse[] = JSON.parse(data);
-              this.logger.log(`获取 ${items.length} 条数据`);
-              resolve(items);
-            } catch (error) {
-              reject(error);
-            }
-          });
-        },
-      );
-
-      req.on('error', reject);
-      req.on('timeout', () => {
-        req.destroy();
-        reject(new Error('请求超时'));
+      const req = https.get(url, {
+        headers: { Cookie: this.sessionCookie, 'User-Agent': 'Nova-Space-Admin/1.0' },
+        timeout: 180000,
+      }, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          if (res.statusCode === 429) return reject(new Error('429 rate limit exceeded'));
+          if (res.statusCode && res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
+          try {
+            if (data.startsWith('<') || data.startsWith('Invalid')) return reject(new Error(`API 错误：${data.substring(0, 50)}`));
+            resolve(JSON.parse(data));
+          } catch { reject(new Error('JSON 解析失败')); }
+        });
       });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
     });
   }
 
-  /**
-   * 处理并存储 GP 数据（Space-Track）
-   */
   private async processAndStoreGpData(taskId: string, gpData: SpaceTrackGpResponse[]): Promise<{ success: number; failed: number }> {
-    let success = 0;
-    let failed = 0;
+    let success = 0, failed = 0;
 
     for (const item of gpData) {
       try {
         const noradId = this.formatNoradId(item.NORAD_CAT_ID);
 
-        // 保存 TLE（Space-Track 数据）
-        const tleEntity = this.tleRepository.create({
-          noradId,
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
           name: item.OBJECT_NAME,
           source: 'space-track',
           line1: item.TLE_LINE1,
@@ -1273,338 +953,256 @@ export class SatelliteSyncService {
           inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
           raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
           eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          meanMotion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+        }).onConflictDoUpdate({
+          target: satelliteTle.norad_id,
+          set: { name: item.OBJECT_NAME, line1: item.TLE_LINE1, line2: item.TLE_LINE2, updated_at: new Date() },
         });
 
-        await this.tleRepository.save(tleEntity);
-
-        // 更新或创建元数据
         await this.upsertMetadata(item);
         success++;
       } catch (error: any) {
-        this.logger.warn(`保存 Space-Track 数据失败 (${item.OBJECT_NAME}, NORAD ${item.NORAD_CAT_ID}): ${error.message}`);
         failed++;
-        // 记录错误日志
-        await this.logSyncError(
-          taskId,
-          this.formatNoradId(item.NORAD_CAT_ID),
-          item.OBJECT_NAME,
-          'space-track',
-          'database',
-          error.message,
-          undefined,
-        );
+        await this.logSyncError(taskId, this.formatNoradId(item.NORAD_CAT_ID), item.OBJECT_NAME, 'space-track', 'database', error.message);
       }
     }
 
     return { success, failed };
   }
 
-  /**
-   * 更新或创建元数据
-   */
   private async upsertMetadata(item: SpaceTrackGpResponse): Promise<void> {
     const noradId = this.formatNoradId(item.NORAD_CAT_ID);
+    const existing = await this.db.select().from(satelliteMetadata).where(eq(satelliteMetadata.norad_id, noradId)).limit(1);
 
-    const existing = await this.metadataRepository.findOne({
-      where: { noradId },
-    });
+    const epochDate = item.EPOCH ? new Date(item.EPOCH) : undefined;
+    const tleAge = epochDate ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
 
-    const metadataUpdate: Partial<SatelliteMetadataEntity> = {
+    const parseDate = (dateStr: string | undefined): Date | undefined => {
+      if (!dateStr) return undefined;
+      try { return new Date(dateStr); }
+      catch { return undefined; }
+    };
+
+    const metadataValues = {
       name: item.OBJECT_NAME,
-      objectId: item.OBJECT_ID,
-      countryCode: item.COUNTRY_CODE,
-      launchDate: item.LAUNCH_DATE,
-      launchSite: item.SITE,
-      objectType: item.OBJECT_TYPE,
+      object_id: item.OBJECT_ID,
+      country_code: item.COUNTRY_CODE,
+      launch_date: parseDate(item.LAUNCH_DATE),
+      launch_site: item.SITE,
+      object_type: item.OBJECT_TYPE,
       rcs: item.RCS_SIZE,
-      decayDate: item.DECAY_DATE || undefined,
+      decay_date: parseDate(item.DECAY_DATE),
       period: item.PERIOD ? parseFloat(item.PERIOD) : undefined,
       inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
       eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
       raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
-      argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+      arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
       apogee: item.APOAPSIS ? parseFloat(item.APOAPSIS) : undefined,
       perigee: item.PERIAPSIS ? parseFloat(item.PERIAPSIS) : undefined,
-      hasSpaceTrackData: true, // 标记有 Space-Track 数据
+      tle_epoch: epochDate,
+      tle_age: tleAge,
+      has_spacetrack_data: true,
     };
 
-    if (item.EPOCH) {
-      const epochDate = new Date(item.EPOCH);
-      metadataUpdate.tleEpoch = epochDate;
-      const ageMs = Date.now() - epochDate.getTime();
-      metadataUpdate.tleAge = Math.floor(ageMs / (1000 * 60 * 60 * 24));
-    }
-
-    if (existing) {
-      await this.metadataRepository.update(noradId, metadataUpdate);
+    if (existing[0]) {
+      await this.db.update(satelliteMetadata).set(metadataValues).where(eq(satelliteMetadata.norad_id, noradId));
     } else {
-      const entity = this.metadataRepository.create({
-        noradId,
-        ...metadataUpdate,
-        hasDiscosData: false,
-        hasKeepTrackData: false,
+      await this.db.insert(satelliteMetadata).values({
+        norad_id: noradId,
+        ...metadataValues,
+        has_discos_data: false,
+        has_keeptrack_data: false,
       });
-      await this.metadataRepository.save(entity);
     }
   }
 
-  /**
-   * KeepTrack TLE 数据同步（简要模式）
-   */
-  private async syncKeepTrackBrief(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncKeepTrackBrief(task: TaskRecord): Promise<void> {
     this.logger.log('开始 KeepTrack TLE 数据同步...');
 
-    // 如果使用模拟数据，从本地缓存文件读取
     if (this.useMockData) {
       await this.syncKeepTrackBriefMock(task);
       return;
     }
 
     if (!this.keepTrackApiKey) {
-      this.logger.warn('KeepTrack API Key 未配置，跳过 KeepTrack 同步');
-      task.status = 'completed';
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    const url = `${this.keepTrackBaseUrl}/sats/brief`;
+    const response = await fetch(`${this.keepTrackBaseUrl}/sats/brief`, { headers: { 'X-API-Key': this.keepTrackApiKey } });
+    if (!response.ok) throw new Error(`KeepTrack API 错误：${response.status}`);
 
-    try {
-      const response = await fetch(url, {
-        headers: { 'X-API-Key': this.keepTrackApiKey },
-      });
+    const data: KeepTrackBriefResponse[] = await response.json();
+    await this.db.update(satelliteSyncTasks).set({ total: data.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-      if (!response.ok) {
-        throw new Error(`KeepTrack API 错误：${response.status}`);
+    let success = 0;
+    for (const sat of data) {
+      try {
+        const noradId = this.extractNoradId(sat.tle1);
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
+          name: sat.name,
+          source: 'keeptrack',
+          line1: sat.tle1,
+          line2: sat.tle2,
+        }).onConflictDoUpdate({
+          target: satelliteTle.norad_id,
+          set: { name: sat.name, line1: sat.tle1, line2: sat.tle2, updated_at: new Date() },
+        });
+        success++;
+      } catch (error: any) {
+        this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
       }
-
-      const data: KeepTrackBriefResponse[] = await response.json();
-      this.logger.log(`获取 ${data.length} 条 KeepTrack 数据`);
-
-      task.total = data.length;
-      await this.taskRepository.save(task);
-
-      let success = 0;
-      for (const sat of data) {
-        try {
-          const noradId = this.extractNoradId(sat.tle1);
-
-          await this.tleRepository.upsert({
-            noradId,
-            name: sat.name,
-            source: 'keeptrack',
-            line1: sat.tle1,
-            line2: sat.tle2,
-          }, ['noradId']);
-
-          success++;
-        } catch (error) {
-          this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
-        }
-      }
-
-      task.success = success;
-      task.processed = data.length;
-      await this.taskRepository.save(task);
-
-      this.logger.log(`KeepTrack TLE 同步完成：成功 ${success}`);
-    } catch (error) {
-      this.logger.error(`KeepTrack TLE 同步失败：${error.message}`);
-      throw error;
     }
+
+    await this.db.update(satelliteSyncTasks).set({ success, processed: data.length }).where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(`KeepTrack TLE 同步完成：成功 ${success}`);
   }
 
-  /**
-   * KeepTrack 元数据同步（详情模式）
-   */
-  private async syncKeepTrackDetail(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncKeepTrackBriefMock(task: TaskRecord): Promise<void> {
+    this.logger.log('开始 KeepTrack TLE 数据同步（模拟模式）...');
+
+    const cacheFilePath = require('path').join(process.cwd(), 'data', 'keeptrack-tle-cache.json');
+    const fs = await import('fs');
+    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
+
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    if (cacheData.count === 0) {
+      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+      return;
+    }
+
+    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
+
+    let success = 0, skipped = 0, failed = 0;
+
+    for (const sat of cacheData.data) {
+      if (!sat.status) { skipped++; continue; }
+
+      let noradId: string;
+      try { noradId = this.extractNoradId(sat.tle1); }
+      catch { failed++; await this.logSyncError(task.id, 'UNKNOWN', sat.name, 'keeptrack', 'parse_error', 'TLE 解析失败'); continue; }
+
+      if (!sat.name) { failed++; await this.logSyncError(task.id, noradId, undefined, 'keeptrack', 'missing_name', '缺少 name 字段'); continue; }
+
+      try {
+        await this.db.insert(satelliteMetadata).values({
+          norad_id: noradId,
+          has_discos_data: false,
+          has_keeptrack_data: false,
+          has_spacetrack_data: false,
+        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
+
+        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
+
+        if (existing[0]) { skipped++; await this.logSyncError(task.id, noradId, sat.name, 'keeptrack', 'duplicate', `已有 ${existing[0].source} 数据源的数据`); continue; }
+
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
+          name: sat.name,
+          source: 'keeptrack',
+          line1: sat.tle1,
+          line2: sat.tle2,
+        }).onConflictDoNothing({ target: satelliteTle.norad_id });
+
+        success++;
+      } catch (dbError: any) { failed++; await this.logSyncError(task.id, noradId, sat.name, 'keeptrack', 'database', dbError.message); }
+
+      if ((success + skipped + failed) % 100 === 0) {
+        await this.db.update(satelliteSyncTasks).set({ processed: success + skipped + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
+      }
+    }
+
+    await this.db.update(satelliteSyncTasks).set({ processed: success + skipped + failed, success, failed, status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(`KeepTrack TLE（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`);
+  }
+
+  private async syncKeepTrackDetail(task: TaskRecord): Promise<void> {
     this.logger.log('开始 KeepTrack 元数据同步...');
 
     if (!this.keepTrackApiKey) {
-      this.logger.warn('KeepTrack API Key 未配置，跳过元数据同步');
-      task.status = 'completed';
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    // 获取所有没有扩展数据的卫星
-    const satellites = await this.metadataRepository
-      .createQueryBuilder('m')
-      .select(['m.noradId'])
-      .where('m.hasKeepTrackData = :val', { val: false })
-      .limit(60)
-      .getMany();
+    const satellites = await this.db
+      .select({ norad_id: satelliteMetadata.norad_id })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_keeptrack_data, false))
+      .limit(60);
 
     if (satellites.length === 0) {
-      this.logger.log('没有需要同步元数据的卫星');
-      task.total = 0;
-      task.processed = 0;
-      task.success = 0;
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    task.total = satellites.length;
-    await this.taskRepository.save(task);
+    await this.db.update(satelliteSyncTasks).set({ total: satellites.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-    this.logger.log(`需要同步 ${satellites.length} 颗卫星的 KeepTrack 元数据`);
-
-    let success = 0;
-    let failed = 0;
+    let success = 0, failed = 0;
 
     for (const sat of satellites) {
       this.checkStopRequested();
 
       try {
-        const url = `${this.keepTrackBaseUrl}/sat/${sat.noradId}`;
-        const response = await fetch(url, {
-          headers: { 'X-API-Key': this.keepTrackApiKey },
-        });
+        const response = await fetch(`${this.keepTrackBaseUrl}/sat/${sat.norad_id}`, { headers: { 'X-API-Key': this.keepTrackApiKey } });
 
         if (response.ok) {
           const detail: KeepTrackSatDetailResponse = await response.json();
-          await this.saveKeepTrackMetadata(sat.noradId, detail);
+          await this.saveKeepTrackMetadata(sat.norad_id, detail);
           success++;
         } else {
           failed++;
           const errorType = response.status === 403 || response.status === 429 ? 'rate_limit' : 'api_error';
-          await this.logSyncError(
-            task.id,
-            sat.noradId,
-            undefined,
-            'keeptrack',
-            errorType,
-            `API 返回 ${response.status}`,
-            undefined,
-          );
+          await this.logSyncError(task.id, sat.norad_id, undefined, 'keeptrack', errorType, `API 返回 ${response.status}`);
         }
 
         await this.sleep(this.getRandomKeepTrackDelay());
       } catch (error: any) {
-        if (error.message === '用户请求停止同步') {
-          throw error;
-        }
+        if (error.message === '用户请求停止同步') throw error;
         failed++;
-        await this.logSyncError(
-          task.id,
-          sat.noradId,
-          undefined,
-          'keeptrack',
-          'network',
-          error.message,
-          undefined,
-        );
+        await this.logSyncError(task.id, sat.norad_id, undefined, 'keeptrack', 'network', error.message);
       }
 
-      task.processed = success + failed;
-      task.success = success;
-      task.failed = failed;
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ processed: success + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
     }
 
     this.logger.log(`KeepTrack 元数据同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
-  /**
-   * 解析 KeepTrack 返回的日期字符串
-   * 修复格式错误如 "2026 Jan 11 1607:07" → "2026 Jan 11 16:07:07"
-   */
-  private parseKeepTrackDate(dateStr: string | undefined): Date | undefined {
-    if (!dateStr) return undefined;
-    try {
-      // 修复时间部分缺少冒号的情况：HHMM:SS → HH:MM:SS
-      // 例如 "2026 Jan 11 1607:07" 中 "1607:07" 应为 "16:07:07"
-      const fixed = dateStr.replace(/(\d{2})(\d{2}):(\d{2})$/, '$1:$2:$3');
-      const parsed = new Date(fixed);
-      if (isNaN(parsed.getTime())) {
-        this.logger.warn(`无法解析日期: "${dateStr}"`);
-        return undefined;
-      }
-      return parsed;
-    } catch {
-      this.logger.warn(`日期解析异常: "${dateStr}"`);
-      return undefined;
-    }
-  }
+  private async saveKeepTrackMetadata(noradId: string, detail: KeepTrackSatDetailResponse): Promise<void> {
+    const objectTypeMap: Record<number, string> = { 1: 'PAYLOAD', 2: 'ROCKET_BODY', 3: 'DEBRIS', 4: 'UNKNOWN', 5: 'SPECIAL' };
+    const period = detail.MEAN_MOTION && detail.MEAN_MOTION > 0 ? 1440 / detail.MEAN_MOTION : undefined;
 
-  /**
-   * 解析 KeepTrack 返回的日期字符串，返回 YYYY-MM-DD 格式
-   * 用于数据库 date 类型字段
-   */
-  private parseKeepTrackDateString(dateStr: string | undefined): string | undefined {
-    const date = this.parseKeepTrackDate(dateStr);
-    if (!date) return undefined;
-    return date.toISOString().split('T')[0];
-  }
-
-  /**
-   * 从 TLE 提取 NORAD ID
-   */
-  private extractNoradId(tle1: string): string {
-    const match = tle1.match(/^1\s+(\d+)/);
-    if (match) {
-      return match[1].padStart(5, '0');
-    }
-    throw new Error(`无法从 TLE 提取 NORAD ID: ${tle1}`);
-  }
-
-  /**
-   * 保存 KeepTrack 元数据
-   */
-  private async saveKeepTrackMetadata(
-    noradId: string,
-    detail: KeepTrackSatDetailResponse
-  ): Promise<void> {
-    // 将 TYPE 数字转换为字符串
-    const objectTypeMap: Record<number, string> = {
-      1: 'PAYLOAD',
-      2: 'ROCKET_BODY',
-      3: 'DEBRIS',
-      4: 'UNKNOWN',
-      5: 'SPECIAL',
-    };
-
-    // 从 MEAN_MOTION 推算轨道周期（分钟）
-    // 公式：period = 1440 / mean_motion（分钟）
-    let period: number | undefined;
-    if (detail.MEAN_MOTION && detail.MEAN_MOTION > 0) {
-      period = 1440 / detail.MEAN_MOTION;
-    }
-
-    // 将 ALT_NAME 转换为数组格式
     let altNames: string[] | undefined;
     if (detail.ALT_NAME) {
-      // 如果有多个别名，用逗号或分号分隔
       altNames = detail.ALT_NAME.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 0);
-      if (altNames.length === 0) {
-        altNames = undefined;
-      }
+      if (altNames.length === 0) altNames = undefined;
     }
 
-    const updateData: Partial<SatelliteMetadataEntity> = {
+    const epochDate = this.parseKeepTrackDate(detail.EPOCH);
+    const tleAge = epochDate ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
+
+    const updateData = {
       name: detail.NAME,
-      objectId: detail.OBJECT_ID,
-      altName: detail.ALT_NAME,
-      altNames,
-      countryCode: detail.COUNTRY,
-      objectType: detail.TYPE ? objectTypeMap[detail.TYPE] || `TYPE_${detail.TYPE}` : undefined,
+      object_id: detail.OBJECT_ID,
+      alt_name: detail.ALT_NAME,
+      alt_names: altNames ? JSON.stringify(altNames) : undefined,
+      country_code: detail.COUNTRY,
+      object_type: detail.TYPE ? objectTypeMap[detail.TYPE] || `TYPE_${detail.TYPE}` : undefined,
       operator: detail.OWNER,
       manufacturer: detail.MANUFACTURER,
-      contractor: detail.MANUFACTURER, // KeepTrack 的 MANUFACTURER 也作为 contractor
+      contractor: detail.MANUFACTURER,
       bus: detail.BUS,
       configuration: detail.CONFIGURATION,
       shape: detail.SHAPE,
       lifetime: detail.LIFETIME,
-      stdMag: detail.VMAG,
-      launchDate: this.parseKeepTrackDateString(detail.LAUNCH_DATE),
-      stableDate: this.parseKeepTrackDateString(detail.STABLE_DATE),
-      launchSite: detail.LAUNCH_SITE,
-      launchPad: detail.LAUNCH_PAD,
-      launchVehicle: detail.LAUNCH_VEHICLE,
+      std_mag: detail.VMAG,
+      launch_date: this.parseKeepTrackDate(detail.LAUNCH_DATE),
+      stable_date: this.parseKeepTrackDate(detail.STABLE_DATE),
+      launch_site: detail.LAUNCH_SITE,
+      launch_pad: detail.LAUNCH_PAD,
+      launch_vehicle: detail.LAUNCH_VEHICLE,
       mission: detail.MISSION,
       purpose: detail.PURPOSE,
       power: detail.POWER,
@@ -1612,87 +1210,77 @@ export class SatelliteSyncService {
       length: detail.LENGTH ? parseFloat(detail.LENGTH) : undefined,
       diameter: detail.DIAMETER ? parseFloat(detail.DIAMETER) : undefined,
       span: detail.SPAN ? parseFloat(detail.SPAN) : undefined,
-      dryMass: detail.DRY_MASS ? parseFloat(detail.DRY_MASS) : undefined,
-      launchMass: detail.LAUNCH_MASS ? parseFloat(detail.LAUNCH_MASS) : undefined,
+      dry_mass: detail.DRY_MASS ? parseFloat(detail.DRY_MASS) : undefined,
+      launch_mass: detail.LAUNCH_MASS ? parseFloat(detail.LAUNCH_MASS) : undefined,
       equipment: detail.EQUIPMENT,
       adcs: detail.ADCS,
       payload: detail.PAYLOAD,
-      constellationName: detail.CONSTELLATION_NAME,
+      constellation_name: detail.CONSTELLATION_NAME,
       color: detail.COLOR,
-      materialComposition: detail.MATERIAL_COMPOSITION,
-      majorEvents: detail.MAJOR_EVENTS,
-      relatedSatellites: detail.RELATED_SATELLITES,
-      transmitterFrequencies: detail.TRANSMITTER_FREQUENCIES,
+      material_composition: detail.MATERIAL_COMPOSITION,
+      major_events: detail.MAJOR_EVENTS,
+      related_satellites: detail.RELATED_SATELLITES,
+      transmitter_frequencies: detail.TRANSMITTER_FREQUENCIES,
       sources: detail.SOURCES,
-      referenceUrls: detail.reference_urls,
+      reference_urls: detail.reference_urls,
       summary: detail.summary,
-      anomalyFlags: detail.anomaly_flags,
-      lastReviewed: this.parseKeepTrackDate(detail.last_reviewed),
-      // 轨道参数
+      anomaly_flags: detail.anomaly_flags,
+      last_reviewed: this.parseKeepTrackDate(detail.last_reviewed),
       period,
       inclination: detail.INCLINATION,
       raan: detail.RA_OF_ASC_NODE,
-      argOfPerigee: detail.ARG_OF_PERICENTER,
+      arg_of_perigee: detail.ARG_OF_PERICENTER,
       rcs: detail.RCS,
-      tleEpoch: this.parseKeepTrackDate(detail.EPOCH),
-      tleAge: (() => {
-        const epoch = this.parseKeepTrackDate(detail.EPOCH);
-        return epoch ? Math.floor((Date.now() - epoch.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
-      })(),
-      decayDate: detail.DECAY_DATE || undefined,
+      tle_epoch: epochDate,
+      tle_age: tleAge,
+      decay_date: this.parseKeepTrackDate(detail.DECAY_DATE),
       status: detail.STATUS,
-      hasKeepTrackData: true,
+      has_keeptrack_data: true,
     };
 
-    await this.metadataRepository.update(noradId, updateData);
+    await this.db.update(satelliteMetadata).set(updateData).where(eq(satelliteMetadata.norad_id, noradId));
   }
 
-  /**
-   * Space-Track 元数据同步
-   * 从 Space-Track GP 数据获取元数据，作为 KeepTrack 的备用源
-   */
-  private async syncSpaceTrackMetadata(task: SatelliteSyncTaskEntity): Promise<void> {
+  private parseKeepTrackDate(dateStr: string | undefined): Date | undefined {
+    if (!dateStr) return undefined;
+    try {
+      const fixed = dateStr.replace(/(\d{2})(\d{2}):(\d{2})$/, '$1:$2:$3');
+      const parsed = new Date(fixed);
+      return isNaN(parsed.getTime()) ? undefined : parsed;
+    } catch { return undefined; }
+  }
+
+  private parseKeepTrackDateString(dateStr: string | undefined): string | undefined {
+    const date = this.parseKeepTrackDate(dateStr);
+    return date ? date.toISOString().split('T')[0] : undefined;
+  }
+
+  private extractNoradId(tle1: string): string {
+    const match = tle1.match(/^1\s+(\d+)/);
+    if (match) return match[1].padStart(5, '0');
+    throw new Error(`无法从 TLE 提取 NORAD ID: ${tle1}`);
+  }
+
+  private async syncSpaceTrackMetadata(task: TaskRecord): Promise<void> {
     this.logger.log('开始 Space-Track 元数据同步...');
 
-    // 如果使用模拟数据，从本地缓存文件读取
     if (this.useMockData) {
       await this.syncSpaceTrackMetadataMock(task);
       return;
     }
 
-    if (!this.spaceTrackUsername || !this.spaceTrackPassword) {
-      throw new Error('Space-Track 凭据未配置');
-    }
-
-    // 登录获取 session
-    this.logger.log('正在登录 Space-Track...');
+    if (!this.spaceTrackUsername || !this.spaceTrackPassword) throw new Error('Space-Track 凭据未配置');
     await this.loginSpaceTrack();
-    this.logger.log('Space-Track 登录成功');
 
-    // 获取所有没有 Space-Track 元数据的卫星
-    const metadataList = await this.metadataRepository.find({
-      where: { hasSpaceTrackData: false },
-      select: ['noradId'],
-    });
+    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_spacetrack_data, false));
 
     if (metadataList.length === 0) {
-      this.logger.log('没有需要同步 Space-Track 元数据的卫星');
-      task.total = 0;
-      task.processed = 0;
-      task.success = 0;
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    task.total = metadataList.length;
-    await this.taskRepository.save(task);
+    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-    this.logger.log(`需要同步 ${metadataList.length} 颗卫星的 Space-Track 元数据`);
-
-    // 获取需要同步的 NORAD ID 列表
-    const noradIds = metadataList.map(m => parseInt(m.noradId, 10)).filter(id => !isNaN(id));
-
-    // 分批查询配置（与 TLE 同步相同）
     const batches = [
       { range: '1--9999', name: '早期卫星' },
       { range: '10000--19999', name: '1980s-1990s' },
@@ -1702,267 +1290,132 @@ export class SatelliteSyncService {
       { range: '50000--99999', name: '2020s 至今' },
     ];
 
-    // 构建 NORAD ID 集合，用于快速查找
-    const noradIdSet = new Set(noradIds.map(id => this.formatNoradId(id)));
+    const noradIdSet = new Set(metadataList.map(m => m.norad_id));
+    let totalProcessed = 0, totalSuccess = 0, totalFailed = 0;
 
-    let totalProcessed = 0;
-    let totalSuccess = 0;
-    let totalFailed = 0;
-    let batchErrors: string[] = [];
-
-    // 分批获取 GP 数据
     for (const batch of batches) {
-      // 检查停止请求
       this.checkStopRequested();
-
-      this.logger.log(`[Space-Track 元数据] 获取批次：${batch.name} (NORAD ID ${batch.range})`);
 
       try {
         const gpData = await this.fetchGpBatch(batch.range);
-        this.logger.log(`[Space-Track 元数据] 批次 ${batch.name} 获取到 ${gpData.length} 条数据`);
 
-        // 更新元数据
         for (const item of gpData) {
           const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-
-          // 只更新需要同步的卫星
-          if (!noradIdSet.has(noradId)) {
-            continue;
-          }
+          if (!noradIdSet.has(noradId)) continue;
 
           try {
             await this.upsertMetadata(item);
             totalSuccess++;
-          } catch (error: any) {
-            this.logger.warn(`更新元数据失败 (${item.OBJECT_NAME}, NORAD ${noradId}): ${error.message}`);
-            totalFailed++;
-          }
+          } catch { totalFailed++; }
           totalProcessed++;
         }
 
-        this.logger.log(`[Space-Track 元数据] 批次 ${batch.name} 处理完成`);
-
-        // 更新任务进度
-        task.processed = totalProcessed;
-        task.success = totalSuccess;
-        task.failed = totalFailed;
-        await this.taskRepository.save(task);
-
-        // 批次间隔（避免限流）
+        await this.db.update(satelliteSyncTasks).set({ processed: totalProcessed, success: totalSuccess, failed: totalFailed }).where(eq(satelliteSyncTasks.id, task.id));
         await this.sleep(this.BATCH_INTERVAL_MS);
-
       } catch (error: any) {
-        this.logger.error(`[Space-Track 元数据] 批次 ${batch.name} 失败：${error.message}`);
-        batchErrors.push(`${batch.name}: ${error.message}`);
-
-        // 如果是 429 限流，等待后重试
-        if (error.message.includes('429') || error.message.includes('rate limit')) {
-          this.logger.warn(`[Space-Track 元数据] 触发限流，等待 ${this.RATE_LIMIT_WAIT_MS / 1000} 秒后重试`);
-          await this.sleep(this.RATE_LIMIT_WAIT_MS);
-
-          // 重试当前批次
-          try {
-            const gpData = await this.fetchGpBatch(batch.range);
-            for (const item of gpData) {
-              const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-              if (!noradIdSet.has(noradId)) continue;
-
-              try {
-                await this.upsertMetadata(item);
-                totalSuccess++;
-              } catch (e: any) {
-                totalFailed++;
-              }
-              totalProcessed++;
-            }
-          } catch (retryError: any) {
-            this.logger.error(`[Space-Track 元数据] 批次 ${batch.name} 重试失败：${retryError.message}`);
-          }
-        }
+        this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
       }
-    }
-
-    this.logger.log(`Space-Track 元数据同步完成：成功 ${totalSuccess}, 失败 ${totalFailed}`);
-
-    // 如果所有批次都失败，抛出异常
-    if (totalSuccess === 0 && batchErrors.length > 0) {
-      throw new Error(`Space-Track 元数据同步失败：${batchErrors.join('; ')}`);
     }
   }
 
-  /**
-   * Space-Track 元数据同步（模拟模式）
-   */
-  private async syncSpaceTrackMetadataMock(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncSpaceTrackMetadataMock(task: TaskRecord): Promise<void> {
     this.logger.log('开始 Space-Track 元数据同步（模拟模式）...');
 
-    const cacheFilePath = require('path').join(
-      process.cwd(),
-      'data',
-      'space-track-tle-cache.json',
-    );
-
+    const cacheFilePath = require('path').join(process.cwd(), 'data', 'space-track-tle-cache.json');
     const fs = await import('fs');
-
-    if (!fs.existsSync(cacheFilePath)) {
-      throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
-    }
+    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
     const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
-    this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
 
-    // 获取所有没有 Space-Track 元数据的卫星
-    const metadataList = await this.metadataRepository.find({
-      where: { hasSpaceTrackData: false },
-      select: ['noradId'],
-    });
+    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_spacetrack_data, false));
 
     if (metadataList.length === 0) {
-      this.logger.log('没有需要同步 Space-Track 元数据的卫星');
-      task.total = 0;
-      task.processed = 0;
-      task.success = 0;
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    task.total = metadataList.length;
-    await this.taskRepository.save(task);
+    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-    // 构建 NORAD ID 到 GP 数据的映射
     const gpDataMap = new Map<string, SpaceTrackGpResponse>();
-    for (const item of cacheData.data) {
-      const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-      gpDataMap.set(noradId, item);
-    }
+    for (const item of cacheData.data) gpDataMap.set(this.formatNoradId(item.NORAD_CAT_ID), item);
 
-    let success = 0;
-    let failed = 0;
+    let success = 0, failed = 0;
 
     for (const meta of metadataList) {
-      const gpItem = gpDataMap.get(meta.noradId);
+      const gpItem = gpDataMap.get(meta.norad_id);
       if (gpItem) {
-        try {
-          // 复用 upsertMetadata 方法，保持逻辑一致
-          await this.upsertMetadata(gpItem);
-          success++;
-        } catch (error: any) {
-          this.logger.warn(`更新元数据失败 (${meta.noradId}): ${error.message}`);
-          failed++;
-        }
-      } else {
-        // 没有找到对应的 GP 数据，跳过
-        success++;
-      }
+        try { await this.upsertMetadata(gpItem); success++; } catch { failed++; }
+      } else { success++; }
     }
 
-    task.processed = metadataList.length;
-    task.success = success;
-    task.failed = failed;
-    await this.taskRepository.save(task);
-
+    await this.db.update(satelliteSyncTasks).set({ processed: metadataList.length, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
     this.logger.log(`Space-Track 元数据（模拟）同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
-  /**
-   * ESA DISCOS 批量同步（备用数据源）
-   * 使用批量查询优化，每次查询最多 100 个 noradId
-   */
-  private async syncDiscos(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncDiscos(task: TaskRecord): Promise<void> {
     this.logger.log('开始 ESA DISCOS 数据同步...');
 
-    if (!this.esaDiscosApiToken) {
-      throw new Error('ESA DISCOS API Token 未配置');
-    }
+    if (!this.esaDiscosApiToken) throw new Error('ESA DISCOS API Token 未配置');
 
-    // 获取所有需要同步的卫星
-    const metadataList = await this.metadataRepository.find({
-      where: { hasDiscosData: false },
-      select: ['noradId'],
-    });
+    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_discos_data, false));
 
-    task.total = metadataList.length;
-    await this.taskRepository.save(task);
+    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
 
-    this.logger.log(`需要同步 ${metadataList.length} 颗卫星的 DISCOS 数据`);
-
-    // 批量处理，每批 100 个
     const BATCH_SIZE = 100;
-    let processed = 0;
-    let success = 0;
-    let failed = 0;
+    let processed = 0, success = 0, failed = 0;
 
     for (let i = 0; i < metadataList.length; i += BATCH_SIZE) {
       const batch = metadataList.slice(i, i + BATCH_SIZE);
-      const noradIds = batch.map(m => m.noradId);
+      const noradIds = batch.map(m => m.norad_id);
 
       try {
-        // 批量查询
         const discosDataMap = await this.fetchDiscosDataBatch(noradIds);
 
-        // 更新每条数据
         for (const meta of batch) {
-          const discosInfo = discosDataMap.get(meta.noradId);
+          const discosInfo = discosDataMap.get(meta.norad_id);
           if (discosInfo) {
-            await this.updateMetadataWithDiscos(meta.noradId, discosInfo);
+            await this.updateMetadataWithDiscos(meta.norad_id, discosInfo);
             success++;
           } else {
-            // 没有找到数据，标记为已处理
-            await this.metadataRepository.update(meta.noradId, { hasDiscosData: true });
+            await this.db.update(satelliteMetadata).set({ has_discos_data: true }).where(eq(satelliteMetadata.norad_id, meta.norad_id));
             success++;
           }
           processed++;
         }
-      } catch (error) {
-        this.logger.warn(`批量获取 DISCOS 数据失败: ${error.message}`);
-        // 批量失败时，逐个重试
+      } catch (error: any) {
         for (const meta of batch) {
           try {
-            const discosInfo = await this.fetchDiscosData(meta.noradId);
+            const discosInfo = await this.fetchDiscosData(meta.norad_id);
             if (discosInfo) {
-              await this.updateMetadataWithDiscos(meta.noradId, discosInfo);
+              await this.updateMetadataWithDiscos(meta.norad_id, discosInfo);
               success++;
-} else {
-              await this.metadataRepository.update(meta.noradId, { hasDiscosData: true });
+            } else {
+              await this.db.update(satelliteMetadata).set({ has_discos_data: true }).where(eq(satelliteMetadata.norad_id, meta.norad_id));
               success++;
             }
-          } catch (error: any) {
-            this.logger.warn(`更新 DISCOS 数据失败 (${meta.noradId}): ${error.message}`);
-            failed++;
-          }
+          } catch { failed++; }
         }
       }
 
-      task.success = success;
-      task.failed = failed;
-      await this.taskRepository.save(task);
-
-      // 限流：每批间隔
+      await this.db.update(satelliteSyncTasks).set({ success, failed }).where(eq(satelliteSyncTasks.id, task.id));
       await this.sleep(this.BATCH_INTERVAL_MS);
     }
 
     this.logger.log(`ESA DISCOS 同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
-  /**
-   * 批量从 ESA DISCOS 获取卫星数据（最多 100 个）
-   */
   private async fetchDiscosDataBatch(noradIds: string[]): Promise<Map<string, any>> {
     const numericIds = noradIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
     const url = `${this.esaDiscosBaseUrl}/objects?filter=satno=in=(${numericIds.join(',')})&include=operators,launch,launch.vehicle,launch.site&page[size]=${numericIds.length}`;
 
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${this.esaDiscosApiToken}`,
-        Accept: 'application/vnd.api+json',
-      },
+      headers: { Authorization: `Bearer ${this.esaDiscosApiToken}`, Accept: 'application/vnd.api+json' },
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After') || '60';
-        await this.sleep(parseInt(retryAfter) * 1000);
-        return this.fetchDiscosDataBatch(noradIds); // 重试
+        await this.sleep(parseInt(response.headers.get('Retry-After') || '60') * 1000);
+        return this.fetchDiscosDataBatch(noradIds);
       }
       throw new Error(`ESA DISCOS API 错误: ${response.status}`);
     }
@@ -1970,30 +1423,7 @@ export class SatelliteSyncService {
     const json: DiscosResponse = await response.json();
     const result = new Map<string, any>();
 
-    if (!json.data || json.data.length === 0) {
-      return result;
-    }
-
-    // 调试：打印第一个数据的详细结构，确定哪个字段可能超长
-    if (json.data.length > 0) {
-      const attrs = json.data[0].attributes;
-      this.logger.log(`DISCOS 返回数据示例 - NORAD: ${attrs.satno}`);
-      this.logger.log(`  cosparId: "${attrs.cosparId}" (${attrs.cosparId?.length || 0})`);
-      this.logger.log(`  objectClass: "${attrs.objectClass}" (${attrs.objectClass?.length || 0})`);
-      this.logger.log(`  shape: "${attrs.shape}" (${attrs.shape?.length || 0})`);
-      this.logger.log(`  mission: "${attrs.mission?.substring(0, 50)}..." (${attrs.mission?.length || 0})`);
-
-      // 检查 included 中的运营商和发射信息
-      const included = json.included || [];
-      if (included.length > 0) {
-        this.logger.log(`  included 数量：${included.length}`);
-        included.forEach((inc, idx) => {
-          if (idx < 3) {
-            this.logger.log(`    [${inc.type}] ${inc.id}: ${JSON.stringify(inc.attributes).substring(0, 100)}...`);
-          }
-        });
-      }
-    }
+    if (!json.data || json.data.length === 0) return result;
 
     const included = json.included || [];
 
@@ -2001,42 +1431,27 @@ export class SatelliteSyncService {
       const attrs = item.attributes;
       const noradId = String(attrs.satno).padStart(5, '0');
 
-      // 解析运营商
       let operator: string | undefined;
       if (item.relationships?.operators?.data?.length) {
         const operatorId = item.relationships.operators.data[0]?.id;
         if (operatorId) {
-          const operatorData = included.find(
-            (inc) => inc.type === 'organisation' && inc.id === operatorId,
-          );
+          const operatorData = included.find(inc => inc.type === 'organisation' && inc.id === operatorId);
           operator = operatorData?.attributes?.name;
         }
       }
 
-      // 解析发射信息
-      let launchVehicle: string | undefined;
-      let launchSiteName: string | undefined;
-
+      let launchVehicle: string | undefined, launchSiteName: string | undefined;
       if (item.relationships?.launch?.data) {
         const launchId = item.relationships.launch.data.id;
-        const launchData = included.find(
-          (inc) => inc.type === 'launch' && inc.id === launchId,
-        );
+        const launchData = included.find(inc => inc.type === 'launch' && inc.id === launchId);
 
         if (launchData) {
           if (launchData.relationships?.vehicle?.data) {
-            const vehicleId = launchData.relationships.vehicle.data.id;
-            const vehicleData = included.find(
-              (inc) => inc.type === 'vehicle' && inc.id === vehicleId,
-            );
+            const vehicleData = included.find(inc => inc.type === 'vehicle' && inc.id === launchData.relationships.vehicle.data.id);
             launchVehicle = vehicleData?.attributes?.name;
           }
-
           if (launchData.relationships?.site?.data) {
-            const siteId = launchData.relationships.site.data.id;
-            const siteData = included.find(
-              (inc) => inc.type === 'launchSite' && inc.id === siteId,
-            );
+            const siteData = included.find(inc => inc.type === 'launchSite' && inc.id === launchData.relationships.site.data.id);
             launchSiteName = siteData?.attributes?.name;
           }
         }
@@ -2063,75 +1478,50 @@ export class SatelliteSyncService {
     return result;
   }
 
-  /**
-   * 从 ESA DISCOS 获取卫星数据
-   */
   private async fetchDiscosData(noradId: string): Promise<any> {
     const numericId = parseInt(noradId, 10);
     const url = `${this.esaDiscosBaseUrl}/objects?filter=satno=${numericId}&include=operators,launch,launch.vehicle,launch.site`;
 
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${this.esaDiscosApiToken}`,
-        Accept: 'application/vnd.api+json',
-      },
+      headers: { Authorization: `Bearer ${this.esaDiscosApiToken}`, Accept: 'application/vnd.api+json' },
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After') || '60';
-        await this.sleep(parseInt(retryAfter) * 1000);
-        return this.fetchDiscosData(noradId); // 重试
+        await this.sleep(parseInt(response.headers.get('Retry-After') || '60') * 1000);
+        return this.fetchDiscosData(noradId);
       }
       return null;
     }
 
     const json: DiscosResponse = await response.json();
-
-    if (!json.data || json.data.length === 0) {
-      return null;
-    }
+    if (!json.data || json.data.length === 0) return null;
 
     const item = json.data[0];
     const attrs = item.attributes;
     const included = json.included || [];
 
-    // 解析运营商
     let operator: string | undefined;
     if (item.relationships?.operators?.data?.length) {
       const operatorId = item.relationships.operators.data[0]?.id;
       if (operatorId) {
-        const operatorData = included.find(
-          (inc) => inc.type === 'organisation' && inc.id === operatorId,
-        );
+        const operatorData = included.find(inc => inc.type === 'organisation' && inc.id === operatorId);
         operator = operatorData?.attributes?.name;
       }
     }
 
-    // 解析发射信息
-    let launchVehicle: string | undefined;
-    let launchSiteName: string | undefined;
-
+    let launchVehicle: string | undefined, launchSiteName: string | undefined;
     if (item.relationships?.launch?.data) {
       const launchId = item.relationships.launch.data.id;
-      const launchData = included.find(
-        (inc) => inc.type === 'launch' && inc.id === launchId,
-      );
+      const launchData = included.find(inc => inc.type === 'launch' && inc.id === launchId);
 
       if (launchData) {
         if (launchData.relationships?.vehicle?.data) {
-          const vehicleId = launchData.relationships.vehicle.data.id;
-          const vehicleData = included.find(
-            (inc) => inc.type === 'vehicle' && inc.id === vehicleId,
-          );
+          const vehicleData = included.find(inc => inc.type === 'vehicle' && inc.id === launchData.relationships.vehicle.data.id);
           launchVehicle = vehicleData?.attributes?.name;
         }
-
         if (launchData.relationships?.site?.data) {
-          const siteId = launchData.relationships.site.data.id;
-          const siteData = included.find(
-            (inc) => inc.type === 'launchSite' && inc.id === siteId,
-          );
+          const siteData = included.find(inc => inc.type === 'launchSite' && inc.id === launchData.relationships.site.data.id);
           launchSiteName = siteData?.attributes?.name;
         }
       }
@@ -2155,54 +1545,30 @@ export class SatelliteSyncService {
     };
   }
 
-  /**
-   * 更新元数据添加 DISCOS 信息
-   */
   private async updateMetadataWithDiscos(noradId: string, info: any): Promise<void> {
     const dimensions = this.formatDimensions(info);
 
-    // 调试：打印所有字段的长度
-    this.logger.log(`NORAD ${noradId} 字段长度检查:`);
-    this.logger.log(`  cosparId: "${info.cosparId}" (${info.cosparId?.length || 0})`);
-    this.logger.log(`  objectClass: "${info.objectClass}" (${info.objectClass?.length || 0})`);
-    this.logger.log(`  shape: "${info.shape}" (${info.shape?.length || 0})`);
-    this.logger.log(`  dimensions: "${dimensions}" (${dimensions?.length || 0})`);
-    this.logger.log(`  mission: "${info.mission?.substring(0, 30)}..." (${info.mission?.length || 0})`);
-    this.logger.log(`  operator: "${info.operator?.substring(0, 30)}..." (${info.operator?.length || 0})`);
-    this.logger.log(`  launchVehicle: "${info.launchVehicle?.substring(0, 30)}..." (${info.launchVehicle?.length || 0})`);
-    this.logger.log(`  launchSiteName: "${info.launchSiteName?.substring(0, 30)}..." (${info.launchSiteName?.length || 0})`);
-
-    const updateData: Partial<SatelliteMetadataEntity> = {
-      cosparId: info.cosparId,
-      objectClass: info.objectClass,
-      launchMass: info.mass,
+    const updateData = {
+      cospar_id: info.cosparId,
+      object_class: info.objectClass,
+      launch_mass: info.mass,
       shape: info.shape,
       dimensions,
       span: info.span,
       mission: info.mission,
-      firstEpoch: info.firstEpoch,
+      first_epoch: info.firstEpoch,
       operator: info.operator,
-      predDecayDate: info.predDecayDate,
-      hasDiscosData: true,
+      pred_decay_date: info.predDecayDate,
+      has_discos_data: true,
+      launch_vehicle: info.launchVehicle,
+      launch_site_name: info.launchSiteName,
     };
 
-    if (info.launchVehicle) {
-      updateData.launchVehicle = info.launchVehicle;
-    }
-    if (info.launchSiteName) {
-      updateData.launchSiteName = info.launchSiteName;
-    }
-
-    await this.metadataRepository.update(noradId, updateData);
+    await this.db.update(satelliteMetadata).set(updateData).where(eq(satelliteMetadata.norad_id, noradId));
   }
 
-  /**
-   * 格式化尺寸
-   */
   private formatDimensions(info: any): string | undefined {
-    if (!info.width && !info.height && !info.depth) {
-      return undefined;
-    }
+    if (!info.width && !info.height && !info.depth) return undefined;
     const parts: string[] = [];
     if (info.width) parts.push(`${info.width}m`);
     if (info.height) parts.push(`${info.height}m`);
@@ -2210,105 +1576,38 @@ export class SatelliteSyncService {
     return parts.length > 0 ? parts.join(' × ') : undefined;
   }
 
-  /**
-   * 处理限流
-   */
-  private async handleRateLimit(): Promise<void> {
-    await this.sleep(this.DISCOS_MIN_INTERVAL_MS);
-  }
-
-  /**
-   * 格式化 NORAD ID
-   */
-  private formatNoradId(id: string | number): string {
-    return String(id).padStart(5, '0');
-  }
-
-  /**
-   * 生成任务 ID
-   */
-  private generateTaskId(): string {
-    const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.random().toString(36).substring(2, 6);
-    return `sync-${dateStr}-${random}`;
-  }
-
-  /**
-   * 休眠
-   */
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  /**
-   * 生成 KeepTrack 请求的随机延迟（纯随机策略）
-   * 范围: 1-20秒，避免固定间隔被检测为自动化脚本
-   */
-  private getRandomKeepTrackDelay(): number {
-    const min = this.KEEPTRACK_MIN_DELAY_MS;
-    const max = this.KEEPTRACK_MAX_DELAY_MS;
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-  }
-
-  /**
-   * Space-Track TLE 数据同步（模拟模式 - 从本地缓存文件读取）
-   */
-  private async syncTleMock(task: SatelliteSyncTaskEntity): Promise<void> {
+  private async syncTleMock(task: TaskRecord): Promise<void> {
     this.logger.log('开始 Space-Track TLE 数据同步（模拟模式）...');
 
-    const cacheFilePath = require('path').join(
-      process.cwd(),
-      'data',
-      'space-track-tle-cache.json',
-    );
-
+    const cacheFilePath = require('path').join(process.cwd(), 'data', 'space-track-tle-cache.json');
     const fs = await import('fs');
-
-    if (!fs.existsSync(cacheFilePath)) {
-      throw new Error(`模拟数据文件不存在：${cacheFilePath}，请先运行 pnpm run cache:tle`);
-    }
+    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
     const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
-    this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
+    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
 
-    task.total = cacheData.count;
-    await this.taskRepository.save(task);
-
-    let success = 0;
-    let failed = 0;
+    let success = 0, failed = 0;
 
     for (const item of cacheData.data) {
       const noradId = this.formatNoradId(item.NORAD_CAT_ID);
       const rawTle = item.TLE_LINE1 && item.TLE_LINE2 ? `${item.TLE_LINE1}\n${item.TLE_LINE2}` : undefined;
 
-      // 检查是否缺少 name 字段
       if (!item.OBJECT_NAME) {
         failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          undefined,
-          'space-track',
-          'missing_name',
-          '卫星数据缺少 OBJECT_NAME 字段',
-          rawTle,
-        );
+        await this.logSyncError(task.id, noradId, undefined, 'space-track', 'missing_name', '缺少 OBJECT_NAME 字段', rawTle);
         continue;
       }
 
       try {
-        // 先创建基础元数据记录（如果不存在）
-        await this.metadataRepository
-          .createQueryBuilder()
-          .insert()
-          .values({ noradId, hasDiscosData: false, hasKeepTrackData: false, hasSpaceTrackData: false })
-          .onConflict('("noradId") DO NOTHING')
-          .execute();
+        await this.db.insert(satelliteMetadata).values({
+          norad_id: noradId,
+          has_discos_data: false,
+          has_keeptrack_data: false,
+          has_spacetrack_data: false,
+        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
 
-        // 保存 TLE（Space-Track 数据）
-        await this.tleRepository.upsert({
-          noradId,
+        await this.db.insert(satelliteTle).values({
+          norad_id: noradId,
           name: item.OBJECT_NAME,
           source: 'space-track',
           line1: item.TLE_LINE1,
@@ -2317,213 +1616,59 @@ export class SatelliteSyncService {
           inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
           raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
           eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          argOfPerigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          meanMotion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
-        }, ['noradId']);
+          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
+        }).onConflictDoUpdate({
+          target: satelliteTle.norad_id,
+          set: { name: item.OBJECT_NAME, line1: item.TLE_LINE1, line2: item.TLE_LINE2, updated_at: new Date() },
+        });
 
         success++;
       } catch (dbError: any) {
         failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          item.OBJECT_NAME,
-          'space-track',
-          'database',
-          dbError.message,
-          rawTle,
-        );
+        await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'space-track', 'database', dbError.message, rawTle);
       }
 
-      task.processed = success + failed;
-      task.success = success;
-      task.failed = failed;
-      await this.taskRepository.save(task);
+      await this.db.update(satelliteSyncTasks).set({ processed: success + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
     }
 
-    task.status = 'completed';
-    task.completedAt = new Date();
-    await this.taskRepository.save(task);
-
+    await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
     this.logger.log(`Space-Track TLE（模拟）同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
-  /**
-   * KeepTrack TLE 数据同步（模拟模式 - 从本地缓存文件读取）
-   */
-  private async syncKeepTrackBriefMock(task: SatelliteSyncTaskEntity): Promise<void> {
-    this.logger.log('开始 KeepTrack TLE 数据同步（模拟模式）...');
-
-    const cacheFilePath = require('path').join(
-      process.cwd(),
-      'data',
-      'keeptrack-tle-cache.json',
-    );
-
-    const fs = await import('fs');
-
-    if (!fs.existsSync(cacheFilePath)) {
-      throw new Error(`模拟数据文件不存在：${cacheFilePath}，请先拉取 KeepTrack 数据`);
-    }
-
-    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
-    this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
-
-    if (cacheData.count === 0) {
-      this.logger.warn('KeepTrack 缓存数据为空，跳过同步');
-      task.status = 'completed';
-      task.completedAt = new Date();
-      await this.taskRepository.save(task);
-      return;
-    }
-
-    task.total = cacheData.count;
-    await this.taskRepository.save(task);
-
-    let success = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    for (const sat of cacheData.data) {
-      let noradId: string;
-      const rawTle = `${sat.tle1}\n${sat.tle2}`;
-
-      // 只保留有 status 字段的数据
-      if (!sat.status) {
-        skipped++;
-        continue;
-      }
-
-      // 尝试提取 NORAD ID
-      try {
-        noradId = this.extractNoradId(sat.tle1);
-      } catch (parseError: any) {
-        // TLE 解析失败
-        failed++;
-        await this.logSyncError(
-          task.id,
-          'UNKNOWN',
-          sat.name,
-          'keeptrack',
-          'parse_error',
-          parseError.message,
-          rawTle,
-        );
-        continue;
-      }
-
-      // 检查是否缺少 name 字段
-      if (!sat.name) {
-        failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          undefined,
-          'keeptrack',
-          'missing_name',
-          '卫星数据缺少 name 字段',
-          rawTle,
-        );
-        continue;
-      }
-
-      try {
-        // 先创建基础元数据记录（如果不存在），这样即使 TLE 被跳过也能有元数据记录
-        await this.metadataRepository
-          .createQueryBuilder()
-          .insert()
-          .values({ noradId, hasDiscosData: false, hasKeepTrackData: false, hasSpaceTrackData: false })
-          .onConflict('("noradId") DO NOTHING')
-          .execute();
-
-        // 检查是否已存在数据（避免覆盖其他源的 richer 数据）
-        const existing = await this.tleRepository.findOne({
-          where: { noradId },
-          select: ['source'],
-        });
-
-        if (existing) {
-          // 已有其他源的数据，记录为 duplicate（不覆盖）
-          skipped++;
-          await this.logSyncError(
-            task.id,
-            noradId,
-            sat.name,
-            'keeptrack',
-            'duplicate',
-            `已有 ${existing.source} 数据源的数据，跳过覆盖`,
-            rawTle,
-          );
-          continue;
-        }
-
-        await this.tleRepository.upsert({
-          noradId,
-          name: sat.name,
-          source: 'keeptrack',
-          line1: sat.tle1,
-          line2: sat.tle2,
-        }, ['noradId']);
-
-        success++;
-      } catch (dbError: any) {
-        // 数据库保存失败
-        failed++;
-        await this.logSyncError(
-          task.id,
-          noradId,
-          sat.name,
-          'keeptrack',
-          'database',
-          dbError.message,
-          rawTle,
-        );
-      }
-
-      // 更新进度（每100条更新一次）
-      if ((success + skipped + failed) % 100 === 0) {
-        task.processed = success + skipped + failed;
-        task.success = success;
-        task.failed = failed;
-        await this.taskRepository.save(task);
-      }
-    }
-
-    task.processed = success + skipped + failed;
-    task.success = success;
-    task.failed = failed;
-    task.status = 'completed';
-    task.completedAt = new Date();
-    await this.taskRepository.save(task);
-
-    this.logger.log(`KeepTrack TLE（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`);
-  }
-
-  /**
-   * 记录同步错误日志
-   */
-  private async logSyncError(
-    taskId: string,
-    noradId: string,
-    name: string | undefined,
-    source: string,
-    errorType: SyncErrorType,
-    errorMessage: string,
-    rawTle?: string,
-  ): Promise<void> {
+  private async logSyncError(taskId: string, noradId: string, name: string | undefined, source: string, errorType: SyncErrorType, errorMessage: string, rawTle?: string): Promise<void> {
     try {
-      await this.errorLogRepository.save({
-        taskId,
-        noradId,
+      await this.db.insert(satelliteSyncErrorLogs).values({
+        task_id: taskId,
+        norad_id: noradId,
         name: name || `Unknown-${noradId}`,
         source,
-        errorType,
-        errorMessage,
-        rawTle,
+        error_type: errorType,
+        error_message: errorMessage,
+        raw_tle: rawTle,
         timestamp: new Date(),
       });
     } catch (logError: any) {
       this.logger.warn(`记录错误日志失败: ${logError.message}`);
     }
+  }
+
+  private formatNoradId(id: string | number): string {
+    return String(id).padStart(5, '0');
+  }
+
+  private generateTaskId(): string {
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const random = Math.random().toString(36).substring(2, 6);
+    return `sync-${dateStr}-${random}`;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private getRandomKeepTrackDelay(): number {
+    return Math.floor(Math.random() * (this.KEEPTRACK_MAX_DELAY_MS - this.KEEPTRACK_MIN_DELAY_MS + 1)) + this.KEEPTRACK_MIN_DELAY_MS;
   }
 }

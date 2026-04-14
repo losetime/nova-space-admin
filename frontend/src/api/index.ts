@@ -358,7 +358,6 @@ export type SyncType =
   | 'keeptrack-tle'    // KeepTrack TLE 同步（需 API Key）
   | 'keeptrack-meta'   // KeepTrack 元数据同步（需 API Key）
   | 'discos'           // ESA DISCOS 元数据同步
-  | 'all'              // 完整同步
 export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed'
 
 export interface SyncProgress {
