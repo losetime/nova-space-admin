@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { MilestoneController } from './milestone.controller';
 import { MilestoneService } from './milestone.service';
-import { Milestone } from './entities/milestone.entity';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Milestone])],
+  imports: [DatabaseModule],
   controllers: [MilestoneController],
   providers: [MilestoneService],
   exports: [MilestoneService],

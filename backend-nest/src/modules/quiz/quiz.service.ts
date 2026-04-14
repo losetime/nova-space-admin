@@ -1,37 +1,44 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
-import { Quiz } from './entities/quiz.entity';
+import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
+import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
+import { Database } from '../../database';
+import { quizzes } from '../../database/schema/quizzes';
 import { QueryQuizDto, UpdateQuizDto, CreateQuizDto } from './dto/quiz.dto';
+
+type QuizCategoryType = 'basic' | 'advanced' | 'mission' | 'people';
 
 @Injectable()
 export class QuizService {
   private readonly logger = new Logger(QuizService.name);
 
-  constructor(
-    @InjectRepository(Quiz)
-    private quizRepository: Repository<Quiz>,
-  ) {}
-
-  // ========== 问答管理方法 ==========
+  constructor(@Inject('DATABASE') private db: Database) {}
 
   async findAll(query: QueryQuizDto) {
     const { page = 1, limit = 10, category, keyword } = query;
 
-    const where: any = {};
+    const conditions: SQL[] = [];
     if (category) {
-      where.category = category;
+      conditions.push(eq(quizzes.category, category as QuizCategoryType));
     }
     if (keyword) {
-      where.question = Like(`%${keyword}%`);
+      conditions.push(like(quizzes.question, `%${keyword}%`));
     }
 
-    const [data, total] = await this.quizRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const data = await this.db
+      .select()
+      .from(quizzes)
+      .where(whereClause)
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .orderBy(desc(quizzes.created_at));
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(quizzes)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
 
     return {
       data,
@@ -43,41 +50,56 @@ export class QuizService {
   }
 
   async findOne(id: number) {
-    const quiz = await this.quizRepository.findOne({ where: { id } });
-    if (!quiz) {
+    const quiz = await this.db.select().from(quizzes).where(eq(quizzes.id, id)).limit(1);
+    if (!quiz[0]) {
       throw new NotFoundException('题目不存在');
     }
-    return quiz;
+    return quiz[0];
+  }
+
+  private mapDtoToSchema(dto: CreateQuizDto | UpdateQuizDto) {
+    return {
+      question: dto.question,
+      options: dto.options,
+      correct_index: dto.correctIndex,
+      explanation: dto.explanation,
+      category: dto.category as QuizCategoryType,
+      points: dto.points,
+    };
   }
 
   async create(dto: CreateQuizDto) {
-    const quiz = this.quizRepository.create(dto);
-    const saved = await this.quizRepository.save(quiz);
-    this.logger.log(`创建题目: ${saved.id}`);
-    return saved;
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.insert(quizzes).values(values as any).returning();
+    this.logger.log(`创建题目: ${result[0].id}`);
+    return result[0];
   }
 
   async update(id: number, dto: UpdateQuizDto) {
-    const quiz = await this.findOne(id);
-    Object.assign(quiz, dto);
-    return this.quizRepository.save(quiz);
+    await this.findOne(id);
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.update(quizzes).set(values as any).where(eq(quizzes.id, id)).returning();
+    return result[0];
   }
 
   async remove(id: number) {
-    const quiz = await this.findOne(id);
-    await this.quizRepository.remove(quiz);
+    await this.findOne(id);
+    await this.db.delete(quizzes).where(eq(quizzes.id, id));
     this.logger.log(`删除题目: ${id}`);
     return { message: '删除成功' };
   }
 
   async getStats() {
-    const total = await this.quizRepository.count();
-    const byCategory = await this.quizRepository
-      .createQueryBuilder('quiz')
-      .select('quiz.category', 'category')
-      .addSelect('COUNT(*)', 'count')
-      .groupBy('quiz.category')
-      .getRawMany();
+    const countResult = await this.db.select({ count: sql<number>`count(*)` }).from(quizzes);
+    const total = Number(countResult[0]?.count || 0);
+
+    const byCategory = await this.db
+      .select({
+        category: quizzes.category,
+        count: sql<number>`count(*)`,
+      })
+      .from(quizzes)
+      .groupBy(quizzes.category);
 
     return {
       total,

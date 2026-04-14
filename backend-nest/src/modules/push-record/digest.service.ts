@@ -1,11 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan, In } from 'typeorm';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Intelligence, IntelligenceLevel } from '../intelligence/entities/intelligence.entity';
-import { PushSubscription } from './entities/push-subscription.entity';
-import { SubscriptionType } from '../../common/enums/push.enum';
-import { UserLevel } from '../../common/entities/user.entity';
+import { eq, desc, gt, inArray, and } from 'drizzle-orm';
+import { Database } from '../../database';
+import { intelligences } from '../../database/schema/intelligences';
+import { pushSubscriptions } from '../../database/schema/push';
+import { users } from '../../database/schema/users';
 import axios from 'axios';
 
 interface DigestContent {
@@ -18,13 +17,9 @@ interface DigestContent {
 export class DigestService {
   private readonly logger = new Logger(DigestService.name);
 
-  constructor(
-    @InjectRepository(Intelligence)
-    private intelligenceRepository: Repository<Intelligence>,
-    private configService: ConfigService,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database, private configService: ConfigService) {}
 
-  async generateDigestContent(subscription: PushSubscription): Promise<DigestContent> {
+  async generateDigestContent(subscription: any): Promise<DigestContent> {
     const date = new Date().toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'long',
@@ -37,11 +32,13 @@ export class DigestService {
       date,
     };
 
-    if (subscription.subscriptionTypes.includes(SubscriptionType.INTELLIGENCE)) {
+    const subscriptionTypes = subscription.subscription_types?.split(',') || [];
+
+    if (subscriptionTypes.includes('intelligence')) {
       content.intelligence = await this.getIntelligenceContent(subscription);
     }
 
-    if (subscription.subscriptionTypes.includes(SubscriptionType.SPACE_WEATHER)) {
+    if (subscriptionTypes.includes('space_weather')) {
       content.spaceWeather = await this.getSpaceWeatherContent();
     }
 
@@ -67,35 +64,34 @@ export class DigestService {
     return content;
   }
 
-  private async getIntelligenceContent(subscription: PushSubscription): Promise<any[]> {
+  private async getIntelligenceContent(subscription: any): Promise<any[]> {
     try {
       const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      
-      const level = (subscription as any).user?.level || UserLevel.BASIC;
-      
-      let whereLevel: IntelligenceLevel | IntelligenceLevel[] = IntelligenceLevel.FREE;
-      if (level === UserLevel.PROFESSIONAL) {
-        whereLevel = [IntelligenceLevel.FREE, IntelligenceLevel.ADVANCED, IntelligenceLevel.PROFESSIONAL];
-      } else if (level === UserLevel.ADVANCED) {
-        whereLevel = [IntelligenceLevel.FREE, IntelligenceLevel.ADVANCED];
+
+      const userResult = await this.db.select().from(users).where(eq(users.id, subscription.user_id)).limit(1);
+      const level = userResult[0]?.level || 'basic';
+
+      let whereLevels: string[] = ['free'];
+      if (level === 'professional') {
+        whereLevels = ['free', 'advanced', 'professional'];
+      } else if (level === 'advanced') {
+        whereLevels = ['free', 'advanced'];
       }
 
-      const intelligences = await this.intelligenceRepository.find({
-        where: {
-          level: Array.isArray(whereLevel) ? In(whereLevel) : whereLevel,
-          createdAt: MoreThan(YESTERDAY),
-        },
-        order: { createdAt: 'DESC' },
-        take: 3,
-      });
+      const items = await this.db
+        .select({
+          id: intelligences.id,
+          title: intelligences.title,
+          summary: intelligences.summary,
+          category: intelligences.category,
+          published_at: intelligences.published_at,
+        })
+        .from(intelligences)
+        .where(and(inArray(intelligences.level, whereLevels as any), gt(intelligences.created_at, YESTERDAY)))
+        .orderBy(desc(intelligences.created_at))
+        .limit(3);
 
-      return intelligences.map(item => ({
-        id: item.id,
-        title: item.title,
-        summary: item.summary,
-        category: item.category,
-        publishedAt: item.publishedAt,
-      }));
+      return items;
     } catch (error) {
       this.logger.error('Failed to fetch intelligence', error);
       return [];
@@ -106,22 +102,20 @@ export class DigestService {
     try {
       const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      const intelligences = await this.intelligenceRepository.find({
-        where: {
-          level: IntelligenceLevel.FREE,
-          createdAt: MoreThan(YESTERDAY),
-        },
-        order: { createdAt: 'DESC' },
-        take: 3,
-      });
+      const items = await this.db
+        .select({
+          id: intelligences.id,
+          title: intelligences.title,
+          summary: intelligences.summary,
+          category: intelligences.category,
+          published_at: intelligences.published_at,
+        })
+        .from(intelligences)
+        .where(and(eq(intelligences.level, 'free'), gt(intelligences.created_at, YESTERDAY)))
+        .orderBy(desc(intelligences.created_at))
+        .limit(3);
 
-      return intelligences.map(item => ({
-        id: item.id,
-        title: item.title,
-        summary: item.summary,
-        category: item.category,
-        publishedAt: item.publishedAt,
-      }));
+      return items;
     } catch (error) {
       this.logger.error('Failed to fetch intelligence', error);
       return [];

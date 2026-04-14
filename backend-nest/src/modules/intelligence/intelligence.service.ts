@@ -1,40 +1,46 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
-import { Intelligence } from './entities/intelligence.entity';
-import {
-  CreateIntelligenceDto,
-  UpdateIntelligenceDto,
-  QueryIntelligenceDto,
-} from './dto';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
+import { Database } from '../../database';
+import { intelligences } from '../../database/schema/intelligences';
+import { CreateIntelligenceDto, UpdateIntelligenceDto, QueryIntelligenceDto } from './dto';
+
+type IntelligenceCategoryType = 'launch' | 'satellite' | 'industry' | 'research' | 'environment';
+type IntelligenceLevelType = 'free' | 'advanced' | 'professional';
 
 @Injectable()
 export class IntelligenceService {
-  constructor(
-    @InjectRepository(Intelligence)
-    private intelligenceRepository: Repository<Intelligence>,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database) {}
 
   async findAll(query: QueryIntelligenceDto) {
     const { page = 1, limit = 10, category, level, keyword } = query;
 
-    const where: any = {};
+    const conditions: SQL[] = [];
     if (category) {
-      where.category = category;
+      conditions.push(eq(intelligences.category, category as IntelligenceCategoryType));
     }
     if (level) {
-      where.level = level;
+      conditions.push(eq(intelligences.level, level as IntelligenceLevelType));
     }
     if (keyword) {
-      where.title = Like(`%${keyword}%`);
+      conditions.push(like(intelligences.title, `%${keyword}%`));
     }
 
-    const [data, total] = await this.intelligenceRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const data = await this.db
+      .select()
+      .from(intelligences)
+      .where(whereClause)
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .orderBy(desc(intelligences.created_at));
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(intelligences)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
 
     return {
       data,
@@ -46,34 +52,50 @@ export class IntelligenceService {
   }
 
   async findOne(id: number) {
-    const intelligence = await this.intelligenceRepository.findOne({
-      where: { id },
-    });
-    if (!intelligence) {
+    const intelligence = await this.db.select().from(intelligences).where(eq(intelligences.id, id)).limit(1);
+    if (!intelligence[0]) {
       throw new NotFoundException('情报不存在');
     }
-    return intelligence;
+    return intelligence[0];
+  }
+
+  private mapDtoToSchema(dto: CreateIntelligenceDto | UpdateIntelligenceDto) {
+    return {
+      title: dto.title,
+      content: dto.content,
+      summary: dto.summary,
+      cover: dto.cover,
+      category: dto.category,
+      level: dto.level,
+      source: dto.source,
+      source_url: dto.sourceUrl,
+      tags: dto.tags,
+      analysis: dto.analysis,
+      trend: dto.trend,
+      published_at: dto.publishedAt,
+    };
   }
 
   async create(dto: CreateIntelligenceDto) {
-    const intelligence = this.intelligenceRepository.create(dto);
-    return this.intelligenceRepository.save(intelligence);
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.insert(intelligences).values(values as any).returning();
+    return result[0];
   }
 
   async update(id: number, dto: UpdateIntelligenceDto) {
-    const intelligence = await this.findOne(id);
-    Object.assign(intelligence, dto);
-    return this.intelligenceRepository.save(intelligence);
+    await this.findOne(id);
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.update(intelligences).set(values as any).where(eq(intelligences.id, id)).returning();
+    return result[0];
   }
 
   async remove(id: number) {
-    const intelligence = await this.findOne(id);
-    await this.intelligenceRepository.remove(intelligence);
+    await this.findOne(id);
+    await this.db.delete(intelligences).where(eq(intelligences.id, id));
     return { message: '删除成功' };
   }
 
-  async batchCreate(intelligences: Partial<Intelligence>[]) {
-    const created = this.intelligenceRepository.create(intelligences);
-    return this.intelligenceRepository.save(created);
+  async batchCreate(intelligencesData: any[]) {
+    return this.db.insert(intelligences).values(intelligencesData).returning();
   }
 }

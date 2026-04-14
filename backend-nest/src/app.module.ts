@@ -18,6 +18,7 @@ import { CompanyModule } from './modules/company/company.module';
 import { HealthModule } from './common/health/health.module';
 import { AllExceptionsFilter } from './common/filters';
 import { TransformInterceptor } from './common/interceptors';
+import { DatabaseModule } from './database/database.module';
 import appConfig from './config/app.config';
 
 @Module({
@@ -27,6 +28,7 @@ import appConfig from './config/app.config';
       load: [appConfig],
     }),
     ScheduleModule.forRoot(),
+    DatabaseModule,
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -36,8 +38,8 @@ import appConfig from './config/app.config';
         username: configService.get<string>('app.database.username'),
         password: configService.get<string>('app.database.password'),
         database: configService.get<string>('app.database.database'),
-        entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: false, // 不允许修改为true
+        entities: [__dirname + '/modules/satellite-sync/**/*.entity{.ts,.js}'],
+        synchronize: false,
         autoLoadEntities: true,
       }),
       inject: [ConfigService],

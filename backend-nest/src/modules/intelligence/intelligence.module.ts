@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { IntelligenceController } from './intelligence.controller';
 import { IntelligenceService } from './intelligence.service';
-import { Intelligence } from './entities/intelligence.entity';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Intelligence])],
+  imports: [DatabaseModule],
   controllers: [IntelligenceController],
   providers: [IntelligenceService],
   exports: [IntelligenceService],

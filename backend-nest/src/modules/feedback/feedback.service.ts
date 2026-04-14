@@ -1,33 +1,40 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Feedback } from './entities/feedback.entity';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { eq, desc, and, sql } from 'drizzle-orm';
+import { Database } from '../../database';
+import { feedbacks } from '../../database/schema/feedbacks';
 import { QueryFeedbackDto, UpdateFeedbackDto } from './dto';
 
 @Injectable()
 export class FeedbackService {
-  constructor(
-    @InjectRepository(Feedback)
-    private feedbackRepository: Repository<Feedback>,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database) {}
 
   async findAll(query: QueryFeedbackDto) {
     const { page = 1, limit = 10, type, status } = query;
 
-    const where: any = {};
+    const conditions = [];
     if (type) {
-      where.type = type;
+      conditions.push(eq(feedbacks.type, type));
     }
     if (status) {
-      where.status = status;
+      conditions.push(eq(feedbacks.status, status));
     }
 
-    const [data, total] = await this.feedbackRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const data = await this.db
+      .select()
+      .from(feedbacks)
+      .where(whereClause)
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .orderBy(desc(feedbacks.created_at));
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(feedbacks)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
 
     return {
       data,
@@ -39,22 +46,22 @@ export class FeedbackService {
   }
 
   async findOne(id: string) {
-    const feedback = await this.feedbackRepository.findOne({ where: { id } });
-    if (!feedback) {
+    const feedback = await this.db.select().from(feedbacks).where(eq(feedbacks.id, id)).limit(1);
+    if (!feedback[0]) {
       throw new NotFoundException('反馈不存在');
     }
-    return feedback;
+    return feedback[0];
   }
 
   async update(id: string, dto: UpdateFeedbackDto) {
-    const feedback = await this.findOne(id);
-    Object.assign(feedback, dto);
-    return this.feedbackRepository.save(feedback);
+    await this.findOne(id);
+    const result = await this.db.update(feedbacks).set(dto).where(eq(feedbacks.id, id)).returning();
+    return result[0];
   }
 
   async remove(id: string) {
-    const feedback = await this.findOne(id);
-    await this.feedbackRepository.remove(feedback);
+    await this.findOne(id);
+    await this.db.delete(feedbacks).where(eq(feedbacks.id, id));
     return { message: '删除成功' };
   }
 }

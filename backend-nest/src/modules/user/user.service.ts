@@ -1,54 +1,63 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
-import { User } from '../../common/entities/user.entity';
+import { Database } from '../../database';
+import { users } from '../../database/schema/users';
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
+
+type UserRoleType = 'user' | 'admin' | 'super_admin';
+type UserLevelType = 'basic' | 'advanced' | 'professional';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database) {}
 
   async findAll(query: QueryUserDto) {
     const { page = 1, limit = 10, keyword, role, isActive } = query;
 
-    const where: any = {};
+    const conditions: SQL[] = [];
     if (keyword) {
-      where.username = Like(`%${keyword}%`);
+      conditions.push(like(users.username, `%${keyword}%`));
     }
     if (role) {
-      where.role = role;
+      conditions.push(eq(users.role, role as UserRoleType));
     }
     if (isActive !== undefined) {
-      where.isActive = isActive;
+      conditions.push(eq(users.is_active, isActive));
     }
 
-    const [data, total] = await this.userRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-      select: [
-        'id',
-        'username',
-        'email',
-        'phone',
-        'nickname',
-        'avatar',
-        'role',
-        'level',
-        'points',
-        'totalPoints',
-        'isVerified',
-        'isActive',
-        'lastLoginAt',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const data = await this.db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        phone: users.phone,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        role: users.role,
+        level: users.level,
+        points: users.points,
+        total_points: users.total_points,
+        is_verified: users.is_verified,
+        is_active: users.is_active,
+        last_login_at: users.last_login_at,
+        created_at: users.created_at,
+        updated_at: users.updated_at,
+      })
+      .from(users)
+      .where(whereClause)
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .orderBy(desc(users.created_at));
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
 
     return {
       data,
@@ -60,133 +69,135 @@ export class UserService {
   }
 
   async findOne(id: string) {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      select: [
-        'id',
-        'username',
-        'email',
-        'phone',
-        'nickname',
-        'avatar',
-        'role',
-        'level',
-        'points',
-        'totalPoints',
-        'isVerified',
-        'isActive',
-        'lastLoginAt',
-        'createdAt',
-        'updatedAt',
-      ],
-    });
-    if (!user) {
+    const result = await this.db
+      .select({
+        id: users.id,
+        username: users.username,
+        email: users.email,
+        phone: users.phone,
+        nickname: users.nickname,
+        avatar: users.avatar,
+        role: users.role,
+        level: users.level,
+        points: users.points,
+        total_points: users.total_points,
+        is_verified: users.is_verified,
+        is_active: users.is_active,
+        last_login_at: users.last_login_at,
+        created_at: users.created_at,
+        updated_at: users.updated_at,
+      })
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
+    if (!result[0]) {
       throw new NotFoundException('用户不存在');
     }
-    return user;
+    return result[0];
   }
 
   async create(dto: CreateUserDto) {
-    // Check if username exists
-    const existingUser = await this.userRepository.findOne({
-      where: { username: dto.username },
-    });
-    if (existingUser) {
+    const existingUser = await this.db.select().from(users).where(eq(users.username, dto.username)).limit(1);
+    if (existingUser[0]) {
       throw new ConflictException('用户名已存在');
     }
 
-    // Check if email exists
     if (dto.email) {
-      const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
-      });
-      if (existingEmail) {
+      const existingEmail = await this.db.select().from(users).where(eq(users.email, dto.email)).limit(1);
+      if (existingEmail[0]) {
         throw new ConflictException('邮箱已被使用');
       }
     }
 
-    // Check if phone exists
     if (dto.phone) {
-      const existingPhone = await this.userRepository.findOne({
-        where: { phone: dto.phone },
-      });
-      if (existingPhone) {
+      const existingPhone = await this.db.select().from(users).where(eq(users.phone, dto.phone)).limit(1);
+      if (existingPhone[0]) {
         throw new ConflictException('手机号已被使用');
       }
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    const user = this.userRepository.create({
-      ...dto,
-      password: hashedPassword,
-    });
-    return this.userRepository.save(user);
+    const result = await this.db
+      .insert(users)
+      .values({
+        username: dto.username,
+        email: dto.email,
+        phone: dto.phone,
+        password: hashedPassword,
+        nickname: dto.nickname,
+        avatar: dto.avatar,
+        role: dto.role as UserRoleType,
+        level: dto.level as UserLevelType,
+      } as any)
+      .returning();
+    return result[0];
   }
 
   async update(id: string, dto: UpdateUserDto) {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    const user = existing[0];
     if (!user) {
       throw new NotFoundException('用户不存在');
     }
 
-    // Check if username is being changed and if it conflicts
     if (dto.username && dto.username !== user.username) {
-      const existingUser = await this.userRepository.findOne({
-        where: { username: dto.username },
-      });
-      if (existingUser) {
+      const existingUser = await this.db.select().from(users).where(eq(users.username, dto.username)).limit(1);
+      if (existingUser[0]) {
         throw new ConflictException('用户名已存在');
       }
     }
 
-    // Check if email is being changed and if it conflicts
     if (dto.email && dto.email !== user.email) {
-      const existingEmail = await this.userRepository.findOne({
-        where: { email: dto.email },
-      });
-      if (existingEmail) {
+      const existingEmail = await this.db.select().from(users).where(eq(users.email, dto.email)).limit(1);
+      if (existingEmail[0]) {
         throw new ConflictException('邮箱已被使用');
       }
     }
 
-    // Check if phone is being changed and if it conflicts
     if (dto.phone && dto.phone !== user.phone) {
-      const existingPhone = await this.userRepository.findOne({
-        where: { phone: dto.phone },
-      });
-      if (existingPhone) {
+      const existingPhone = await this.db.select().from(users).where(eq(users.phone, dto.phone)).limit(1);
+      if (existingPhone[0]) {
         throw new ConflictException('手机号已被使用');
       }
     }
 
-    Object.assign(user, dto);
-    return this.userRepository.save(user);
+    const result = await this.db
+      .update(users)
+      .set({
+        username: dto.username,
+        email: dto.email,
+        phone: dto.phone,
+        nickname: dto.nickname,
+        avatar: dto.avatar,
+        role: dto.role as UserRoleType,
+        level: dto.level as UserLevelType,
+        is_active: dto.isActive,
+      } as any)
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
   }
 
   async softDelete(id: string) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
+    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!existing[0]) {
       throw new NotFoundException('用户不存在');
     }
-    user.isActive = false;
-    await this.userRepository.save(user);
+    await this.db.update(users).set({ is_active: false }).where(eq(users.id, id));
     return { message: '删除成功' };
   }
 
   async resetPassword(id: string, newPassword?: string) {
-    const user = await this.userRepository.findOne({ where: { id } });
-    if (!user) {
+    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!existing[0]) {
       throw new NotFoundException('用户不存在');
     }
 
-    // Generate random password if not provided
     const password = newPassword || this.generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    user.password = hashedPassword;
-    await this.userRepository.save(user);
+    await this.db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
 
     return { message: '密码重置成功', password };
   }

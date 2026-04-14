@@ -1,11 +1,10 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { Quiz } from './entities/quiz.entity';
 import { QuizService } from './quiz.service';
 import { QuizController } from './quiz.controller';
+import { DatabaseModule } from '../../database/database.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Quiz])],
+  imports: [DatabaseModule],
   controllers: [QuizController],
   providers: [QuizService],
   exports: [QuizService],

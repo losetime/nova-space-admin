@@ -1,36 +1,46 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
-import { Article } from './entities/article.entity';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
+import { Database } from '../../database';
+import { articles } from '../../database/schema/articles';
 import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from './dto';
+
+type ArticleCategory = 'basic' | 'advanced' | 'mission' | 'people';
+type ArticleType = 'article' | 'video';
 
 @Injectable()
 export class ArticleService {
-  constructor(
-    @InjectRepository(Article)
-    private articleRepository: Repository<Article>,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database) {}
 
   async findAll(query: QueryArticleDto) {
     const { page = 1, limit = 10, category, keyword, isPublished } = query;
 
-    const where: any = {};
+    const conditions: SQL[] = [];
     if (category) {
-      where.category = category;
+      conditions.push(eq(articles.category, category as ArticleCategory));
     }
     if (keyword) {
-      where.title = Like(`%${keyword}%`);
+      conditions.push(like(articles.title, `%${keyword}%`));
     }
     if (isPublished !== undefined) {
-      where.isPublished = isPublished;
+      conditions.push(eq(articles.is_published, isPublished));
     }
 
-    const [data, total] = await this.articleRepository.findAndCount({
-      where,
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
-    });
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const data = await this.db
+      .select()
+      .from(articles)
+      .where(whereClause)
+      .limit(limit)
+      .offset((page - 1) * limit)
+      .orderBy(desc(articles.created_at));
+
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(articles)
+      .where(whereClause);
+
+    const total = Number(countResult[0]?.count || 0);
 
     return {
       data,
@@ -42,32 +52,55 @@ export class ArticleService {
   }
 
   async findOne(id: number) {
-    const article = await this.articleRepository.findOne({ where: { id } });
-    if (!article) {
+    const article = await this.db.select().from(articles).where(eq(articles.id, id)).limit(1);
+    if (!article[0]) {
       throw new NotFoundException('文章不存在');
     }
-    return article;
+    return article[0];
+  }
+
+  private mapDtoToSchema(dto: CreateArticleDto | UpdateArticleDto) {
+    return {
+      title: dto.title,
+      content: dto.content,
+      summary: dto.summary,
+      cover: dto.cover,
+      category: dto.category as ArticleCategory,
+      type: dto.type as ArticleType,
+      duration: dto.duration,
+      tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
+      is_published: dto.isPublished,
+    };
   }
 
   async create(dto: CreateArticleDto) {
-    const article = this.articleRepository.create(dto);
-    return this.articleRepository.save(article);
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.insert(articles).values(values as any).returning();
+    const article = result[0];
+    return {
+      ...article,
+      tags: article.tags ? JSON.parse(article.tags as string) : null,
+    };
   }
 
   async update(id: number, dto: UpdateArticleDto) {
-    const article = await this.findOne(id);
-    Object.assign(article, dto);
-    return this.articleRepository.save(article);
+    await this.findOne(id);
+    const values = this.mapDtoToSchema(dto);
+    const result = await this.db.update(articles).set(values as any).where(eq(articles.id, id)).returning();
+    const article = result[0];
+    return {
+      ...article,
+      tags: article.tags ? JSON.parse(article.tags as string) : null,
+    };
   }
 
   async remove(id: number) {
-    const article = await this.findOne(id);
-    await this.articleRepository.remove(article);
+    await this.findOne(id);
+    await this.db.delete(articles).where(eq(articles.id, id));
     return { message: '删除成功' };
   }
 
-  async batchCreate(articles: Partial<Article>[]) {
-    const created = this.articleRepository.create(articles);
-    return this.articleRepository.save(created);
+  async batchCreate(articlesData: Partial<typeof articles.$inferInsert>[]) {
+    return this.db.insert(articles).values(articlesData as any).returning();
   }
 }

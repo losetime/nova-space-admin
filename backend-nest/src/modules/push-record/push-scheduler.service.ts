@@ -1,37 +1,26 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { PushRecord } from './entities/push-record.entity';
-import { PushSubscription } from './entities/push-subscription.entity';
+import { eq, and, between, inArray } from 'drizzle-orm';
+import { Database } from '../../database';
+import { pushRecords, pushSubscriptions } from '../../database/schema/push';
 import { EmailService } from './email.service';
 import { DigestService } from './digest.service';
-import { 
-  PushTriggerType, 
-  PushRecordStatus, 
-  PushSubscriptionStatus 
-} from '../../common/enums/push.enum';
 
 @Injectable()
 export class PushSchedulerService {
   private readonly logger = new Logger(PushSchedulerService.name);
 
   constructor(
-    @InjectRepository(PushRecord)
-    private pushRecordRepository: Repository<PushRecord>,
-    @InjectRepository(PushSubscription)
-    private pushSubscriptionRepository: Repository<PushSubscription>,
+    @Inject('DATABASE') private db: Database,
     private emailService: EmailService,
     private digestService: DigestService,
     private configService: ConfigService,
   ) {}
 
-  // 手动触发推送（用于测试或管理员操作）
   async triggerManualPush(userId: string): Promise<boolean> {
-    const subscription = await this.pushSubscriptionRepository.findOne({
-      where: { userId },
-    });
+    const result = await this.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.user_id, userId)).limit(1);
+    const subscription = result[0];
 
     if (!subscription) {
       this.logger.warn(`No subscription found for user ${userId}`);
@@ -39,29 +28,20 @@ export class PushSchedulerService {
     }
 
     try {
-      const content = await this.digestService.generateDigestContent(subscription);
-      const sent = await this.emailService.sendDailyDigest(
-        subscription.email,
-        content,
-      );
+      const content = await this.digestService.generateDigestContent(subscription as any);
+      const sent = await this.emailService.sendDailyDigest(subscription.email, content);
 
-      // 记录推送结果
-      const record = this.pushRecordRepository.create({
-        userId,
-        triggerType: PushTriggerType.MANUAL,
+      await this.db.insert(pushRecords).values({
+        user_id: userId,
+        trigger_type: 'manual',
         subject: `Nova Space 测试推送 - ${content.date}`,
         content: JSON.stringify(content),
-        sentAt: new Date(),
-        status: sent ? PushRecordStatus.SENT : PushRecordStatus.FAILED,
-      });
-
-      await this.pushRecordRepository.save(record);
+        sent_at: new Date(),
+        status: sent ? 'sent' : 'failed',
+      } as any);
 
       if (sent) {
-        await this.pushSubscriptionRepository.update(
-          { userId },
-          { lastPushAt: new Date() },
-        );
+        await this.db.update(pushSubscriptions).set({ last_push_at: new Date() }).where(eq(pushSubscriptions.user_id, userId));
       }
 
       return sent;
@@ -71,12 +51,10 @@ export class PushSchedulerService {
     }
   }
 
-  // 管理员批量测试推送（发送到指定邮箱，不需要订阅）
   async triggerAdminTestPush(email: string): Promise<boolean> {
     try {
       const content = await this.digestService.generateSimpleDigest();
       const sent = await this.emailService.sendDailyDigest(email, content);
-
       return sent;
     } catch (error) {
       this.logger.error(`Failed to send admin test push to ${email}`, error);
@@ -84,12 +62,10 @@ export class PushSchedulerService {
     }
   }
 
-  // 发送简单测试邮件
   async triggerSimpleTestPush(email: string): Promise<boolean> {
     return this.emailService.sendTestEmail(email);
   }
 
-  // 每日定时推送任务（早上 8:00）
   @Cron('0 8 * * *', {
     name: 'dailyPush',
     timeZone: 'Asia/Shanghai',
@@ -120,7 +96,6 @@ export class PushSchedulerService {
     }
   }
 
-  // 每小时重试失败推送
   @Cron('0 * * * *', {
     name: 'retryFailedPush',
     timeZone: 'Asia/Shanghai',
@@ -145,38 +120,28 @@ export class PushSchedulerService {
     }
   }
 
-  // 获取活跃订阅用户
-  private async getActiveSubscriptions(): Promise<PushSubscription[]> {
-    return this.pushSubscriptionRepository.find({
-      where: {
-        enabled: true,
-        status: PushSubscriptionStatus.ACTIVE,
-      },
-      relations: ['user'],
-    });
+  private async getActiveSubscriptions(): Promise<any[]> {
+    return this.db
+      .select()
+      .from(pushSubscriptions)
+      .where(and(eq(pushSubscriptions.enabled, true), eq(pushSubscriptions.status, 'active')));
   }
 
-  // 筛选当天未推送的用户
-  private async filterTodayUnpushed(
-    subscriptions: PushSubscription[],
-  ): Promise<PushSubscription[]> {
+  private async filterTodayUnpushed(subscriptions: any[]): Promise<any[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return subscriptions.filter((sub) => {
-      if (!sub.lastPushAt) return true;
+      if (!sub.last_push_at) return true;
 
-      const lastPushDate = new Date(sub.lastPushAt);
+      const lastPushDate = new Date(sub.last_push_at);
       lastPushDate.setHours(0, 0, 0, 0);
 
       return lastPushDate < today;
     });
   }
 
-  // 批量推送
-  private async batchPush(
-    subscriptions: PushSubscription[],
-  ): Promise<{ success: number; failed: number }> {
+  private async batchPush(subscriptions: any[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
@@ -186,9 +151,7 @@ export class PushSchedulerService {
     for (let i = 0; i < subscriptions.length; i += batchSize) {
       const batch = subscriptions.slice(i, i + batchSize);
 
-      const results = await Promise.allSettled(
-        batch.map((sub) => this.sendToUser(sub)),
-      );
+      const results = await Promise.allSettled(batch.map((sub) => this.sendToUser(sub)));
 
       results.forEach((result) => {
         if (result.status === 'fulfilled' && result.value) {
@@ -206,23 +169,16 @@ export class PushSchedulerService {
     return { success, failed };
   }
 
-  // 发送单个用户
-  private async sendToUser(subscription: PushSubscription): Promise<boolean> {
+  private async sendToUser(subscription: any): Promise<boolean> {
     try {
       const content = await this.digestService.generateDigestContent(subscription);
 
-      const sent = await this.emailService.sendDailyDigest(
-        subscription.email,
-        content,
-      );
+      const sent = await this.emailService.sendDailyDigest(subscription.email, content);
 
       await this.recordPushResult(subscription, content, sent);
 
       if (sent) {
-        await this.pushSubscriptionRepository.update(
-          { id: subscription.id },
-          { lastPushAt: new Date() },
-        );
+        await this.db.update(pushSubscriptions).set({ last_push_at: new Date() }).where(eq(pushSubscriptions.id, subscription.id));
       }
 
       return sent;
@@ -233,81 +189,59 @@ export class PushSchedulerService {
     }
   }
 
-  // 记录推送结果
-  private async recordPushResult(
-    subscription: PushSubscription,
-    content: any,
-    success: boolean,
-    errorMessage?: string,
-  ): Promise<void> {
-    const record = this.pushRecordRepository.create({
-      userId: subscription.userId,
-      triggerType: PushTriggerType.SCHEDULED,
+  private async recordPushResult(subscription: any, content: any, success: boolean, errorMessage?: string): Promise<void> {
+    await this.db.insert(pushRecords).values({
+      user_id: subscription.user_id,
+      trigger_type: 'scheduled',
       subject: `Nova Space 每日资讯 - ${new Date().toLocaleDateString('zh-CN')}`,
       content: content ? JSON.stringify(content) : '',
-      sentAt: new Date(),
-      status: success ? PushRecordStatus.SENT : PushRecordStatus.FAILED,
-      errorMessage: errorMessage || null,
-    });
-
-    await this.pushRecordRepository.save(record);
+      sent_at: new Date(),
+      status: success ? 'sent' : 'failed',
+      error_message: errorMessage || null,
+    } as any);
   }
 
-  // 获取失败记录用于重试
-  private async getFailedRecordsForRetry(): Promise<PushRecord[]> {
+  private async getFailedRecordsForRetry(): Promise<any[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
 
-    return this.pushRecordRepository.find({
-      where: {
-        status: PushRecordStatus.FAILED,
-        triggerType: PushTriggerType.SCHEDULED,
-        createdAt: Between(today, oneHourAgo),
-      },
-      take: 50,
-    });
+    return this.db
+      .select()
+      .from(pushRecords)
+      .where(and(eq(pushRecords.status, 'failed'), eq(pushRecords.trigger_type, 'scheduled'), between(pushRecords.created_at, today, oneHourAgo)))
+      .limit(50);
   }
 
-  // 重试失败推送
-  private async retryPush(
-    records: PushRecord[],
-  ): Promise<{ success: number; failed: number }> {
+  private async retryPush(records: any[]): Promise<{ success: number; failed: number }> {
     let success = 0;
     let failed = 0;
 
     for (const record of records) {
       try {
-        const subscription = await this.pushSubscriptionRepository.findOne({
-          where: { userId: record.userId },
-        });
+        const subResult = await this.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.user_id, record.user_id)).limit(1);
+        const subscription = subResult[0];
 
         if (!subscription) {
-          this.logger.warn(`找不到订阅：${record.userId}`);
+          this.logger.warn(`找不到订阅：${record.user_id}`);
           continue;
         }
 
-        const content = await this.digestService.generateDigestContent(subscription);
-        const sent = await this.emailService.sendDailyDigest(
-          subscription.email,
-          content,
-        );
+        const content = await this.digestService.generateDigestContent(subscription as any);
+        const sent = await this.emailService.sendDailyDigest(subscription.email, content);
 
-        await this.pushRecordRepository.update(
-          { id: record.id },
-          {
-            status: sent ? PushRecordStatus.SENT : PushRecordStatus.FAILED,
-            errorMessage: sent ? null : `重试失败 ${new Date().toISOString()}`,
-          },
-        );
+        await this.db
+          .update(pushRecords)
+          .set({
+            status: sent ? 'sent' : 'failed',
+            error_message: sent ? null : `重试失败 ${new Date().toISOString()}`,
+          })
+          .where(eq(pushRecords.id, record.id));
 
         if (sent) {
           success++;
-          await this.pushSubscriptionRepository.update(
-            { userId: record.userId },
-            { lastPushAt: new Date() },
-          );
+          await this.db.update(pushSubscriptions).set({ last_push_at: new Date() }).where(eq(pushSubscriptions.user_id, record.user_id));
         } else {
           failed++;
         }

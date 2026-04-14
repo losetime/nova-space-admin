@@ -1,27 +1,19 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { eq } from 'drizzle-orm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole } from '../../common/entities/user.entity';
+import { Database } from '../../database';
+import { users } from '../../database/schema/users';
+
+type UserRoleType = 'user' | 'admin' | 'super_admin';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    @InjectRepository(User)
-    private userRepository: Repository<User>,
-    private jwtService: JwtService,
-  ) {}
+  constructor(@Inject('DATABASE') private db: Database, private jwtService: JwtService) {}
 
-  async login(
-    username: string,
-    password: string,
-  ): Promise<{ user: Partial<User>; token: string }> {
-    const user = await this.userRepository
-      .createQueryBuilder('user')
-      .where('user.username = :username', { username })
-      .addSelect('user.password')
-      .getOne();
+  async login(username: string, password: string): Promise<{ user: any; token: string }> {
+    const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+    const user = result[0];
 
     if (!user) {
       throw new UnauthorizedException('用户名或密码错误');
@@ -32,36 +24,36 @@ export class AuthService {
       throw new UnauthorizedException('用户名或密码错误');
     }
 
-    if (!user.isActive) {
+    if (!user.is_active) {
       throw new UnauthorizedException('账号已被禁用');
     }
 
-    if (user.role !== UserRole.ADMIN && user.role !== UserRole.SUPER_ADMIN) {
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
       throw new UnauthorizedException('没有管理员权限');
     }
 
     const token = this.generateToken(user);
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
 
     return { user: userWithoutPassword, token };
   }
 
-  async getProfile(userId: string): Promise<Partial<User> | null> {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
+  async getProfile(userId: string): Promise<any | null> {
+    const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const user = result[0];
     if (!user) return null;
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = user;
     return userWithoutPassword;
   }
 
-  async validateUserById(userId: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { id: userId } });
+  async validateUserById(userId: string): Promise<any | null> {
+    const result = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    return result[0] || null;
   }
 
-  private generateToken(user: User): string {
+  private generateToken(user: any): string {
     const payload = {
       sub: user.id,
       username: user.username,
