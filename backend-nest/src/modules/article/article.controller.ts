@@ -9,13 +9,13 @@ import {
   Query,
   ParseIntPipe,
   UseGuards,
-} from '@nestjs/common';
-import { ArticleService } from './article.service';
-import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from './dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
+} from "@nestjs/common";
+import { ArticleService } from "./article.service";
+import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from "./dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AdminGuard } from "../../common/guards/admin.guard";
 
-@Controller('articles')
+@Controller("articles")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class ArticleController {
   constructor(private articleService: ArticleService) {}
@@ -25,8 +25,8 @@ export class ArticleController {
     return this.articleService.findAll(query);
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
     return this.articleService.findOne(id);
   }
 
@@ -35,13 +35,13 @@ export class ArticleController {
     return this.articleService.create(dto);
   }
 
-  @Put(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateArticleDto) {
+  @Put(":id")
+  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateArticleDto) {
     return this.articleService.update(id, dto);
   }
 
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  @Delete(":id")
+  remove(@Param("id", ParseIntPipe) id: number) {
     return this.articleService.remove(id);
   }
 }

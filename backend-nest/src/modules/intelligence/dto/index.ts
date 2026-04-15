@@ -1,1 +1,1 @@
-export * from './create-intelligence.dto';
+export * from "./create-intelligence.dto";

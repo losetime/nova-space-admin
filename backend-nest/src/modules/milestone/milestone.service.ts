@@ -1,10 +1,19 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, like, desc, asc, and, or, sql, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { milestones } from '../../database/schema/milestones';
-import { CreateMilestoneDto, UpdateMilestoneDto, QueryMilestoneDto } from './dto/milestone.dto';
+import { Injectable, NotFoundException, Inject } from "@nestjs/common";
+import { eq, like, desc, asc, and, or, sql, SQL } from "drizzle-orm";
+import type { Database } from "../../database";
+import { milestones } from "../../database/schema/milestones";
+import {
+  CreateMilestoneDto,
+  UpdateMilestoneDto,
+  QueryMilestoneDto,
+} from "./dto/milestone.dto";
 
-type MilestoneCategoryType = 'launch' | 'recovery' | 'orbit' | 'mission' | 'other';
+type MilestoneCategoryType =
+  | "launch"
+  | "recovery"
+  | "orbit"
+  | "mission"
+  | "other";
 
 const sortByMap: Record<string, any> = {
   event_date: milestones.event_date,
@@ -16,7 +25,7 @@ const sortByMap: Record<string, any> = {
 
 @Injectable()
 export class MilestoneService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryMilestoneDto) {
     const {
@@ -26,13 +35,15 @@ export class MilestoneService {
       importance,
       isPublished,
       search,
-      sortBy = 'event_date',
-      sortOrder = 'DESC',
+      sortBy = "event_date",
+      sortOrder = "DESC",
     } = query;
 
     const conditions: SQL[] = [];
     if (category) {
-      conditions.push(eq(milestones.category, category as MilestoneCategoryType));
+      conditions.push(
+        eq(milestones.category, category as MilestoneCategoryType),
+      );
     }
     if (importance) {
       conditions.push(eq(milestones.importance, importance));
@@ -41,13 +52,19 @@ export class MilestoneService {
       conditions.push(eq(milestones.is_published, isPublished));
     }
     if (search) {
-      conditions.push(or(like(milestones.title, `%${search}%`), like(milestones.description, `%${search}%`))!);
+      conditions.push(
+        or(
+          like(milestones.title, `%${search}%`),
+          like(milestones.description, `%${search}%`),
+        )!,
+      );
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const sortColumn = sortByMap[sortBy] || milestones.event_date;
-    const orderByClause = sortOrder === 'DESC' ? desc(sortColumn) : asc(sortColumn);
+    const orderByClause =
+      sortOrder === "DESC" ? desc(sortColumn) : asc(sortColumn);
 
     const data = await this.db
       .select()
@@ -74,9 +91,13 @@ export class MilestoneService {
   }
 
   async findOne(id: number) {
-    const milestone = await this.db.select().from(milestones).where(eq(milestones.id, id)).limit(1);
+    const milestone = await this.db
+      .select()
+      .from(milestones)
+      .where(eq(milestones.id, id))
+      .limit(1);
     if (!milestone[0]) {
-      throw new NotFoundException('里程碑不存在');
+      throw new NotFoundException("里程碑不存在");
     }
     return milestone[0];
   }
@@ -112,20 +133,26 @@ export class MilestoneService {
     if (dto.category) updateData.category = dto.category;
     if (dto.cover) updateData.cover = dto.cover;
     if (dto.media) updateData.media = dto.media;
-    if (dto.relatedSatelliteNoradId) updateData.related_satellite_norad_id = dto.relatedSatelliteNoradId;
+    if (dto.relatedSatelliteNoradId)
+      updateData.related_satellite_norad_id = dto.relatedSatelliteNoradId;
     if (dto.importance) updateData.importance = dto.importance;
     if (dto.location) updateData.location = dto.location;
     if (dto.organizer) updateData.organizer = dto.organizer;
-    if (dto.isPublished !== undefined) updateData.is_published = dto.isPublished;
+    if (dto.isPublished !== undefined)
+      updateData.is_published = dto.isPublished;
 
-    const result = await this.db.update(milestones).set(updateData).where(eq(milestones.id, id)).returning();
+    const result = await this.db
+      .update(milestones)
+      .set(updateData)
+      .where(eq(milestones.id, id))
+      .returning();
     return result[0];
   }
 
   async remove(id: number) {
     await this.findOne(id);
     await this.db.delete(milestones).where(eq(milestones.id, id));
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async togglePublish(id: number) {

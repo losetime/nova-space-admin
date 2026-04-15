@@ -8,9 +8,22 @@ import {
   Max,
   IsDateString,
   IsBoolean,
-} from 'class-validator';
-import { Transform } from 'class-transformer';
-import { MilestoneCategory, MediaItem } from '../entities/milestone.entity';
+} from "class-validator";
+import { Transform } from "class-transformer";
+
+export const milestoneCategories = [
+  "launch",
+  "recovery",
+  "orbit",
+  "mission",
+  "other",
+] as const;
+export type MilestoneCategory = (typeof milestoneCategories)[number];
+export interface MediaItem {
+  type: "image" | "video";
+  url: string;
+  caption?: string;
+}
 
 export class CreateMilestoneDto {
   @IsString()
@@ -29,7 +42,7 @@ export class CreateMilestoneDto {
   @IsNotEmpty()
   eventDate: string;
 
-  @IsEnum(MilestoneCategory)
+  @IsEnum(milestoneCategories)
   @IsOptional()
   category?: MilestoneCategory;
 
@@ -60,7 +73,7 @@ export class CreateMilestoneDto {
 
   @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true' || value === 1)
+  @Transform(({ value }) => value === true || value === "true" || value === 1)
   isPublished?: boolean;
 }
 
@@ -81,7 +94,7 @@ export class UpdateMilestoneDto {
   @IsOptional()
   eventDate?: string;
 
-  @IsEnum(MilestoneCategory)
+  @IsEnum(milestoneCategories)
   @IsOptional()
   category?: MilestoneCategory;
 
@@ -112,18 +125,18 @@ export class UpdateMilestoneDto {
 
   @IsBoolean()
   @IsOptional()
-  @Transform(({ value }) => value === true || value === 'true' || value === 1)
+  @Transform(({ value }) => value === true || value === "true" || value === 1)
   isPublished?: boolean;
 }
 
 export class QueryMilestoneDto {
   @IsOptional()
-  @IsEnum(MilestoneCategory)
+  @IsEnum(milestoneCategories)
   category?: MilestoneCategory;
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
+    if (value === undefined || value === null || value === "") return undefined;
     const num = parseInt(String(value));
     return isNaN(num) ? undefined : num;
   })
@@ -131,21 +144,21 @@ export class QueryMilestoneDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
+    if (value === undefined || value === null || value === "") return undefined;
     const num = parseInt(String(value));
     return isNaN(num) ? undefined : num;
   })
   pageSize?: number = 12;
 
   @IsOptional()
-  sortBy?: 'eventDate' | 'importance' | 'createdAt' = 'eventDate';
+  sortBy?: "eventDate" | "importance" | "createdAt" = "eventDate";
 
   @IsOptional()
-  sortOrder?: 'ASC' | 'DESC' = 'DESC';
+  sortOrder?: "ASC" | "DESC" = "DESC";
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === undefined || value === null || value === '') return undefined;
+    if (value === undefined || value === null || value === "") return undefined;
     const num = parseInt(String(value));
     return isNaN(num) ? undefined : num;
   })
@@ -153,8 +166,8 @@ export class QueryMilestoneDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === 'true' || value === true) return true;
-    if (value === 'false' || value === false) return false;
+    if (value === "true" || value === true) return true;
+    if (value === "false" || value === false) return false;
     return undefined;
   })
   isPublished?: boolean;

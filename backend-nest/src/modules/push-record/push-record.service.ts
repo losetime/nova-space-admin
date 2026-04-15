@@ -1,19 +1,19 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, like, desc, and, sql, inArray, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { pushRecords, pushSubscriptions } from '../../database/schema/push';
-import { users } from '../../database/schema/users';
+import { Injectable, NotFoundException, Inject } from "@nestjs/common";
+import { eq, like, desc, and, sql, inArray, SQL } from "drizzle-orm";
+import type { Database } from "../../database";
+import { pushRecords, pushSubscriptions } from "../../database/schema/push";
+import { users } from "../../database/schema/users";
 import {
   CreatePushRecordDto,
   UpdatePushRecordDto,
   QueryPushRecordDto,
   QuerySubscriptionDto,
   UpdateSubscriptionDto,
-} from './dto';
+} from "./dto";
 
 @Injectable()
 export class PushRecordService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryPushRecordDto & { email?: string }) {
     const { page = 1, limit = 10, triggerType, status, userId, email } = query;
@@ -83,11 +83,16 @@ export class PushRecordService {
     if (records.length > 0) {
       const recordUserIds = [...new Set(records.map((r) => r.user_id))];
       const subscriptions = await this.db
-        .select({ user_id: pushSubscriptions.user_id, email: pushSubscriptions.email })
+        .select({
+          user_id: pushSubscriptions.user_id,
+          email: pushSubscriptions.email,
+        })
         .from(pushSubscriptions)
         .where(inArray(pushSubscriptions.user_id, recordUserIds));
 
-      const subscriptionMap = new Map(subscriptions.map((s) => [s.user_id, s.email]));
+      const subscriptionMap = new Map(
+        subscriptions.map((s) => [s.user_id, s.email]),
+      );
 
       const data = records.map((record) => ({
         ...record,
@@ -113,9 +118,13 @@ export class PushRecordService {
   }
 
   async findOne(id: string) {
-    const result = await this.db.select().from(pushRecords).where(eq(pushRecords.id, id)).limit(1);
+    const result = await this.db
+      .select()
+      .from(pushRecords)
+      .where(eq(pushRecords.id, id))
+      .limit(1);
     if (!result[0]) {
-      throw new NotFoundException('推送记录不存在');
+      throw new NotFoundException("推送记录不存在");
     }
     return result[0];
   }
@@ -125,11 +134,11 @@ export class PushRecordService {
       .insert(pushRecords)
       .values({
         user_id: dto.userId,
-        trigger_type: dto.triggerType || 'manual',
+        trigger_type: dto.triggerType || "manual",
         subject: dto.subject,
         content: dto.content,
         sent_at: new Date(dto.sentAt),
-        status: 'sent',
+        status: "sent",
       } as any)
       .returning();
     return result[0];
@@ -154,9 +163,17 @@ export class PushRecordService {
   }
 
   async getStatistics() {
-    const totalResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushRecords);
-    const sentResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushRecords).where(eq(pushRecords.status, 'sent'));
-    const failedResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushRecords).where(eq(pushRecords.status, 'failed'));
+    const totalResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushRecords);
+    const sentResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushRecords)
+      .where(eq(pushRecords.status, "sent"));
+    const failedResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushRecords)
+      .where(eq(pushRecords.status, "failed"));
 
     return {
       total: Number(totalResult[0]?.count || 0),
@@ -212,9 +229,13 @@ export class PushRecordService {
   }
 
   async updateSubscription(id: string, dto: UpdateSubscriptionDto) {
-    const existing = await this.db.select().from(pushSubscriptions).where(eq(pushSubscriptions.id, id)).limit(1);
+    const existing = await this.db
+      .select()
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.id, id))
+      .limit(1);
     if (!existing[0]) {
-      throw new NotFoundException('订阅不存在');
+      throw new NotFoundException("订阅不存在");
     }
 
     const result = await this.db
@@ -229,9 +250,17 @@ export class PushRecordService {
   }
 
   async getSubscriptionStatistics() {
-    const totalResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushSubscriptions);
-    const activeResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushSubscriptions).where(eq(pushSubscriptions.status, 'active'));
-    const pausedResult = await this.db.select({ count: sql<number>`count(*)` }).from(pushSubscriptions).where(eq(pushSubscriptions.status, 'paused'));
+    const totalResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushSubscriptions);
+    const activeResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.status, "active"));
+    const pausedResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(pushSubscriptions)
+      .where(eq(pushSubscriptions.status, "paused"));
 
     return {
       total: Number(totalResult[0]?.count || 0),

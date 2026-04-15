@@ -1,11 +1,31 @@
-import { IsEnum, IsOptional, IsBoolean, IsInt, Min, Max } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  IsInt,
+  Min,
+  Max,
+} from "class-validator";
+import { Type } from "class-transformer";
 
-export type SyncType = 'celestrak' | 'space-track' | 'space-track-meta' | 'keeptrack-tle' | 'keeptrack-meta' | 'discos';
-export type SyncStatus = 'pending' | 'running' | 'completed' | 'failed';
+export type SyncType =
+  | "celestrak"
+  | "space-track"
+  | "space-track-meta"
+  | "keeptrack-tle"
+  | "keeptrack-meta"
+  | "discos";
+export type SyncStatus = "pending" | "running" | "completed" | "failed";
 
 export class SyncRequestDto {
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
+  @IsEnum([
+    "celestrak",
+    "space-track",
+    "space-track-meta",
+    "keeptrack-tle",
+    "keeptrack-meta",
+    "discos",
+  ])
   type: SyncType;
 
   @IsOptional()
@@ -13,7 +33,14 @@ export class SyncRequestDto {
   force?: boolean;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
+  @IsEnum([
+    "celestrak",
+    "space-track",
+    "space-track-meta",
+    "keeptrack-tle",
+    "keeptrack-meta",
+    "discos",
+  ])
   sourceType?: SyncType;
 }
 
@@ -79,11 +106,18 @@ export class TaskListQueryDto {
   limit?: number = 10;
 
   @IsOptional()
-  @IsEnum(['pending', 'running', 'completed', 'failed'])
+  @IsEnum(["pending", "running", "completed", "failed"])
   status?: SyncStatus;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'space-track-meta', 'keeptrack-tle', 'keeptrack-meta', 'discos'])
+  @IsEnum([
+    "celestrak",
+    "space-track",
+    "space-track-meta",
+    "keeptrack-tle",
+    "keeptrack-meta",
+    "discos",
+  ])
   type?: SyncType;
 }
 
@@ -126,7 +160,7 @@ export class TleListQueryDto {
   search?: string;
 
   @IsOptional()
-  @IsEnum(['celestrak', 'space-track', 'keeptrack'])
+  @IsEnum(["celestrak", "space-track", "keeptrack"])
   source?: string;
 }
 

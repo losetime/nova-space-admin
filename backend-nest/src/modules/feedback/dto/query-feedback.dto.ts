@@ -1,6 +1,15 @@
-import { IsEnum, IsOptional, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
-import { FeedbackType, FeedbackStatus } from '../entities/feedback.entity';
+import { IsEnum, IsOptional, IsInt, Min } from "class-validator";
+import { Type } from "class-transformer";
+
+export const feedbackTypes = ["bug", "feature", "suggestion", "other"] as const;
+export const feedbackStatuses = [
+  "pending",
+  "processing",
+  "resolved",
+  "closed",
+] as const;
+export type FeedbackType = (typeof feedbackTypes)[number];
+export type FeedbackStatus = (typeof feedbackStatuses)[number];
 
 export class QueryFeedbackDto {
   @Type(() => Number)
@@ -15,11 +24,11 @@ export class QueryFeedbackDto {
   @IsOptional()
   limit?: number = 10;
 
-  @IsEnum(FeedbackType)
+  @IsEnum(feedbackTypes)
   @IsOptional()
   type?: FeedbackType;
 
-  @IsEnum(FeedbackStatus)
+  @IsEnum(feedbackStatuses)
   @IsOptional()
   status?: FeedbackStatus;
 }

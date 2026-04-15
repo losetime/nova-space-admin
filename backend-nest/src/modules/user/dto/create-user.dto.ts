@@ -6,31 +6,35 @@ import {
   IsBoolean,
   IsEmail,
   Matches,
-} from 'class-validator';
-import { UserRole, UserLevel } from '../../../common/entities/user.entity';
+} from "class-validator";
+
+export const userRoles = ["user", "admin", "super_admin"] as const;
+export const userLevels = ["basic", "advanced", "professional"] as const;
+export type UserRole = (typeof userRoles)[number];
+export type UserLevel = (typeof userLevels)[number];
 
 export class CreateUserDto {
   @IsString()
-  @IsNotEmpty({ message: '用户名不能为空' })
+  @IsNotEmpty({ message: "用户名不能为空" })
   @Matches(/^[a-zA-Z0-9_]{3,20}$/, {
-    message: '用户名只能包含字母、数字、下划线，长度3-20位',
+    message: "用户名只能包含字母、数字、下划线，长度3-20位",
   })
   username: string;
 
   @IsString()
-  @IsNotEmpty({ message: '密码不能为空' })
+  @IsNotEmpty({ message: "密码不能为空" })
   @Matches(/^(?=.*[a-zA-Z])(?=.*\d).{6,20}$/, {
-    message: '密码必须包含字母和数字，长度6-20位',
+    message: "密码必须包含字母和数字，长度6-20位",
   })
   password: string;
 
-  @IsEmail({}, { message: '邮箱格式不正确' })
+  @IsEmail({}, { message: "邮箱格式不正确" })
   @IsOptional()
   email?: string;
 
   @IsString()
   @IsOptional()
-  @Matches(/^1[3-9]\d{9}$/, { message: '手机号格式不正确' })
+  @Matches(/^1[3-9]\d{9}$/, { message: "手机号格式不正确" })
   phone?: string;
 
   @IsString()
@@ -41,11 +45,11 @@ export class CreateUserDto {
   @IsOptional()
   avatar?: string;
 
-  @IsEnum(UserRole, { message: '角色不正确' })
+  @IsEnum(userRoles, { message: "角色不正确" })
   @IsOptional()
   role?: UserRole;
 
-  @IsEnum(UserLevel, { message: '等级不正确' })
+  @IsEnum(userLevels, { message: "等级不正确" })
   @IsOptional()
   level?: UserLevel;
 

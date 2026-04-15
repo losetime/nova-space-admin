@@ -8,19 +8,16 @@ import {
   Logger,
   HttpCode,
   HttpStatus,
-} from '@nestjs/common';
-import { SatelliteSyncService } from './satellite-sync.service';
+} from "@nestjs/common";
+import { SatelliteSyncService } from "./satellite-sync.service";
 import {
   SyncRequestDto,
-  SyncStatusResponse,
-  SyncStatsResponse,
   TaskListQueryDto,
   TleListQueryDto,
   MetadataListQueryDto,
-  StopSyncDto,
-} from './dto/sync.dto';
+} from "./dto/sync.dto";
 
-@Controller('satellite-sync')
+@Controller("satellite-sync")
 export class SatelliteSyncController {
   private readonly logger = new Logger(SatelliteSyncController.name);
 
@@ -42,12 +39,13 @@ export class SatelliteSyncController {
         processed: task.processed,
         success: task.success,
         failed: task.failed,
-        percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
+        percentage:
+          task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
       },
     };
   }
 
-  @Get('status')
+  @Get("status")
   async getSyncStatus() {
     const task = await this.syncService.getCurrentStatus();
 
@@ -55,12 +53,18 @@ export class SatelliteSyncController {
       return null;
     }
 
-    let recentErrors = [];
-    if (task.status === 'running') {
+    let recentErrors: Array<{
+      noradId: string;
+      name: string;
+      errorType: string;
+      errorMessage: string;
+      timestamp: string;
+    }> = [];
+    if (task.status === "running") {
       const errors = await this.syncService.getRecentErrors(task.id, 5);
-      recentErrors = errors.map(err => ({
+      recentErrors = errors.map((err) => ({
         noradId: err.norad_id,
-        name: err.name,
+        name: err.name ?? "",
         errorType: err.error_type,
         errorMessage: err.error_message,
         timestamp: err.timestamp.toISOString(),
@@ -78,14 +82,15 @@ export class SatelliteSyncController {
         processed: task.processed,
         success: task.success,
         failed: task.failed,
-        percentage: task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
+        percentage:
+          task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
       },
       error: task.error,
       recentErrors,
     };
   }
 
-  @Post('stop')
+  @Post("stop")
   @HttpCode(HttpStatus.OK)
   async stopSync() {
     const task = await this.syncService.stopCurrentTask();
@@ -95,18 +100,18 @@ export class SatelliteSyncController {
     };
   }
 
-  @Get('stats')
+  @Get("stats")
   async getStats() {
     return this.syncService.getStats();
   }
 
-  @Get('tasks')
+  @Get("tasks")
   async getTaskList(@Query() query: TaskListQueryDto) {
     return this.syncService.getTaskList(query);
   }
 
-  @Get('tasks/:id')
-  async getTaskById(@Param('id') taskId: string) {
+  @Get("tasks/:id")
+  async getTaskById(@Param("id") taskId: string) {
     const task = await this.syncService.getTaskById(taskId);
     if (!task) {
       return null;
@@ -114,35 +119,35 @@ export class SatelliteSyncController {
     return task;
   }
 
-  @Get('tasks/:id/errors')
-  async getTaskErrors(@Param('id') taskId: string) {
+  @Get("tasks/:id/errors")
+  async getTaskErrors(@Param("id") taskId: string) {
     return this.syncService.getTaskErrors(taskId);
   }
 
-  @Get('tle')
+  @Get("tle")
   async getTleList(@Query() query: TleListQueryDto) {
     return this.syncService.getTleList(query);
   }
 
-  @Get('metadata')
+  @Get("metadata")
   async getMetadataList(@Query() query: MetadataListQueryDto) {
     return this.syncService.getMetadataList(query);
   }
 
-  @Get('cron/status')
-  async getCronStatus() {
+  @Get("cron/status")
+  getCronStatus() {
     return {
       enabled: this.syncService.isCronEnabled(),
     };
   }
 
-  @Post('cron/toggle')
+  @Post("cron/toggle")
   @HttpCode(HttpStatus.OK)
-  async toggleCron(@Body() body: { enabled: boolean }) {
+  toggleCron(@Body() body: { enabled: boolean }) {
     this.syncService.setCronEnabled(body.enabled);
     return {
       enabled: this.syncService.isCronEnabled(),
-      message: `定时任务已${body.enabled ? '启用' : '禁用'}`,
+      message: `定时任务已${body.enabled ? "启用" : "禁用"}`,
     };
   }
 }

@@ -1,16 +1,21 @@
-import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
-import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
-import * as bcrypt from 'bcrypt';
-import { Database } from '../../database';
-import { users } from '../../database/schema/users';
-import { CreateUserDto, UpdateUserDto, QueryUserDto } from './dto';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  Inject,
+} from "@nestjs/common";
+import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
+import * as bcrypt from "bcrypt";
+import type { Database } from "../../database";
+import { users } from "../../database/schema/users";
+import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";
 
-type UserRoleType = 'user' | 'admin' | 'super_admin';
-type UserLevelType = 'basic' | 'advanced' | 'professional';
+type UserRoleType = "user" | "admin" | "super_admin";
+type UserLevelType = "basic" | "advanced" | "professional";
 
 @Injectable()
 export class UserService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryUserDto) {
     const { page = 1, limit = 10, keyword, role, isActive } = query;
@@ -91,28 +96,40 @@ export class UserService {
       .where(eq(users.id, id))
       .limit(1);
     if (!result[0]) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
     return result[0];
   }
 
   async create(dto: CreateUserDto) {
-    const existingUser = await this.db.select().from(users).where(eq(users.username, dto.username)).limit(1);
+    const existingUser = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.username, dto.username))
+      .limit(1);
     if (existingUser[0]) {
-      throw new ConflictException('用户名已存在');
+      throw new ConflictException("用户名已存在");
     }
 
     if (dto.email) {
-      const existingEmail = await this.db.select().from(users).where(eq(users.email, dto.email)).limit(1);
+      const existingEmail = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.email, dto.email))
+        .limit(1);
       if (existingEmail[0]) {
-        throw new ConflictException('邮箱已被使用');
+        throw new ConflictException("邮箱已被使用");
       }
     }
 
     if (dto.phone) {
-      const existingPhone = await this.db.select().from(users).where(eq(users.phone, dto.phone)).limit(1);
+      const existingPhone = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.phone, dto.phone))
+        .limit(1);
       if (existingPhone[0]) {
-        throw new ConflictException('手机号已被使用');
+        throw new ConflictException("手机号已被使用");
       }
     }
 
@@ -135,30 +152,46 @@ export class UserService {
   }
 
   async update(id: string, dto: UpdateUserDto) {
-    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    const existing = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
     const user = existing[0];
     if (!user) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
 
     if (dto.username && dto.username !== user.username) {
-      const existingUser = await this.db.select().from(users).where(eq(users.username, dto.username)).limit(1);
+      const existingUser = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.username, dto.username))
+        .limit(1);
       if (existingUser[0]) {
-        throw new ConflictException('用户名已存在');
+        throw new ConflictException("用户名已存在");
       }
     }
 
     if (dto.email && dto.email !== user.email) {
-      const existingEmail = await this.db.select().from(users).where(eq(users.email, dto.email)).limit(1);
+      const existingEmail = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.email, dto.email))
+        .limit(1);
       if (existingEmail[0]) {
-        throw new ConflictException('邮箱已被使用');
+        throw new ConflictException("邮箱已被使用");
       }
     }
 
     if (dto.phone && dto.phone !== user.phone) {
-      const existingPhone = await this.db.select().from(users).where(eq(users.phone, dto.phone)).limit(1);
+      const existingPhone = await this.db
+        .select()
+        .from(users)
+        .where(eq(users.phone, dto.phone))
+        .limit(1);
       if (existingPhone[0]) {
-        throw new ConflictException('手机号已被使用');
+        throw new ConflictException("手机号已被使用");
       }
     }
 
@@ -180,31 +213,45 @@ export class UserService {
   }
 
   async softDelete(id: string) {
-    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    const existing = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
     if (!existing[0]) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
-    await this.db.update(users).set({ is_active: false }).where(eq(users.id, id));
-    return { message: '删除成功' };
+    await this.db
+      .update(users)
+      .set({ is_active: false })
+      .where(eq(users.id, id));
+    return { message: "删除成功" };
   }
 
   async resetPassword(id: string, newPassword?: string) {
-    const existing = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+    const existing = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, id))
+      .limit(1);
     if (!existing[0]) {
-      throw new NotFoundException('用户不存在');
+      throw new NotFoundException("用户不存在");
     }
 
     const password = newPassword || this.generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await this.db.update(users).set({ password: hashedPassword }).where(eq(users.id, id));
+    await this.db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, id));
 
-    return { message: '密码重置成功', password };
+    return { message: "密码重置成功", password };
   }
 
   private generateRandomPassword(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let password = '';
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    let password = "";
     for (let i = 0; i < 10; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }

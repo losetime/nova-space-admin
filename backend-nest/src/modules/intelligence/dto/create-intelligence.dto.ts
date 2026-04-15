@@ -6,50 +6,50 @@ import {
   IsUrl,
   IsInt,
   Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export enum IntelligenceCategory {
-  LAUNCH = 'launch',
-  SATELLITE = 'satellite',
-  INDUSTRY = 'industry',
-  RESEARCH = 'research',
-  ENVIRONMENT = 'environment',
+  LAUNCH = "launch",
+  SATELLITE = "satellite",
+  INDUSTRY = "industry",
+  RESEARCH = "research",
+  ENVIRONMENT = "environment",
 }
 
 export enum IntelligenceLevel {
-  FREE = 'free',
-  ADVANCED = 'advanced',
-  PROFESSIONAL = 'professional',
+  FREE = "free",
+  ADVANCED = "advanced",
+  PROFESSIONAL = "professional",
 }
 
 export class CreateIntelligenceDto {
   @IsString()
-  @IsNotEmpty({ message: '标题不能为空' })
+  @IsNotEmpty({ message: "标题不能为空" })
   title: string;
 
   @IsString()
-  @IsNotEmpty({ message: '内容不能为空' })
+  @IsNotEmpty({ message: "内容不能为空" })
   content: string;
 
   @IsString()
-  @IsNotEmpty({ message: '摘要不能为空' })
+  @IsNotEmpty({ message: "摘要不能为空" })
   summary: string;
 
   @IsString()
   @IsOptional()
   cover?: string;
 
-  @IsEnum(IntelligenceCategory, { message: '分类不正确' })
-  @IsNotEmpty({ message: '分类不能为空' })
+  @IsEnum(IntelligenceCategory, { message: "分类不正确" })
+  @IsNotEmpty({ message: "分类不能为空" })
   category: IntelligenceCategory;
 
-  @IsEnum(IntelligenceLevel, { message: '等级不正确' })
-  @IsNotEmpty({ message: '等级不能为空' })
+  @IsEnum(IntelligenceLevel, { message: "等级不正确" })
+  @IsNotEmpty({ message: "等级不能为空" })
   level: IntelligenceLevel;
 
   @IsString()
-  @IsNotEmpty({ message: '来源不能为空' })
+  @IsNotEmpty({ message: "来源不能为空" })
   source: string;
 
   @IsUrl()

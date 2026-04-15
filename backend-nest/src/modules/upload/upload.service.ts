@@ -1,7 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as Minio from 'minio';
-import { Readable } from 'stream';
+import { Injectable, OnModuleInit } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as Minio from "minio";
+import { Readable } from "stream";
 
 @Injectable()
 export class UploadService implements OnModuleInit {
@@ -12,7 +12,7 @@ export class UploadService implements OnModuleInit {
   private useSSL: boolean;
 
   constructor(private configService: ConfigService) {
-    const minioConfig = this.configService.get('app.minio');
+    const minioConfig = this.configService.get("app.minio");
     this.bucketName = minioConfig.bucket;
     this.endpoint = minioConfig.endpoint;
     this.port = minioConfig.port;
@@ -31,16 +31,16 @@ export class UploadService implements OnModuleInit {
     try {
       const bucketExists = await this.minioClient.bucketExists(this.bucketName);
       if (!bucketExists) {
-        await this.minioClient.makeBucket(this.bucketName, 'cn-north-1');
+        await this.minioClient.makeBucket(this.bucketName, "cn-north-1");
         console.log(`MinIO bucket "${this.bucketName}" created successfully`);
-        
+
         const policy = {
-          Version: '2012-10-17',
+          Version: "2012-10-17",
           Statement: [
             {
-              Effect: 'Allow',
-              Principal: { AWS: ['*'] },
-              Action: ['s3:GetObject'],
+              Effect: "Allow",
+              Principal: { AWS: ["*"] },
+              Action: ["s3:GetObject"],
               Resource: [`arn:aws:s3:::${this.bucketName}/*`],
             },
           ],
@@ -52,7 +52,7 @@ export class UploadService implements OnModuleInit {
         console.log(`MinIO bucket policy set to public read`);
       }
     } catch (error) {
-      console.error('Error initializing MinIO bucket:', error.message);
+      console.error("Error initializing MinIO bucket:", error.message);
     }
   }
 
@@ -65,7 +65,7 @@ export class UploadService implements OnModuleInit {
   }> {
     const timestamp = Date.now();
     const randomStr = Math.random().toString(36).substring(2, 8);
-    const ext = file.originalname.split('.').pop();
+    const ext = file.originalname.split(".").pop();
     const filename = `images/${timestamp}-${randomStr}.${ext}`;
 
     await this.minioClient.putObject(
@@ -74,11 +74,11 @@ export class UploadService implements OnModuleInit {
       Readable.from(file.buffer),
       file.size,
       {
-        'Content-Type': file.mimetype,
+        "Content-Type": file.mimetype,
       },
     );
 
-    const protocol = this.useSSL ? 'https' : 'http';
+    const protocol = this.useSSL ? "https" : "http";
     const url = `${protocol}://${this.endpoint}:${this.port}/${this.bucketName}/${filename}`;
 
     return {
@@ -91,7 +91,7 @@ export class UploadService implements OnModuleInit {
   }
 
   getImageInfo(file: Express.Multer.File) {
-    const baseUrl = this.configService.get<string>('app.baseUrl') || '';
+    const baseUrl = this.configService.get<string>("app.baseUrl") || "";
     const imageUrl = `${baseUrl}/uploads/images/${file.filename}`;
 
     return {

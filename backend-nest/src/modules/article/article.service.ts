@@ -1,15 +1,15 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { articles } from '../../database/schema/articles';
-import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from './dto';
+import { Injectable, NotFoundException, Inject } from "@nestjs/common";
+import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
+import type { Database } from "../../database";
+import { articles } from "../../database/schema/articles";
+import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from "./dto";
 
-type ArticleCategory = 'basic' | 'advanced' | 'mission' | 'people';
-type ArticleType = 'article' | 'video';
+type ArticleCategory = "basic" | "advanced" | "mission" | "people";
+type ArticleType = "article" | "video";
 
 @Injectable()
 export class ArticleService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryArticleDto) {
     const { page = 1, limit = 10, category, keyword, isPublished } = query;
@@ -52,9 +52,13 @@ export class ArticleService {
   }
 
   async findOne(id: number) {
-    const article = await this.db.select().from(articles).where(eq(articles.id, id)).limit(1);
+    const article = await this.db
+      .select()
+      .from(articles)
+      .where(eq(articles.id, id))
+      .limit(1);
     if (!article[0]) {
-      throw new NotFoundException('文章不存在');
+      throw new NotFoundException("文章不存在");
     }
     return article[0];
   }
@@ -75,32 +79,42 @@ export class ArticleService {
 
   async create(dto: CreateArticleDto) {
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.insert(articles).values(values as any).returning();
+    const result = await this.db
+      .insert(articles)
+      .values(values as any)
+      .returning();
     const article = result[0];
     return {
       ...article,
-      tags: article.tags ? JSON.parse(article.tags as string) : null,
+      tags: article.tags ? JSON.parse(article.tags) : null,
     };
   }
 
   async update(id: number, dto: UpdateArticleDto) {
     await this.findOne(id);
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.update(articles).set(values as any).where(eq(articles.id, id)).returning();
+    const result = await this.db
+      .update(articles)
+      .set(values as any)
+      .where(eq(articles.id, id))
+      .returning();
     const article = result[0];
     return {
       ...article,
-      tags: article.tags ? JSON.parse(article.tags as string) : null,
+      tags: article.tags ? JSON.parse(article.tags) : null,
     };
   }
 
   async remove(id: number) {
     await this.findOne(id);
     await this.db.delete(articles).where(eq(articles.id, id));
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async batchCreate(articlesData: Partial<typeof articles.$inferInsert>[]) {
-    return this.db.insert(articles).values(articlesData as any).returning();
+    return this.db
+      .insert(articles)
+      .values(articlesData as any)
+      .returning();
   }
 }

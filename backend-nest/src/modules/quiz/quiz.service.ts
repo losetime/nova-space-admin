@@ -1,16 +1,16 @@
-import { Injectable, Logger, NotFoundException, Inject } from '@nestjs/common';
-import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { quizzes } from '../../database/schema/quizzes';
-import { QueryQuizDto, UpdateQuizDto, CreateQuizDto } from './dto/quiz.dto';
+import { Injectable, Logger, NotFoundException, Inject } from "@nestjs/common";
+import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
+import type { Database } from "../../database";
+import { quizzes } from "../../database/schema/quizzes";
+import { QueryQuizDto, UpdateQuizDto, CreateQuizDto } from "./dto/quiz.dto";
 
-type QuizCategoryType = 'basic' | 'advanced' | 'mission' | 'people';
+type QuizCategoryType = "basic" | "advanced" | "mission" | "people";
 
 @Injectable()
 export class QuizService {
   private readonly logger = new Logger(QuizService.name);
 
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryQuizDto) {
     const { page = 1, limit = 10, category, keyword } = query;
@@ -50,9 +50,13 @@ export class QuizService {
   }
 
   async findOne(id: number) {
-    const quiz = await this.db.select().from(quizzes).where(eq(quizzes.id, id)).limit(1);
+    const quiz = await this.db
+      .select()
+      .from(quizzes)
+      .where(eq(quizzes.id, id))
+      .limit(1);
     if (!quiz[0]) {
-      throw new NotFoundException('题目不存在');
+      throw new NotFoundException("题目不存在");
     }
     return quiz[0];
   }
@@ -70,7 +74,10 @@ export class QuizService {
 
   async create(dto: CreateQuizDto) {
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.insert(quizzes).values(values as any).returning();
+    const result = await this.db
+      .insert(quizzes)
+      .values(values as any)
+      .returning();
     this.logger.log(`创建题目: ${result[0].id}`);
     return result[0];
   }
@@ -78,7 +85,11 @@ export class QuizService {
   async update(id: number, dto: UpdateQuizDto) {
     await this.findOne(id);
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.update(quizzes).set(values as any).where(eq(quizzes.id, id)).returning();
+    const result = await this.db
+      .update(quizzes)
+      .set(values as any)
+      .where(eq(quizzes.id, id))
+      .returning();
     return result[0];
   }
 
@@ -86,11 +97,13 @@ export class QuizService {
     await this.findOne(id);
     await this.db.delete(quizzes).where(eq(quizzes.id, id));
     this.logger.log(`删除题目: ${id}`);
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async getStats() {
-    const countResult = await this.db.select({ count: sql<number>`count(*)` }).from(quizzes);
+    const countResult = await this.db
+      .select({ count: sql<number>`count(*)` })
+      .from(quizzes);
     const total = Number(countResult[0]?.count || 0);
 
     const byCategory = await this.db

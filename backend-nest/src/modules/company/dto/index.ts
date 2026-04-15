@@ -1,5 +1,13 @@
-import { IsString, IsInt, IsOptional, IsUrl, MaxLength, Min, IsNotEmpty } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsInt,
+  IsOptional,
+  IsUrl,
+  MaxLength,
+  Min,
+  IsNotEmpty,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateCompanyDto {
   @IsString()

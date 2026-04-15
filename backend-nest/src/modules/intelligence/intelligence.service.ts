@@ -1,22 +1,33 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
-import { eq, like, desc, and, sql, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { intelligences } from '../../database/schema/intelligences';
-import { CreateIntelligenceDto, UpdateIntelligenceDto, QueryIntelligenceDto } from './dto';
+import { Injectable, NotFoundException, Inject } from "@nestjs/common";
+import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
+import type { Database } from "../../database";
+import { intelligences } from "../../database/schema/intelligences";
+import {
+  CreateIntelligenceDto,
+  UpdateIntelligenceDto,
+  QueryIntelligenceDto,
+} from "./dto";
 
-type IntelligenceCategoryType = 'launch' | 'satellite' | 'industry' | 'research' | 'environment';
-type IntelligenceLevelType = 'free' | 'advanced' | 'professional';
+type IntelligenceCategoryType =
+  | "launch"
+  | "satellite"
+  | "industry"
+  | "research"
+  | "environment";
+type IntelligenceLevelType = "free" | "advanced" | "professional";
 
 @Injectable()
 export class IntelligenceService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   async findAll(query: QueryIntelligenceDto) {
     const { page = 1, limit = 10, category, level, keyword } = query;
 
     const conditions: SQL[] = [];
     if (category) {
-      conditions.push(eq(intelligences.category, category as IntelligenceCategoryType));
+      conditions.push(
+        eq(intelligences.category, category as IntelligenceCategoryType),
+      );
     }
     if (level) {
       conditions.push(eq(intelligences.level, level as IntelligenceLevelType));
@@ -52,9 +63,13 @@ export class IntelligenceService {
   }
 
   async findOne(id: number) {
-    const intelligence = await this.db.select().from(intelligences).where(eq(intelligences.id, id)).limit(1);
+    const intelligence = await this.db
+      .select()
+      .from(intelligences)
+      .where(eq(intelligences.id, id))
+      .limit(1);
     if (!intelligence[0]) {
-      throw new NotFoundException('情报不存在');
+      throw new NotFoundException("情报不存在");
     }
     return intelligence[0];
   }
@@ -78,21 +93,28 @@ export class IntelligenceService {
 
   async create(dto: CreateIntelligenceDto) {
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.insert(intelligences).values(values as any).returning();
+    const result = await this.db
+      .insert(intelligences)
+      .values(values as any)
+      .returning();
     return result[0];
   }
 
   async update(id: number, dto: UpdateIntelligenceDto) {
     await this.findOne(id);
     const values = this.mapDtoToSchema(dto);
-    const result = await this.db.update(intelligences).set(values as any).where(eq(intelligences.id, id)).returning();
+    const result = await this.db
+      .update(intelligences)
+      .set(values as any)
+      .where(eq(intelligences.id, id))
+      .returning();
     return result[0];
   }
 
   async remove(id: number) {
     await this.findOne(id);
     await this.db.delete(intelligences).where(eq(intelligences.id, id));
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async batchCreate(intelligencesData: any[]) {

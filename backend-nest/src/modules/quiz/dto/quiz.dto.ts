@@ -1,5 +1,13 @@
-import { IsInt, Min, Max, IsOptional, IsString, IsArray, IsEnum } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsInt,
+  Min,
+  Max,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsEnum,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class QueryQuizDto {
   @IsOptional()
@@ -41,8 +49,8 @@ export class CreateQuizDto {
   explanation?: string;
 
   @IsOptional()
-  @IsEnum(['basic', 'advanced', 'mission', 'people'])
-  category?: string = 'basic';
+  @IsEnum(["basic", "advanced", "mission", "people"])
+  category?: string = "basic";
 
   @IsOptional()
   @IsInt()
@@ -68,7 +76,7 @@ export class UpdateQuizDto {
   explanation?: string;
 
   @IsOptional()
-  @IsEnum(['basic', 'advanced', 'mission', 'people'])
+  @IsEnum(["basic", "advanced", "mission", "people"])
   category?: string;
 
   @IsOptional()

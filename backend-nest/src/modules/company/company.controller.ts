@@ -9,13 +9,13 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
-} from '@nestjs/common';
-import { CompanyService } from './company.service';
-import { CreateCompanyDto, UpdateCompanyDto, QueryCompanyDto } from './dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../../common/guards/admin.guard';
+} from "@nestjs/common";
+import { CompanyService } from "./company.service";
+import { CreateCompanyDto, UpdateCompanyDto, QueryCompanyDto } from "./dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { AdminGuard } from "../../common/guards/admin.guard";
 
-@Controller('companies')
+@Controller("companies")
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class CompanyController {
   constructor(private companyService: CompanyService) {}
@@ -25,13 +25,13 @@ export class CompanyController {
     return this.companyService.findAll(query);
   }
 
-  @Get('statistics')
+  @Get("statistics")
   getStatistics() {
     return this.companyService.getStatistics();
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @Get(":id")
+  findOne(@Param("id", ParseIntPipe) id: number) {
     return this.companyService.findOne(id);
   }
 
@@ -40,16 +40,13 @@ export class CompanyController {
     return this.companyService.create(dto);
   }
 
-  @Put(':id')
-  update(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateCompanyDto,
-  ) {
+  @Put(":id")
+  update(@Param("id", ParseIntPipe) id: number, @Body() dto: UpdateCompanyDto) {
     return this.companyService.update(id, dto);
   }
 
-  @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  @Delete(":id")
+  remove(@Param("id", ParseIntPipe) id: number) {
     return this.companyService.remove(id);
   }
 }

@@ -1,13 +1,22 @@
-import { IsString, IsNotEmpty, IsOptional, IsEnum, IsBoolean, IsInt, IsArray, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsEnum,
+  IsBoolean,
+  IsInt,
+  IsArray,
+  Min,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateArticleDto {
   @IsString()
-  @IsNotEmpty({ message: '标题不能为空' })
+  @IsNotEmpty({ message: "标题不能为空" })
   title: string;
 
   @IsString()
-  @IsNotEmpty({ message: '内容不能为空' })
+  @IsNotEmpty({ message: "内容不能为空" })
   content: string;
 
   @IsString()
@@ -18,11 +27,11 @@ export class CreateArticleDto {
   @IsOptional()
   cover?: string;
 
-  @IsEnum(['basic', 'advanced', 'mission', 'people'], { message: '分类不正确' })
-  @IsNotEmpty({ message: '分类不能为空' })
+  @IsEnum(["basic", "advanced", "mission", "people"], { message: "分类不正确" })
+  @IsNotEmpty({ message: "分类不能为空" })
   category: string;
 
-  @IsEnum(['article', 'video'])
+  @IsEnum(["article", "video"])
   @IsOptional()
   type?: string;
 
@@ -56,11 +65,11 @@ export class UpdateArticleDto {
   @IsOptional()
   cover?: string;
 
-  @IsEnum(['basic', 'advanced', 'mission', 'people'])
+  @IsEnum(["basic", "advanced", "mission", "people"])
   @IsOptional()
   category?: string;
 
-  @IsEnum(['article', 'video'])
+  @IsEnum(["article", "video"])
   @IsOptional()
   type?: string;
 

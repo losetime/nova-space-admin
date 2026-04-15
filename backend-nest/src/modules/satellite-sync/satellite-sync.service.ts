@@ -1,16 +1,48 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Cron } from '@nestjs/schedule';
-import { eq, and, or, like, desc, asc, sql, lte, gte, inArray, SQL } from 'drizzle-orm';
-import { Database } from '../../database';
-import { satelliteSyncTasks, syncTypeEnum, syncStatusEnum } from '../../database/schema/satellite-sync-tasks';
-import { satelliteTle } from '../../database/schema/satellite-tle';
-import { satelliteMetadata } from '../../database/schema/satellite-metadata';
-import { satelliteSyncErrorLogs, SyncErrorType } from '../../database/schema/satellite-sync-error-logs';
-import { SyncProgress, SyncStatsResponse, TaskListQueryDto, TaskListResponse, SyncTaskItem, TleListQueryDto, TleListResponse, TleItem, MetadataListQueryDto, MetadataListResponse, MetadataItem, ErrorLogListResponse, ErrorLogItem } from './dto/sync.dto';
+import { Injectable, Logger, Inject } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { Cron } from "@nestjs/schedule";
+import { join } from "path";
+import {
+  eq,
+  and,
+  or,
+  like,
+  desc,
+  asc,
+  sql,
+  gte,
+  inArray,
+  SQL,
+} from "drizzle-orm";
+import type { Database } from "../../database";
+import {
+  satelliteSyncTasks,
+  syncTypeEnum,
+  syncStatusEnum,
+} from "../../database/schema/satellite-sync-tasks";
+import { satelliteTle } from "../../database/schema/satellite-tle";
+import { satelliteMetadata } from "../../database/schema/satellite-metadata";
+import {
+  satelliteSyncErrorLogs,
+  SyncErrorType,
+} from "../../database/schema/satellite-sync-error-logs";
+import {
+  SyncStatsResponse,
+  TaskListQueryDto,
+  TaskListResponse,
+  SyncTaskItem,
+  TleListQueryDto,
+  TleListResponse,
+  TleItem,
+  MetadataListQueryDto,
+  MetadataListResponse,
+  MetadataItem,
+  ErrorLogListResponse,
+  ErrorLogItem,
+} from "./dto/sync.dto";
 
-type SyncType = typeof syncTypeEnum[number];
-type SyncStatus = typeof syncStatusEnum[number];
+type SyncType = (typeof syncTypeEnum)[number];
+type SyncStatus = (typeof syncStatusEnum)[number];
 
 interface SpaceTrackGpResponse {
   OBJECT_NAME: string;
@@ -159,8 +191,6 @@ interface KeepTrackSatDetailResponse {
 }
 
 type TaskRecord = typeof satelliteSyncTasks.$inferSelect;
-type TleRecord = typeof satelliteTle.$inferSelect;
-type MetadataRecord = typeof satelliteMetadata.$inferSelect;
 type ErrorLogRecord = typeof satelliteSyncErrorLogs.$inferSelect;
 
 @Injectable()
@@ -169,18 +199,18 @@ export class SatelliteSyncService {
 
   private readonly spaceTrackUsername: string;
   private readonly spaceTrackPassword: string;
-  private readonly spaceTrackBaseUrl = 'https://www.space-track.org';
+  private readonly spaceTrackBaseUrl = "https://www.space-track.org";
 
   private readonly esaDiscosApiToken: string | undefined;
-  private readonly esaDiscosBaseUrl = 'https://discosweb.esoc.esa.int/api';
+  private readonly esaDiscosBaseUrl = "https://discosweb.esoc.esa.int/api";
 
-  private readonly celestrakBaseUrl = 'https://celestrak.org/NORAD/elements';
+  private readonly celestrakBaseUrl = "https://celestrak.org/NORAD/elements";
 
   private readonly keepTrackApiKey: string;
-  private readonly keepTrackBaseUrl = 'https://api.keeptrack.space/v4';
+  private readonly keepTrackBaseUrl = "https://api.keeptrack.space/v4";
 
   private currentTask: TaskRecord | null = null;
-  private sessionCookie: string = '';
+  private sessionCookie: string = "";
   private cookieExpiry: Date | null = null;
   private useMockData: boolean = false;
   private stopRequested: boolean = false;
@@ -194,13 +224,19 @@ export class SatelliteSyncService {
 
   constructor(
     private readonly configService: ConfigService,
-    @Inject('DATABASE') private db: Database,
+    @Inject("DATABASE") private db: Database,
   ) {
-    this.spaceTrackUsername = this.configService.get<string>('app.spaceTrack.username') || '';
-    this.spaceTrackPassword = this.configService.get<string>('app.spaceTrack.password') || '';
-    this.esaDiscosApiToken = this.configService.get<string>('app.esaDiscos.apiToken');
-    this.keepTrackApiKey = this.configService.get<string>('app.keepTrack.apiKey') || '';
-    this.useMockData = this.configService.get<boolean>('app.useMockData') || false;
+    this.spaceTrackUsername =
+      this.configService.get<string>("app.spaceTrack.username") || "";
+    this.spaceTrackPassword =
+      this.configService.get<string>("app.spaceTrack.password") || "";
+    this.esaDiscosApiToken = this.configService.get<string>(
+      "app.esaDiscos.apiToken",
+    );
+    this.keepTrackApiKey =
+      this.configService.get<string>("app.keepTrack.apiKey") || "";
+    this.useMockData =
+      this.configService.get<boolean>("app.useMockData") || false;
   }
 
   async getCurrentStatus(): Promise<TaskRecord | null> {
@@ -208,7 +244,7 @@ export class SatelliteSyncService {
     const runningTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(eq(satelliteSyncTasks.status, 'running'))
+      .where(eq(satelliteSyncTasks.status, "running"))
       .orderBy(desc(satelliteSyncTasks.started_at))
       .limit(1);
 
@@ -217,13 +253,19 @@ export class SatelliteSyncService {
       this.currentTask = task; // 同步更新内存缓存
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
       const taskAge = Date.now() - (task.started_at?.getTime() || 0);
-      this.logger.log(`找到 running 任务：${task.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${task.processed}/${task.total}`);
+      this.logger.log(
+        `找到 running 任务：${task.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${task.processed}/${task.total}`,
+      );
 
       if (task.started_at && task.started_at < tenMinutesAgo) {
         this.logger.warn(`发现超时任务 ${task.id}，标记为失败`);
         await this.db
           .update(satelliteSyncTasks)
-          .set({ status: 'failed', error: '任务超时（超过 10 分钟未完成）', completed_at: new Date() })
+          .set({
+            status: "failed",
+            error: "任务超时（超过 10 分钟未完成）",
+            completed_at: new Date(),
+          })
           .where(eq(satelliteSyncTasks.id, task.id));
         this.currentTask = null;
         return null;
@@ -238,7 +280,7 @@ export class SatelliteSyncService {
         .from(satelliteSyncTasks)
         .where(eq(satelliteSyncTasks.id, this.currentTask.id))
         .limit(1);
-      if (latestTask[0] && latestTask[0].status !== 'running') {
+      if (latestTask[0] && latestTask[0].status !== "running") {
         return latestTask[0];
       }
     }
@@ -248,22 +290,26 @@ export class SatelliteSyncService {
     const recentTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(
-        inArray(satelliteSyncTasks.status, ['completed', 'failed']),
-        gte(satelliteSyncTasks.completed_at, fiveMinutesAgo)
-      ))
+      .where(
+        and(
+          inArray(satelliteSyncTasks.status, ["completed", "failed"]),
+          gte(satelliteSyncTasks.completed_at, fiveMinutesAgo),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     if (recentTask[0]) {
-      this.logger.debug(`返回最近完成的任务：${recentTask[0].id}, status: ${recentTask[0].status}`);
+      this.logger.debug(
+        `返回最近完成的任务：${recentTask[0].id}, status: ${recentTask[0].status}`,
+      );
     }
 
     return recentTask[0] || null;
   }
 
   async stopCurrentTask(): Promise<TaskRecord | null> {
-    if (this.currentTask && this.currentTask.status === 'running') {
+    if (this.currentTask && this.currentTask.status === "running") {
       this.logger.log(`收到停止请求，任务 ID: ${this.currentTask.id}`);
       this.stopRequested = true;
       return this.currentTask;
@@ -272,7 +318,7 @@ export class SatelliteSyncService {
     const runningTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(eq(satelliteSyncTasks.status, 'running'))
+      .where(eq(satelliteSyncTasks.status, "running"))
       .orderBy(desc(satelliteSyncTasks.started_at))
       .limit(1);
 
@@ -282,7 +328,7 @@ export class SatelliteSyncService {
       return runningTask[0];
     }
 
-    this.logger.warn('没有运行中的任务，无法停止');
+    this.logger.warn("没有运行中的任务，无法停止");
     return null;
   }
 
@@ -292,32 +338,34 @@ export class SatelliteSyncService {
 
   setCronEnabled(enabled: boolean): void {
     this.cronEnabled = enabled;
-    this.logger.log(`定时任务已${enabled ? '启用' : '禁用'}`);
+    this.logger.log(`定时任务已${enabled ? "启用" : "禁用"}`);
   }
 
-  @Cron('0 * * * *')
+  @Cron("0 * * * *")
   async handleKeepTrackMetaSyncCron() {
     if (!this.cronEnabled) {
-      this.logger.debug('[定时任务] KeepTrack 元数据同步已禁用，跳过');
+      this.logger.debug("[定时任务] KeepTrack 元数据同步已禁用，跳过");
       return;
     }
 
-    this.logger.log('[定时任务] 检查是否需要触发 KeepTrack 元数据同步...');
+    this.logger.log("[定时任务] 检查是否需要触发 KeepTrack 元数据同步...");
 
     const runningTask = await this.getCurrentStatus();
-    if (runningTask && runningTask.status === 'running') {
-      this.logger.log(`[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id}`);
+    if (runningTask && runningTask.status === "running") {
+      this.logger.log(
+        `[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id}`,
+      );
       return;
     }
 
     if (!this.keepTrackApiKey) {
-      this.logger.warn('[定时任务] KeepTrack API Key 未配置，跳过同步');
+      this.logger.warn("[定时任务] KeepTrack API Key 未配置，跳过同步");
       return;
     }
 
-    this.logger.log('[定时任务] 开始触发 KeepTrack 元数据同步');
+    this.logger.log("[定时任务] 开始触发 KeepTrack 元数据同步");
     try {
-      await this.startSync('keeptrack-meta');
+      await this.startSync("keeptrack-meta");
     } catch (error: any) {
       this.logger.error(`[定时任务] 触发同步失败: ${error.message}`);
     }
@@ -344,75 +392,118 @@ export class SatelliteSyncService {
       .select({ count: sql<number>`count(*)` })
       .from(satelliteMetadata)
       .where(eq(satelliteMetadata.has_keeptrack_data, true));
-    const keepTrackMetadataCount = Number(keepTrackMetadataCountResult[0]?.count || 0);
+    const keepTrackMetadataCount = Number(
+      keepTrackMetadataCountResult[0]?.count || 0,
+    );
 
     const spaceTrackMetadataCountResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(satelliteMetadata)
       .where(eq(satelliteMetadata.has_spacetrack_data, true));
-    const spaceTrackMetadataCount = Number(spaceTrackMetadataCountResult[0]?.count || 0);
+    const spaceTrackMetadataCount = Number(
+      spaceTrackMetadataCountResult[0]?.count || 0,
+    );
 
     const celestrakCountResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(satelliteTle)
-      .where(eq(satelliteTle.source, 'celestrak'));
+      .where(eq(satelliteTle.source, "celestrak"));
     const celestrakCount = Number(celestrakCountResult[0]?.count || 0);
 
     const keepTrackCountResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(satelliteTle)
-      .where(eq(satelliteTle.source, 'keeptrack'));
+      .where(eq(satelliteTle.source, "keeptrack"));
     const keepTrackCount = Number(keepTrackCountResult[0]?.count || 0);
 
     const spaceTrackTleCountResult = await this.db
       .select({ count: sql<number>`count(*)` })
       .from(satelliteTle)
-      .where(eq(satelliteTle.source, 'space-track'));
+      .where(eq(satelliteTle.source, "space-track"));
     const spaceTrackTleCount = Number(spaceTrackTleCountResult[0]?.count || 0);
 
-    const discosCoverage = metadataCount > 0 ? ((discosCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
-    const keepTrackCoverage = metadataCount > 0 ? ((keepTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
-    const spaceTrackCoverage = metadataCount > 0 ? ((spaceTrackMetadataCount / metadataCount) * 100).toFixed(1) + '%' : '0%';
+    const discosCoverage =
+      metadataCount > 0
+        ? ((discosCount / metadataCount) * 100).toFixed(1) + "%"
+        : "0%";
+    const keepTrackCoverage =
+      metadataCount > 0
+        ? ((keepTrackMetadataCount / metadataCount) * 100).toFixed(1) + "%"
+        : "0%";
+    const spaceTrackCoverage =
+      metadataCount > 0
+        ? ((spaceTrackMetadataCount / metadataCount) * 100).toFixed(1) + "%"
+        : "0%";
 
     const lastCelestrakTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'celestrak'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "celestrak"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     const lastKeepTrackTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'keeptrack-tle'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "keeptrack-tle"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     const lastKeepTrackMetaTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'keeptrack-meta'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "keeptrack-meta"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     const lastDiscosTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'discos'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "discos"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     const lastSpaceTrackTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'space-track'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "space-track"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
     const lastSpaceTrackMetaTask = await this.db
       .select()
       .from(satelliteSyncTasks)
-      .where(and(eq(satelliteSyncTasks.type, 'space-track-meta'), eq(satelliteSyncTasks.status, 'completed')))
+      .where(
+        and(
+          eq(satelliteSyncTasks.type, "space-track-meta"),
+          eq(satelliteSyncTasks.status, "completed"),
+        ),
+      )
       .orderBy(desc(satelliteSyncTasks.completed_at))
       .limit(1);
 
@@ -429,9 +520,13 @@ export class SatelliteSyncService {
       keepTrackCount,
       spaceTrackTleCount,
       lastCelestrakSync: lastCelestrakTask[0]?.completed_at?.toISOString(),
-      lastKeepTrackSync: lastKeepTrackMetaTask[0]?.completed_at?.toISOString() || lastKeepTrackTask[0]?.completed_at?.toISOString(),
+      lastKeepTrackSync:
+        lastKeepTrackMetaTask[0]?.completed_at?.toISOString() ||
+        lastKeepTrackTask[0]?.completed_at?.toISOString(),
       lastDiscosSync: lastDiscosTask[0]?.completed_at?.toISOString(),
-      lastSpaceTrackSync: lastSpaceTrackMetaTask[0]?.completed_at?.toISOString() || lastSpaceTrackTask[0]?.completed_at?.toISOString(),
+      lastSpaceTrackSync:
+        lastSpaceTrackMetaTask[0]?.completed_at?.toISOString() ||
+        lastSpaceTrackTask[0]?.completed_at?.toISOString(),
     };
   }
 
@@ -458,7 +553,7 @@ export class SatelliteSyncService {
       .where(whereClause);
     const total = Number(countResult[0]?.count || 0);
 
-    const data: SyncTaskItem[] = tasks.map(task => ({
+    const data: SyncTaskItem[] = tasks.map((task) => ({
       id: task.id,
       type: task.type as SyncType,
       status: task.status as SyncStatus,
@@ -466,9 +561,9 @@ export class SatelliteSyncService {
       processed: task.processed,
       success: task.success,
       failed: task.failed,
-      startedAt: task.started_at?.toISOString() || '',
+      startedAt: task.started_at?.toISOString() || "",
       completedAt: task.completed_at?.toISOString(),
-      error: task.error,
+      error: task.error ?? undefined,
     }));
 
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -491,9 +586,9 @@ export class SatelliteSyncService {
       processed: task[0].processed,
       success: task[0].success,
       failed: task[0].failed,
-      startedAt: task[0].started_at?.toISOString() || '',
+      startedAt: task[0].started_at?.toISOString() || "",
       completedAt: task[0].completed_at?.toISOString(),
-      error: task[0].error,
+      error: task[0].error ?? undefined,
     };
   }
 
@@ -504,10 +599,10 @@ export class SatelliteSyncService {
       .where(eq(satelliteSyncErrorLogs.task_id, taskId))
       .orderBy(desc(satelliteSyncErrorLogs.timestamp));
 
-    const data: ErrorLogItem[] = errors.map(err => ({
+    const data: ErrorLogItem[] = errors.map((err) => ({
       id: err.id,
       noradId: err.norad_id,
-      name: err.name,
+      name: err.name ?? undefined,
       source: err.source,
       errorType: err.error_type as SyncErrorType,
       errorMessage: err.error_message,
@@ -517,7 +612,10 @@ export class SatelliteSyncService {
     return { data, total: errors.length };
   }
 
-  async getRecentErrors(taskId: string, limit: number = 5): Promise<ErrorLogRecord[]> {
+  async getRecentErrors(
+    taskId: string,
+    limit: number = 5,
+  ): Promise<ErrorLogRecord[]> {
     return this.db
       .select()
       .from(satelliteSyncErrorLogs)
@@ -532,10 +630,12 @@ export class SatelliteSyncService {
 
     const conditions: SQL[] = [];
     if (search) {
-      conditions.push(or(
-        like(satelliteTle.name, `%${search}%`),
-        like(satelliteTle.norad_id, `%${search}%`)
-      ));
+      conditions.push(
+        or(
+          like(satelliteTle.name, `%${search}%`),
+          like(satelliteTle.norad_id, `%${search}%`),
+        )!,
+      );
     }
     if (source) conditions.push(eq(satelliteTle.source, source));
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -554,14 +654,14 @@ export class SatelliteSyncService {
       .where(whereClause);
     const total = Number(countResult[0]?.count || 0);
 
-    const data: TleItem[] = tles.map(tle => ({
+    const data: TleItem[] = tles.map((tle) => ({
       noradId: tle.norad_id,
       name: tle.name,
       source: tle.source,
       epoch: tle.epoch?.toISOString(),
-      inclination: tle.inclination,
-      raan: tle.raan,
-      eccentricity: tle.eccentricity,
+      inclination: tle.inclination ?? undefined,
+      raan: tle.raan ?? undefined,
+      eccentricity: tle.eccentricity ?? undefined,
       line1: tle.line1,
       line2: tle.line2,
     }));
@@ -569,16 +669,20 @@ export class SatelliteSyncService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
-  async getMetadataList(query: MetadataListQueryDto): Promise<MetadataListResponse> {
+  async getMetadataList(
+    query: MetadataListQueryDto,
+  ): Promise<MetadataListResponse> {
     const { page = 1, limit = 20, search } = query;
     const offset = (page - 1) * limit;
 
     const conditions: SQL[] = [];
     if (search) {
-      conditions.push(or(
-        like(satelliteMetadata.name, `%${search}%`),
-        like(satelliteMetadata.norad_id, `%${search}%`)
-      ));
+      conditions.push(
+        or(
+          like(satelliteMetadata.name, `%${search}%`),
+          like(satelliteMetadata.norad_id, `%${search}%`),
+        )!,
+      );
     }
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -596,13 +700,17 @@ export class SatelliteSyncService {
       .where(whereClause);
     const total = Number(countResult[0]?.count || 0);
 
-    const data: MetadataItem[] = metas.map(meta => ({
+    const data: MetadataItem[] = metas.map((meta) => ({
       noradId: meta.norad_id,
-      name: meta.name,
-      countryCode: meta.country_code,
-      launchDate: meta.launch_date ? (typeof meta.launch_date === 'string' ? meta.launch_date : meta.launch_date.toISOString().split('T')[0]) : undefined,
-      objectType: meta.object_type,
-      status: meta.status,
+      name: meta.name ?? "",
+      countryCode: meta.country_code ?? undefined,
+      launchDate: meta.launch_date
+        ? typeof meta.launch_date === "string"
+          ? meta.launch_date
+          : meta.launch_date.toISOString().split("T")[0]
+        : undefined,
+      objectType: meta.object_type ?? undefined,
+      status: meta.status ?? undefined,
       hasKeepTrackData: meta.has_keeptrack_data,
       hasSpaceTrackData: meta.has_spacetrack_data,
       hasDiscosData: meta.has_discos_data,
@@ -613,8 +721,8 @@ export class SatelliteSyncService {
 
   async startSync(type: SyncType): Promise<TaskRecord> {
     const runningTask = await this.getCurrentStatus();
-    if (runningTask && runningTask.status === 'running') {
-      throw new Error('已有同步任务正在运行，请等待完成后再试');
+    if (runningTask && runningTask.status === "running") {
+      throw new Error("已有同步任务正在运行，请等待完成后再试");
     }
 
     const taskId = this.generateTaskId();
@@ -623,7 +731,7 @@ export class SatelliteSyncService {
       .values({
         id: taskId,
         type,
-        status: 'running',
+        status: "running",
         total: 0,
         processed: 0,
         success: 0,
@@ -646,22 +754,22 @@ export class SatelliteSyncService {
 
     try {
       switch (task.type) {
-        case 'celestrak':
+        case "celestrak":
           await this.syncCelestrak(task);
           break;
-        case 'space-track':
+        case "space-track":
           await this.syncTle(task);
           break;
-        case 'space-track-meta':
+        case "space-track-meta":
           await this.syncSpaceTrackMetadata(task);
           break;
-        case 'keeptrack-tle':
+        case "keeptrack-tle":
           await this.syncKeepTrackBrief(task);
           break;
-        case 'keeptrack-meta':
+        case "keeptrack-meta":
           await this.syncKeepTrackDetail(task);
           break;
-        case 'discos':
+        case "discos":
           await this.syncDiscos(task);
           break;
       }
@@ -669,13 +777,17 @@ export class SatelliteSyncService {
       if (this.stopRequested) {
         await this.db
           .update(satelliteSyncTasks)
-          .set({ status: 'failed', error: '用户请求停止同步', completed_at: new Date() })
+          .set({
+            status: "failed",
+            error: "用户请求停止同步",
+            completed_at: new Date(),
+          })
           .where(eq(satelliteSyncTasks.id, task.id));
         this.logger.log(`同步任务被用户停止：${task.id}`);
       } else {
         await this.db
           .update(satelliteSyncTasks)
-          .set({ status: 'completed', completed_at: new Date() })
+          .set({ status: "completed", completed_at: new Date() })
           .where(eq(satelliteSyncTasks.id, task.id));
         this.logger.log(`同步任务完成：${task.id}`);
       }
@@ -683,7 +795,11 @@ export class SatelliteSyncService {
       this.logger.error(`同步任务失败: ${error.message}`, error.stack);
       await this.db
         .update(satelliteSyncTasks)
-        .set({ status: 'failed', error: error.message, completed_at: new Date() })
+        .set({
+          status: "failed",
+          error: error.message,
+          completed_at: new Date(),
+        })
         .where(eq(satelliteSyncTasks.id, task.id));
     } finally {
       this.currentTask = null;
@@ -693,13 +809,13 @@ export class SatelliteSyncService {
 
   protected checkStopRequested(): void {
     if (this.stopRequested) {
-      this.logger.log('检测到停止请求，提前退出同步');
-      throw new Error('用户请求停止同步');
+      this.logger.log("检测到停止请求，提前退出同步");
+      throw new Error("用户请求停止同步");
     }
   }
 
   private async syncCelestrak(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 CelesTrak TLE 数据同步...');
+    this.logger.log("开始 CelesTrak TLE 数据同步...");
 
     if (this.useMockData) {
       await this.syncCelestrakMock(task);
@@ -708,13 +824,18 @@ export class SatelliteSyncService {
 
     const url = `${this.celestrakBaseUrl}/gp.php?GROUP=active&FORMAT=json`;
 
-    const response = await fetch(url, { headers: { 'User-Agent': 'Nova-Space-Admin/1.0' } });
+    const response = await fetch(url, {
+      headers: { "User-Agent": "Nova-Space-Admin/1.0" },
+    });
     if (!response.ok) throw new Error(`CelesTrak API 错误：${response.status}`);
 
     const data: CelestrakGpResponse[] = await response.json();
     this.logger.log(`获取 ${data.length} 条 CelesTrak 数据`);
 
-    await this.db.update(satelliteSyncTasks).set({ total: data.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: data.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
     let success = 0;
     let skipped = 0;
@@ -722,26 +843,33 @@ export class SatelliteSyncService {
     for (const item of data) {
       try {
         const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
+        const existing = await this.db
+          .select({ source: satelliteTle.source })
+          .from(satelliteTle)
+          .where(eq(satelliteTle.norad_id, noradId))
+          .limit(1);
 
         if (existing[0]) {
           skipped++;
           continue;
         }
 
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: item.OBJECT_NAME,
-          source: 'celestrak',
-          line1: '',
-          line2: '',
-          epoch: new Date(item.EPOCH),
-          inclination: item.INCLINATION,
-          raan: item.RA_OF_ASC_NODE,
-          eccentricity: item.ECCENTRICITY,
-          arg_of_perigee: item.ARG_OF_PERICENTER,
-          mean_motion: item.MEAN_MOTION,
-        }).onConflictDoNothing({ target: satelliteTle.norad_id });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: item.OBJECT_NAME,
+            source: "celestrak",
+            line1: "",
+            line2: "",
+            epoch: new Date(item.EPOCH),
+            inclination: item.INCLINATION,
+            raan: item.RA_OF_ASC_NODE,
+            eccentricity: item.ECCENTRICITY,
+            arg_of_perigee: item.ARG_OF_PERICENTER,
+            mean_motion: item.MEAN_MOTION,
+          })
+          .onConflictDoNothing({ target: satelliteTle.norad_id });
 
         success++;
       } catch (error: any) {
@@ -758,68 +886,122 @@ export class SatelliteSyncService {
   }
 
   private async syncCelestrakMock(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 CelesTrak TLE 数据同步（模拟模式）...');
+    this.logger.log("开始 CelesTrak TLE 数据同步（模拟模式）...");
 
-    const cacheFilePath = require('path').join(process.cwd(), 'data', 'celestrak-tle-cache.json');
-    const fs = await import('fs');
+    const cacheFilePath = join(
+      process.cwd(),
+      "data",
+      "celestrak-tle-cache.json",
+    );
+    const fs = await import("fs");
 
-    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
+    if (!fs.existsSync(cacheFilePath))
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
-    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
     this.logger.log(`从缓存文件读取到 ${cacheData.count} 条数据`);
 
     if (cacheData.count === 0) {
-      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ status: "completed", completed_at: new Date() })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: cacheData.count })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0, skipped = 0, failed = 0;
+    let success = 0,
+      skipped = 0,
+      failed = 0;
 
     for (const item of cacheData.data) {
       const noradId = this.formatNoradId(item.NORAD_CAT_ID);
 
       if (!item.OBJECT_NAME) {
         failed++;
-        await this.logSyncError(task.id, noradId, undefined, 'celestrak', 'missing_name', '卫星数据缺少 OBJECT_NAME 字段');
+        await this.logSyncError(
+          task.id,
+          noradId,
+          undefined,
+          "celestrak",
+          "missing_name",
+          "卫星数据缺少 OBJECT_NAME 字段",
+        );
         continue;
       }
 
       try {
-        await this.db.insert(satelliteMetadata).values({
-          norad_id: noradId,
-          has_discos_data: false,
-          has_keeptrack_data: false,
-          has_spacetrack_data: false,
-        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
+        await this.db
+          .insert(satelliteMetadata)
+          .values({
+            norad_id: noradId,
+            has_discos_data: false,
+            has_keeptrack_data: false,
+            has_spacetrack_data: false,
+          })
+          .onConflictDoNothing({ target: satelliteMetadata.norad_id });
 
-        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
+        const existing = await this.db
+          .select({ source: satelliteTle.source })
+          .from(satelliteTle)
+          .where(eq(satelliteTle.norad_id, noradId))
+          .limit(1);
 
         if (existing[0]) {
           skipped++;
-          await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'celestrak', 'duplicate', `已有 ${existing[0].source} 数据源的数据`);
+          await this.logSyncError(
+            task.id,
+            noradId,
+            item.OBJECT_NAME,
+            "celestrak",
+            "duplicate",
+            `已有 ${existing[0].source} 数据源的数据`,
+          );
           continue;
         }
 
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: item.OBJECT_NAME,
-          source: 'celestrak',
-          line1: '',
-          line2: '',
-          epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
-          inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
-          raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
-          eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
-        }).onConflictDoNothing({ target: satelliteTle.norad_id });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: item.OBJECT_NAME,
+            source: "celestrak",
+            line1: "",
+            line2: "",
+            epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+            inclination: item.INCLINATION
+              ? parseFloat(item.INCLINATION)
+              : undefined,
+            raan: item.RA_OF_ASC_NODE
+              ? parseFloat(item.RA_OF_ASC_NODE)
+              : undefined,
+            eccentricity: item.ECCENTRICITY
+              ? parseFloat(item.ECCENTRICITY)
+              : undefined,
+            arg_of_perigee: item.ARG_OF_PERICENTER
+              ? parseFloat(item.ARG_OF_PERICENTER)
+              : undefined,
+            mean_motion: item.MEAN_MOTION
+              ? parseFloat(item.MEAN_MOTION)
+              : undefined,
+          })
+          .onConflictDoNothing({ target: satelliteTle.norad_id });
 
         success++;
       } catch (dbError: any) {
         failed++;
-        await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'celestrak', 'database', dbError.message);
+        await this.logSyncError(
+          task.id,
+          noradId,
+          item.OBJECT_NAME,
+          "celestrak",
+          "database",
+          dbError.message,
+        );
       }
 
       await this.db
@@ -828,32 +1010,40 @@ export class SatelliteSyncService {
         .where(eq(satelliteSyncTasks.id, task.id));
     }
 
-    await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
-    this.logger.log(`CelesTrak（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`);
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ status: "completed", completed_at: new Date() })
+      .where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(
+      `CelesTrak（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`,
+    );
   }
 
   private async syncTle(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 Space-Track TLE 数据同步...');
+    this.logger.log("开始 Space-Track TLE 数据同步...");
 
     if (this.useMockData) {
       await this.syncTleMock(task);
       return;
     }
 
-    if (!this.spaceTrackUsername || !this.spaceTrackPassword) throw new Error('Space-Track 凭据未配置');
+    if (!this.spaceTrackUsername || !this.spaceTrackPassword)
+      throw new Error("Space-Track 凭据未配置");
 
     await this.loginSpaceTrack();
 
     const batches = [
-      { range: '1--9999', name: '早期卫星' },
-      { range: '10000--19999', name: '1980s-1990s' },
-      { range: '20000--29999', name: '1990s-2000s' },
-      { range: '30000--39999', name: '2000s-2010s' },
-      { range: '40000--49999', name: '2010s-2020s' },
-      { range: '50000--99999', name: '2020s 至今' },
+      { range: "1--9999", name: "早期卫星" },
+      { range: "10000--19999", name: "1980s-1990s" },
+      { range: "20000--29999", name: "1990s-2000s" },
+      { range: "30000--39999", name: "2000s-2010s" },
+      { range: "40000--49999", name: "2010s-2020s" },
+      { range: "50000--99999", name: "2020s 至今" },
     ];
 
-    let totalProcessed = 0, totalSuccess = 0, totalFailed = 0;
+    let totalProcessed = 0,
+      totalSuccess = 0,
+      totalFailed = 0;
     const batchErrors: string[] = [];
 
     for (const batch of batches) {
@@ -868,7 +1058,12 @@ export class SatelliteSyncService {
 
         await this.db
           .update(satelliteSyncTasks)
-          .set({ total: totalProcessed, processed: totalProcessed, success: totalSuccess, failed: totalFailed })
+          .set({
+            total: totalProcessed,
+            processed: totalProcessed,
+            success: totalSuccess,
+            failed: totalFailed,
+          })
           .where(eq(satelliteSyncTasks.id, task.id));
 
         await this.sleep(this.BATCH_INTERVAL_MS);
@@ -878,93 +1073,156 @@ export class SatelliteSyncService {
       }
     }
 
-    if (totalSuccess === 0 && batchErrors.length > 0) throw new Error(`所有批次均失败：${batchErrors.join('; ')}`);
+    if (totalSuccess === 0 && batchErrors.length > 0)
+      throw new Error(`所有批次均失败：${batchErrors.join("; ")}`);
   }
 
   private async loginSpaceTrack(): Promise<void> {
-    const https = await import('https');
+    const https = await import("https");
     const url = `${this.spaceTrackBaseUrl}/ajaxauth/login`;
 
     return new Promise((resolve, reject) => {
-      const req = https.request(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': 'Nova-Space-Admin/1.0' },
-        timeout: 60000,
-      }, (res) => {
-        let body = '';
-        res.on('data', (chunk) => { body += chunk; });
-        res.on('end', () => {
-          if (res.statusCode !== 200) return reject(new Error(`登录失败，状态码：${res.statusCode}`));
-          const cookies = res.headers['set-cookie'];
-          if (cookies) {
-            this.sessionCookie = cookies.map((c) => c.split(';')[0]).join('; ');
-            this.cookieExpiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
-            resolve();
-          } else reject(new Error('未获取到 session cookie'));
-        });
-      });
+      const req = https.request(
+        url,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Nova-Space-Admin/1.0",
+          },
+          timeout: 60000,
+        },
+        (res) => {
+          res.on("data", () => {});
+          res.on("end", () => {
+            if (res.statusCode !== 200)
+              return reject(new Error(`登录失败，状态码：${res.statusCode}`));
+            const cookies = res.headers["set-cookie"];
+            if (cookies) {
+              this.sessionCookie = cookies
+                .map((c) => c.split(";")[0])
+                .join("; ");
+              this.cookieExpiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
+              resolve();
+            } else reject(new Error("未获取到 session cookie"));
+          });
+        },
+      );
 
-      req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error('登录超时')); });
-      req.write(`identity=${encodeURIComponent(this.spaceTrackUsername)}&password=${encodeURIComponent(this.spaceTrackPassword)}`);
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("登录超时"));
+      });
+      req.write(
+        `identity=${encodeURIComponent(this.spaceTrackUsername)}&password=${encodeURIComponent(this.spaceTrackPassword)}`,
+      );
       req.end();
     });
   }
 
-  private async fetchGpBatch(noradRange: string): Promise<SpaceTrackGpResponse[]> {
-    const https = await import('https');
+  private async fetchGpBatch(
+    noradRange: string,
+  ): Promise<SpaceTrackGpResponse[]> {
+    const https = await import("https");
     const url = `${this.spaceTrackBaseUrl}/basicspacedata/query/class/gp/OBJECT_TYPE/PAYLOAD/decay_date/null-val/epoch/%3Enow-10/NORAD_CAT_ID/${noradRange}/format/json`;
 
     return new Promise((resolve, reject) => {
-      const req = https.get(url, {
-        headers: { Cookie: this.sessionCookie, 'User-Agent': 'Nova-Space-Admin/1.0' },
-        timeout: 180000,
-      }, (res) => {
-        let data = '';
-        res.on('data', (chunk) => { data += chunk; });
-        res.on('end', () => {
-          if (res.statusCode === 429) return reject(new Error('429 rate limit exceeded'));
-          if (res.statusCode && res.statusCode !== 200) return reject(new Error(`HTTP ${res.statusCode}`));
-          try {
-            if (data.startsWith('<') || data.startsWith('Invalid')) return reject(new Error(`API 错误：${data.substring(0, 50)}`));
-            resolve(JSON.parse(data));
-          } catch { reject(new Error('JSON 解析失败')); }
-        });
+      const req = https.get(
+        url,
+        {
+          headers: {
+            Cookie: this.sessionCookie,
+            "User-Agent": "Nova-Space-Admin/1.0",
+          },
+          timeout: 180000,
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
+          res.on("end", () => {
+            if (res.statusCode === 429)
+              return reject(new Error("429 rate limit exceeded"));
+            if (res.statusCode && res.statusCode !== 200)
+              return reject(new Error(`HTTP ${res.statusCode}`));
+            try {
+              if (data.startsWith("<") || data.startsWith("Invalid"))
+                return reject(new Error(`API 错误：${data.substring(0, 50)}`));
+              resolve(JSON.parse(data));
+            } catch {
+              reject(new Error("JSON 解析失败"));
+            }
+          });
+        },
+      );
+      req.on("error", reject);
+      req.on("timeout", () => {
+        req.destroy();
+        reject(new Error("请求超时"));
       });
-      req.on('error', reject);
-      req.on('timeout', () => { req.destroy(); reject(new Error('请求超时')); });
     });
   }
 
-  private async processAndStoreGpData(taskId: string, gpData: SpaceTrackGpResponse[]): Promise<{ success: number; failed: number }> {
-    let success = 0, failed = 0;
+  private async processAndStoreGpData(
+    taskId: string,
+    gpData: SpaceTrackGpResponse[],
+  ): Promise<{ success: number; failed: number }> {
+    let success = 0,
+      failed = 0;
 
     for (const item of gpData) {
       try {
         const noradId = this.formatNoradId(item.NORAD_CAT_ID);
 
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: item.OBJECT_NAME,
-          source: 'space-track',
-          line1: item.TLE_LINE1,
-          line2: item.TLE_LINE2,
-          epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
-          inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
-          raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
-          eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
-        }).onConflictDoUpdate({
-          target: satelliteTle.norad_id,
-          set: { name: item.OBJECT_NAME, line1: item.TLE_LINE1, line2: item.TLE_LINE2, updated_at: new Date() },
-        });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: item.OBJECT_NAME,
+            source: "space-track",
+            line1: item.TLE_LINE1,
+            line2: item.TLE_LINE2,
+            epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+            inclination: item.INCLINATION
+              ? parseFloat(item.INCLINATION)
+              : undefined,
+            raan: item.RA_OF_ASC_NODE
+              ? parseFloat(item.RA_OF_ASC_NODE)
+              : undefined,
+            eccentricity: item.ECCENTRICITY
+              ? parseFloat(item.ECCENTRICITY)
+              : undefined,
+            arg_of_perigee: item.ARG_OF_PERICENTER
+              ? parseFloat(item.ARG_OF_PERICENTER)
+              : undefined,
+            mean_motion: item.MEAN_MOTION
+              ? parseFloat(item.MEAN_MOTION)
+              : undefined,
+          })
+          .onConflictDoUpdate({
+            target: satelliteTle.norad_id,
+            set: {
+              name: item.OBJECT_NAME,
+              line1: item.TLE_LINE1,
+              line2: item.TLE_LINE2,
+              updated_at: new Date(),
+            },
+          });
 
         await this.upsertMetadata(item);
         success++;
       } catch (error: any) {
         failed++;
-        await this.logSyncError(taskId, this.formatNoradId(item.NORAD_CAT_ID), item.OBJECT_NAME, 'space-track', 'database', error.message);
+        await this.logSyncError(
+          taskId,
+          this.formatNoradId(item.NORAD_CAT_ID),
+          item.OBJECT_NAME,
+          "space-track",
+          "database",
+          error.message,
+        );
       }
     }
 
@@ -973,15 +1231,24 @@ export class SatelliteSyncService {
 
   private async upsertMetadata(item: SpaceTrackGpResponse): Promise<void> {
     const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-    const existing = await this.db.select().from(satelliteMetadata).where(eq(satelliteMetadata.norad_id, noradId)).limit(1);
+    const existing = await this.db
+      .select()
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.norad_id, noradId))
+      .limit(1);
 
     const epochDate = item.EPOCH ? new Date(item.EPOCH) : undefined;
-    const tleAge = epochDate ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
+    const tleAge = epochDate
+      ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24))
+      : undefined;
 
     const parseDate = (dateStr: string | undefined): Date | undefined => {
       if (!dateStr) return undefined;
-      try { return new Date(dateStr); }
-      catch { return undefined; }
+      try {
+        return new Date(dateStr);
+      } catch {
+        return undefined;
+      }
     };
 
     const metadataValues = {
@@ -992,12 +1259,16 @@ export class SatelliteSyncService {
       launch_site: item.SITE,
       object_type: item.OBJECT_TYPE,
       rcs: item.RCS_SIZE,
-      decay_date: parseDate(item.DECAY_DATE),
+      decay_date: parseDate(item.DECAY_DATE ?? undefined),
       period: item.PERIOD ? parseFloat(item.PERIOD) : undefined,
       inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
-      eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
+      eccentricity: item.ECCENTRICITY
+        ? parseFloat(item.ECCENTRICITY)
+        : undefined,
       raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
-      arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
+      arg_of_perigee: item.ARG_OF_PERICENTER
+        ? parseFloat(item.ARG_OF_PERICENTER)
+        : undefined,
       apogee: item.APOAPSIS ? parseFloat(item.APOAPSIS) : undefined,
       perigee: item.PERIAPSIS ? parseFloat(item.PERIAPSIS) : undefined,
       tle_epoch: epochDate,
@@ -1006,7 +1277,10 @@ export class SatelliteSyncService {
     };
 
     if (existing[0]) {
-      await this.db.update(satelliteMetadata).set(metadataValues).where(eq(satelliteMetadata.norad_id, noradId));
+      await this.db
+        .update(satelliteMetadata)
+        .set(metadataValues)
+        .where(eq(satelliteMetadata.norad_id, noradId));
     } else {
       await this.db.insert(satelliteMetadata).values({
         norad_id: noradId,
@@ -1018,7 +1292,7 @@ export class SatelliteSyncService {
   }
 
   private async syncKeepTrackBrief(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 KeepTrack TLE 数据同步...');
+    this.logger.log("开始 KeepTrack TLE 数据同步...");
 
     if (this.useMockData) {
       await this.syncKeepTrackBriefMock(task);
@@ -1026,103 +1300,209 @@ export class SatelliteSyncService {
     }
 
     if (!this.keepTrackApiKey) {
-      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ status: "completed", completed_at: new Date() })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    const response = await fetch(`${this.keepTrackBaseUrl}/sats/brief`, { headers: { 'X-API-Key': this.keepTrackApiKey } });
+    const response = await fetch(`${this.keepTrackBaseUrl}/sats/brief`, {
+      headers: { "X-API-Key": this.keepTrackApiKey },
+    });
     if (!response.ok) throw new Error(`KeepTrack API 错误：${response.status}`);
 
     const data: KeepTrackBriefResponse[] = await response.json();
-    await this.db.update(satelliteSyncTasks).set({ total: data.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: data.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
     let success = 0;
     for (const sat of data) {
       try {
         const noradId = this.extractNoradId(sat.tle1);
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: sat.name,
-          source: 'keeptrack',
-          line1: sat.tle1,
-          line2: sat.tle2,
-        }).onConflictDoUpdate({
-          target: satelliteTle.norad_id,
-          set: { name: sat.name, line1: sat.tle1, line2: sat.tle2, updated_at: new Date() },
-        });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: sat.name,
+            source: "keeptrack",
+            line1: sat.tle1,
+            line2: sat.tle2,
+          })
+          .onConflictDoUpdate({
+            target: satelliteTle.norad_id,
+            set: {
+              name: sat.name,
+              line1: sat.tle1,
+              line2: sat.tle2,
+              updated_at: new Date(),
+            },
+          });
         success++;
       } catch (error: any) {
         this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
       }
     }
 
-    await this.db.update(satelliteSyncTasks).set({ success, processed: data.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ success, processed: data.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
     this.logger.log(`KeepTrack TLE 同步完成：成功 ${success}`);
   }
 
   private async syncKeepTrackBriefMock(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 KeepTrack TLE 数据同步（模拟模式）...');
+    this.logger.log("开始 KeepTrack TLE 数据同步（模拟模式）...");
 
-    const cacheFilePath = require('path').join(process.cwd(), 'data', 'keeptrack-tle-cache.json');
-    const fs = await import('fs');
-    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
+    const cacheFilePath = join(
+      process.cwd(),
+      "data",
+      "keeptrack-tle-cache.json",
+    );
+    const fs = await import("fs");
+    if (!fs.existsSync(cacheFilePath))
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
-    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
     if (cacheData.count === 0) {
-      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ status: "completed", completed_at: new Date() })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: cacheData.count })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0, skipped = 0, failed = 0;
+    let success = 0,
+      skipped = 0,
+      failed = 0;
 
     for (const sat of cacheData.data) {
-      if (!sat.status) { skipped++; continue; }
+      if (!sat.status) {
+        skipped++;
+        continue;
+      }
 
       let noradId: string;
-      try { noradId = this.extractNoradId(sat.tle1); }
-      catch { failed++; await this.logSyncError(task.id, 'UNKNOWN', sat.name, 'keeptrack', 'parse_error', 'TLE 解析失败'); continue; }
+      try {
+        noradId = this.extractNoradId(sat.tle1);
+      } catch {
+        failed++;
+        await this.logSyncError(
+          task.id,
+          "UNKNOWN",
+          sat.name,
+          "keeptrack",
+          "parse_error",
+          "TLE 解析失败",
+        );
+        continue;
+      }
 
-      if (!sat.name) { failed++; await this.logSyncError(task.id, noradId, undefined, 'keeptrack', 'missing_name', '缺少 name 字段'); continue; }
+      if (!sat.name) {
+        failed++;
+        await this.logSyncError(
+          task.id,
+          noradId,
+          undefined,
+          "keeptrack",
+          "missing_name",
+          "缺少 name 字段",
+        );
+        continue;
+      }
 
       try {
-        await this.db.insert(satelliteMetadata).values({
-          norad_id: noradId,
-          has_discos_data: false,
-          has_keeptrack_data: false,
-          has_spacetrack_data: false,
-        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
+        await this.db
+          .insert(satelliteMetadata)
+          .values({
+            norad_id: noradId,
+            has_discos_data: false,
+            has_keeptrack_data: false,
+            has_spacetrack_data: false,
+          })
+          .onConflictDoNothing({ target: satelliteMetadata.norad_id });
 
-        const existing = await this.db.select({ source: satelliteTle.source }).from(satelliteTle).where(eq(satelliteTle.norad_id, noradId)).limit(1);
+        const existing = await this.db
+          .select({ source: satelliteTle.source })
+          .from(satelliteTle)
+          .where(eq(satelliteTle.norad_id, noradId))
+          .limit(1);
 
-        if (existing[0]) { skipped++; await this.logSyncError(task.id, noradId, sat.name, 'keeptrack', 'duplicate', `已有 ${existing[0].source} 数据源的数据`); continue; }
+        if (existing[0]) {
+          skipped++;
+          await this.logSyncError(
+            task.id,
+            noradId,
+            sat.name,
+            "keeptrack",
+            "duplicate",
+            `已有 ${existing[0].source} 数据源的数据`,
+          );
+          continue;
+        }
 
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: sat.name,
-          source: 'keeptrack',
-          line1: sat.tle1,
-          line2: sat.tle2,
-        }).onConflictDoNothing({ target: satelliteTle.norad_id });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: sat.name,
+            source: "keeptrack",
+            line1: sat.tle1,
+            line2: sat.tle2,
+          })
+          .onConflictDoNothing({ target: satelliteTle.norad_id });
 
         success++;
-      } catch (dbError: any) { failed++; await this.logSyncError(task.id, noradId, sat.name, 'keeptrack', 'database', dbError.message); }
+      } catch (dbError: any) {
+        failed++;
+        await this.logSyncError(
+          task.id,
+          noradId,
+          sat.name,
+          "keeptrack",
+          "database",
+          dbError.message,
+        );
+      }
 
       if ((success + skipped + failed) % 100 === 0) {
-        await this.db.update(satelliteSyncTasks).set({ processed: success + skipped + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({ processed: success + skipped + failed, success, failed })
+          .where(eq(satelliteSyncTasks.id, task.id));
       }
     }
 
-    await this.db.update(satelliteSyncTasks).set({ processed: success + skipped + failed, success, failed, status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
-    this.logger.log(`KeepTrack TLE（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`);
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({
+        processed: success + skipped + failed,
+        success,
+        failed,
+        status: "completed",
+        completed_at: new Date(),
+      })
+      .where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(
+      `KeepTrack TLE（模拟）同步完成：成功 ${success}, 跳过 ${skipped}, 失败 ${failed}`,
+    );
   }
 
   private async syncKeepTrackDetail(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 KeepTrack 元数据同步...');
+    this.logger.log("开始 KeepTrack 元数据同步...");
 
     if (!this.keepTrackApiKey) {
-      await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ status: "completed", completed_at: new Date() })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
@@ -1133,19 +1513,29 @@ export class SatelliteSyncService {
       .limit(60);
 
     if (satellites.length === 0) {
-      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ total: 0, processed: 0, success: 0 })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    await this.db.update(satelliteSyncTasks).set({ total: satellites.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: satellites.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0, failed = 0;
+    let success = 0,
+      failed = 0;
 
     for (const sat of satellites) {
       this.checkStopRequested();
 
       try {
-        const response = await fetch(`${this.keepTrackBaseUrl}/sat/${sat.norad_id}`, { headers: { 'X-API-Key': this.keepTrackApiKey } });
+        const response = await fetch(
+          `${this.keepTrackBaseUrl}/sat/${sat.norad_id}`,
+          { headers: { "X-API-Key": this.keepTrackApiKey } },
+        );
 
         if (response.ok) {
           const detail: KeepTrackSatDetailResponse = await response.json();
@@ -1153,35 +1543,73 @@ export class SatelliteSyncService {
           success++;
         } else {
           failed++;
-          const errorType = response.status === 403 || response.status === 429 ? 'rate_limit' : 'api_error';
-          await this.logSyncError(task.id, sat.norad_id, undefined, 'keeptrack', errorType, `API 返回 ${response.status}`);
+          const errorType =
+            response.status === 403 || response.status === 429
+              ? "rate_limit"
+              : "api_error";
+          await this.logSyncError(
+            task.id,
+            sat.norad_id,
+            undefined,
+            "keeptrack",
+            errorType,
+            `API 返回 ${response.status}`,
+          );
         }
 
         await this.sleep(this.getRandomKeepTrackDelay());
       } catch (error: any) {
-        if (error.message === '用户请求停止同步') throw error;
+        if (error.message === "用户请求停止同步") throw error;
         failed++;
-        await this.logSyncError(task.id, sat.norad_id, undefined, 'keeptrack', 'network', error.message);
+        await this.logSyncError(
+          task.id,
+          sat.norad_id,
+          undefined,
+          "keeptrack",
+          "network",
+          error.message,
+        );
       }
 
-      await this.db.update(satelliteSyncTasks).set({ processed: success + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ processed: success + failed, success, failed })
+        .where(eq(satelliteSyncTasks.id, task.id));
     }
 
-    this.logger.log(`KeepTrack 元数据同步完成：成功 ${success}, 失败 ${failed}`);
+    this.logger.log(
+      `KeepTrack 元数据同步完成：成功 ${success}, 失败 ${failed}`,
+    );
   }
 
-  private async saveKeepTrackMetadata(noradId: string, detail: KeepTrackSatDetailResponse): Promise<void> {
-    const objectTypeMap: Record<number, string> = { 1: 'PAYLOAD', 2: 'ROCKET_BODY', 3: 'DEBRIS', 4: 'UNKNOWN', 5: 'SPECIAL' };
-    const period = detail.MEAN_MOTION && detail.MEAN_MOTION > 0 ? 1440 / detail.MEAN_MOTION : undefined;
+  private async saveKeepTrackMetadata(
+    noradId: string,
+    detail: KeepTrackSatDetailResponse,
+  ): Promise<void> {
+    const objectTypeMap: Record<number, string> = {
+      1: "PAYLOAD",
+      2: "ROCKET_BODY",
+      3: "DEBRIS",
+      4: "UNKNOWN",
+      5: "SPECIAL",
+    };
+    const period =
+      detail.MEAN_MOTION && detail.MEAN_MOTION > 0
+        ? 1440 / detail.MEAN_MOTION
+        : undefined;
 
     let altNames: string[] | undefined;
     if (detail.ALT_NAME) {
-      altNames = detail.ALT_NAME.split(/[;,]/).map(s => s.trim()).filter(s => s.length > 0);
+      altNames = detail.ALT_NAME.split(/[;,]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
       if (altNames.length === 0) altNames = undefined;
     }
 
     const epochDate = this.parseKeepTrackDate(detail.EPOCH);
-    const tleAge = epochDate ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24)) : undefined;
+    const tleAge = epochDate
+      ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24))
+      : undefined;
 
     const updateData = {
       name: detail.NAME,
@@ -1189,7 +1617,9 @@ export class SatelliteSyncService {
       alt_name: detail.ALT_NAME,
       alt_names: altNames ? JSON.stringify(altNames) : undefined,
       country_code: detail.COUNTRY,
-      object_type: detail.TYPE ? objectTypeMap[detail.TYPE] || `TYPE_${detail.TYPE}` : undefined,
+      object_type: detail.TYPE
+        ? objectTypeMap[detail.TYPE] || `TYPE_${detail.TYPE}`
+        : undefined,
       operator: detail.OWNER,
       manufacturer: detail.MANUFACTURER,
       contractor: detail.MANUFACTURER,
@@ -1211,7 +1641,9 @@ export class SatelliteSyncService {
       diameter: detail.DIAMETER ? parseFloat(detail.DIAMETER) : undefined,
       span: detail.SPAN ? parseFloat(detail.SPAN) : undefined,
       dry_mass: detail.DRY_MASS ? parseFloat(detail.DRY_MASS) : undefined,
-      launch_mass: detail.LAUNCH_MASS ? parseFloat(detail.LAUNCH_MASS) : undefined,
+      launch_mass: detail.LAUNCH_MASS
+        ? parseFloat(detail.LAUNCH_MASS)
+        : undefined,
       equipment: detail.EQUIPMENT,
       adcs: detail.ADCS,
       payload: detail.PAYLOAD,
@@ -1238,60 +1670,79 @@ export class SatelliteSyncService {
       has_keeptrack_data: true,
     };
 
-    await this.db.update(satelliteMetadata).set(updateData).where(eq(satelliteMetadata.norad_id, noradId));
+    await this.db
+      .update(satelliteMetadata)
+      .set(updateData)
+      .where(eq(satelliteMetadata.norad_id, noradId));
   }
 
   private parseKeepTrackDate(dateStr: string | undefined): Date | undefined {
     if (!dateStr) return undefined;
     try {
-      const fixed = dateStr.replace(/(\d{2})(\d{2}):(\d{2})$/, '$1:$2:$3');
+      const fixed = dateStr.replace(/(\d{2})(\d{2}):(\d{2})$/, "$1:$2:$3");
       const parsed = new Date(fixed);
       return isNaN(parsed.getTime()) ? undefined : parsed;
-    } catch { return undefined; }
+    } catch {
+      return undefined;
+    }
   }
 
-  private parseKeepTrackDateString(dateStr: string | undefined): string | undefined {
+  private parseKeepTrackDateString(
+    dateStr: string | undefined,
+  ): string | undefined {
     const date = this.parseKeepTrackDate(dateStr);
-    return date ? date.toISOString().split('T')[0] : undefined;
+    return date ? date.toISOString().split("T")[0] : undefined;
   }
 
   private extractNoradId(tle1: string): string {
     const match = tle1.match(/^1\s+(\d+)/);
-    if (match) return match[1].padStart(5, '0');
+    if (match) return match[1].padStart(5, "0");
     throw new Error(`无法从 TLE 提取 NORAD ID: ${tle1}`);
   }
 
   private async syncSpaceTrackMetadata(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 Space-Track 元数据同步...');
+    this.logger.log("开始 Space-Track 元数据同步...");
 
     if (this.useMockData) {
       await this.syncSpaceTrackMetadataMock(task);
       return;
     }
 
-    if (!this.spaceTrackUsername || !this.spaceTrackPassword) throw new Error('Space-Track 凭据未配置');
+    if (!this.spaceTrackUsername || !this.spaceTrackPassword)
+      throw new Error("Space-Track 凭据未配置");
     await this.loginSpaceTrack();
 
-    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_spacetrack_data, false));
+    const metadataList = await this.db
+      .select({ norad_id: satelliteMetadata.norad_id })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_spacetrack_data, false));
 
     if (metadataList.length === 0) {
-      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ total: 0, processed: 0, success: 0 })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: metadataList.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
     const batches = [
-      { range: '1--9999', name: '早期卫星' },
-      { range: '10000--19999', name: '1980s-1990s' },
-      { range: '20000--29999', name: '1990s-2000s' },
-      { range: '30000--39999', name: '2000s-2010s' },
-      { range: '40000--49999', name: '2010s-2020s' },
-      { range: '50000--99999', name: '2020s 至今' },
+      { range: "1--9999", name: "早期卫星" },
+      { range: "10000--19999", name: "1980s-1990s" },
+      { range: "20000--29999", name: "1990s-2000s" },
+      { range: "30000--39999", name: "2000s-2010s" },
+      { range: "40000--49999", name: "2010s-2020s" },
+      { range: "50000--99999", name: "2020s 至今" },
     ];
 
-    const noradIdSet = new Set(metadataList.map(m => m.norad_id));
-    let totalProcessed = 0, totalSuccess = 0, totalFailed = 0;
+    const noradIdSet = new Set(metadataList.map((m) => m.norad_id));
+    let totalProcessed = 0,
+      totalSuccess = 0,
+      totalFailed = 0;
 
     for (const batch of batches) {
       this.checkStopRequested();
@@ -1306,11 +1757,20 @@ export class SatelliteSyncService {
           try {
             await this.upsertMetadata(item);
             totalSuccess++;
-          } catch { totalFailed++; }
+          } catch {
+            totalFailed++;
+          }
           totalProcessed++;
         }
 
-        await this.db.update(satelliteSyncTasks).set({ processed: totalProcessed, success: totalSuccess, failed: totalFailed }).where(eq(satelliteSyncTasks.id, task.id));
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({
+            processed: totalProcessed,
+            success: totalSuccess,
+            failed: totalFailed,
+          })
+          .where(eq(satelliteSyncTasks.id, task.id));
         await this.sleep(this.BATCH_INTERVAL_MS);
       } catch (error: any) {
         this.logger.error(`批次 ${batch.name} 失败：${error.message}`);
@@ -1319,54 +1779,89 @@ export class SatelliteSyncService {
   }
 
   private async syncSpaceTrackMetadataMock(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 Space-Track 元数据同步（模拟模式）...');
+    this.logger.log("开始 Space-Track 元数据同步（模拟模式）...");
 
-    const cacheFilePath = require('path').join(process.cwd(), 'data', 'space-track-tle-cache.json');
-    const fs = await import('fs');
-    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
+    const cacheFilePath = join(
+      process.cwd(),
+      "data",
+      "space-track-tle-cache.json",
+    );
+    const fs = await import("fs");
+    if (!fs.existsSync(cacheFilePath))
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
-    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
 
-    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_spacetrack_data, false));
+    const metadataList = await this.db
+      .select({ norad_id: satelliteMetadata.norad_id })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_spacetrack_data, false));
 
     if (metadataList.length === 0) {
-      await this.db.update(satelliteSyncTasks).set({ total: 0, processed: 0, success: 0 }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ total: 0, processed: 0, success: 0 })
+        .where(eq(satelliteSyncTasks.id, task.id));
       return;
     }
 
-    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: metadataList.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
     const gpDataMap = new Map<string, SpaceTrackGpResponse>();
-    for (const item of cacheData.data) gpDataMap.set(this.formatNoradId(item.NORAD_CAT_ID), item);
+    for (const item of cacheData.data)
+      gpDataMap.set(this.formatNoradId(item.NORAD_CAT_ID), item);
 
-    let success = 0, failed = 0;
+    let success = 0,
+      failed = 0;
 
     for (const meta of metadataList) {
       const gpItem = gpDataMap.get(meta.norad_id);
       if (gpItem) {
-        try { await this.upsertMetadata(gpItem); success++; } catch { failed++; }
-      } else { success++; }
+        try {
+          await this.upsertMetadata(gpItem);
+          success++;
+        } catch {
+          failed++;
+        }
+      } else {
+        success++;
+      }
     }
 
-    await this.db.update(satelliteSyncTasks).set({ processed: metadataList.length, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
-    this.logger.log(`Space-Track 元数据（模拟）同步完成：成功 ${success}, 失败 ${failed}`);
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ processed: metadataList.length, success, failed })
+      .where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(
+      `Space-Track 元数据（模拟）同步完成：成功 ${success}, 失败 ${failed}`,
+    );
   }
 
   private async syncDiscos(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 ESA DISCOS 数据同步...');
+    this.logger.log("开始 ESA DISCOS 数据同步...");
 
-    if (!this.esaDiscosApiToken) throw new Error('ESA DISCOS API Token 未配置');
+    if (!this.esaDiscosApiToken) throw new Error("ESA DISCOS API Token 未配置");
 
-    const metadataList = await this.db.select({ norad_id: satelliteMetadata.norad_id }).from(satelliteMetadata).where(eq(satelliteMetadata.has_discos_data, false));
+    const metadataList = await this.db
+      .select({ norad_id: satelliteMetadata.norad_id })
+      .from(satelliteMetadata)
+      .where(eq(satelliteMetadata.has_discos_data, false));
 
-    await this.db.update(satelliteSyncTasks).set({ total: metadataList.length }).where(eq(satelliteSyncTasks.id, task.id));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: metadataList.length })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
     const BATCH_SIZE = 100;
-    let processed = 0, success = 0, failed = 0;
+    let success = 0,
+      failed = 0;
 
     for (let i = 0; i < metadataList.length; i += BATCH_SIZE) {
       const batch = metadataList.slice(i, i + BATCH_SIZE);
-      const noradIds = batch.map(m => m.norad_id);
+      const noradIds = batch.map((m) => m.norad_id);
 
       try {
         const discosDataMap = await this.fetchDiscosDataBatch(noradIds);
@@ -1377,12 +1872,14 @@ export class SatelliteSyncService {
             await this.updateMetadataWithDiscos(meta.norad_id, discosInfo);
             success++;
           } else {
-            await this.db.update(satelliteMetadata).set({ has_discos_data: true }).where(eq(satelliteMetadata.norad_id, meta.norad_id));
+            await this.db
+              .update(satelliteMetadata)
+              .set({ has_discos_data: true })
+              .where(eq(satelliteMetadata.norad_id, meta.norad_id));
             success++;
           }
-          processed++;
         }
-      } catch (error: any) {
+      } catch {
         for (const meta of batch) {
           try {
             const discosInfo = await this.fetchDiscosData(meta.norad_id);
@@ -1390,31 +1887,48 @@ export class SatelliteSyncService {
               await this.updateMetadataWithDiscos(meta.norad_id, discosInfo);
               success++;
             } else {
-              await this.db.update(satelliteMetadata).set({ has_discos_data: true }).where(eq(satelliteMetadata.norad_id, meta.norad_id));
+              await this.db
+                .update(satelliteMetadata)
+                .set({ has_discos_data: true })
+                .where(eq(satelliteMetadata.norad_id, meta.norad_id));
               success++;
             }
-          } catch { failed++; }
+          } catch {
+            failed++;
+          }
         }
       }
 
-      await this.db.update(satelliteSyncTasks).set({ success, failed }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ success, failed })
+        .where(eq(satelliteSyncTasks.id, task.id));
       await this.sleep(this.BATCH_INTERVAL_MS);
     }
 
     this.logger.log(`ESA DISCOS 同步完成：成功 ${success}, 失败 ${failed}`);
   }
 
-  private async fetchDiscosDataBatch(noradIds: string[]): Promise<Map<string, any>> {
-    const numericIds = noradIds.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
-    const url = `${this.esaDiscosBaseUrl}/objects?filter=satno=in=(${numericIds.join(',')})&include=operators,launch,launch.vehicle,launch.site&page[size]=${numericIds.length}`;
+  private async fetchDiscosDataBatch(
+    noradIds: string[],
+  ): Promise<Map<string, any>> {
+    const numericIds = noradIds
+      .map((id) => parseInt(id, 10))
+      .filter((id) => !isNaN(id));
+    const url = `${this.esaDiscosBaseUrl}/objects?filter=satno=in=(${numericIds.join(",")})&include=operators,launch,launch.vehicle,launch.site&page[size]=${numericIds.length}`;
 
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${this.esaDiscosApiToken}`, Accept: 'application/vnd.api+json' },
+      headers: {
+        Authorization: `Bearer ${this.esaDiscosApiToken}`,
+        Accept: "application/vnd.api+json",
+      },
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        await this.sleep(parseInt(response.headers.get('Retry-After') || '60') * 1000);
+        await this.sleep(
+          parseInt(response.headers.get("Retry-After") || "60") * 1000,
+        );
         return this.fetchDiscosDataBatch(noradIds);
       }
       throw new Error(`ESA DISCOS API 错误: ${response.status}`);
@@ -1429,13 +1943,15 @@ export class SatelliteSyncService {
 
     for (const item of json.data) {
       const attrs = item.attributes;
-      const noradId = String(attrs.satno).padStart(5, '0');
+      const noradId = String(attrs.satno).padStart(5, "0");
 
       let operator: string | undefined;
       if (item.relationships?.operators?.data?.length) {
         const operatorId = item.relationships.operators.data[0]?.id;
         if (operatorId) {
-          const operatorData = included.find(inc => inc.type === 'organisation' && inc.id === operatorId);
+          const operatorData = included.find(
+            (inc) => inc.type === "organisation" && inc.id === operatorId,
+          );
           operator = operatorData?.attributes?.name;
         }
       }
@@ -1443,15 +1959,23 @@ export class SatelliteSyncService {
       let launchVehicle: string | undefined, launchSiteName: string | undefined;
       if (item.relationships?.launch?.data) {
         const launchId = item.relationships.launch.data.id;
-        const launchData = included.find(inc => inc.type === 'launch' && inc.id === launchId);
+        const launchData = included.find(
+          (inc) => inc.type === "launch" && inc.id === launchId,
+        );
 
         if (launchData) {
-          if (launchData.relationships?.vehicle?.data) {
-            const vehicleData = included.find(inc => inc.type === 'vehicle' && inc.id === launchData.relationships.vehicle.data.id);
+          const vehicleId = launchData.relationships?.vehicle?.data?.id;
+          if (vehicleId) {
+            const vehicleData = included.find(
+              (inc) => inc.type === "vehicle" && inc.id === vehicleId,
+            );
             launchVehicle = vehicleData?.attributes?.name;
           }
-          if (launchData.relationships?.site?.data) {
-            const siteData = included.find(inc => inc.type === 'launchSite' && inc.id === launchData.relationships.site.data.id);
+          const siteId = launchData.relationships?.site?.data?.id;
+          if (siteId) {
+            const siteData = included.find(
+              (inc) => inc.type === "launchSite" && inc.id === siteId,
+            );
             launchSiteName = siteData?.attributes?.name;
           }
         }
@@ -1483,12 +2007,17 @@ export class SatelliteSyncService {
     const url = `${this.esaDiscosBaseUrl}/objects?filter=satno=${numericId}&include=operators,launch,launch.vehicle,launch.site`;
 
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${this.esaDiscosApiToken}`, Accept: 'application/vnd.api+json' },
+      headers: {
+        Authorization: `Bearer ${this.esaDiscosApiToken}`,
+        Accept: "application/vnd.api+json",
+      },
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        await this.sleep(parseInt(response.headers.get('Retry-After') || '60') * 1000);
+        await this.sleep(
+          parseInt(response.headers.get("Retry-After") || "60") * 1000,
+        );
         return this.fetchDiscosData(noradId);
       }
       return null;
@@ -1505,7 +2034,9 @@ export class SatelliteSyncService {
     if (item.relationships?.operators?.data?.length) {
       const operatorId = item.relationships.operators.data[0]?.id;
       if (operatorId) {
-        const operatorData = included.find(inc => inc.type === 'organisation' && inc.id === operatorId);
+        const operatorData = included.find(
+          (inc) => inc.type === "organisation" && inc.id === operatorId,
+        );
         operator = operatorData?.attributes?.name;
       }
     }
@@ -1513,15 +2044,23 @@ export class SatelliteSyncService {
     let launchVehicle: string | undefined, launchSiteName: string | undefined;
     if (item.relationships?.launch?.data) {
       const launchId = item.relationships.launch.data.id;
-      const launchData = included.find(inc => inc.type === 'launch' && inc.id === launchId);
+      const launchData = included.find(
+        (inc) => inc.type === "launch" && inc.id === launchId,
+      );
 
       if (launchData) {
-        if (launchData.relationships?.vehicle?.data) {
-          const vehicleData = included.find(inc => inc.type === 'vehicle' && inc.id === launchData.relationships.vehicle.data.id);
+        const vehicleId = launchData.relationships?.vehicle?.data?.id;
+        if (vehicleId) {
+          const vehicleData = included.find(
+            (inc) => inc.type === "vehicle" && inc.id === vehicleId,
+          );
           launchVehicle = vehicleData?.attributes?.name;
         }
-        if (launchData.relationships?.site?.data) {
-          const siteData = included.find(inc => inc.type === 'launchSite' && inc.id === launchData.relationships.site.data.id);
+        const siteId = launchData.relationships?.site?.data?.id;
+        if (siteId) {
+          const siteData = included.find(
+            (inc) => inc.type === "launchSite" && inc.id === siteId,
+          );
           launchSiteName = siteData?.attributes?.name;
         }
       }
@@ -1545,7 +2084,10 @@ export class SatelliteSyncService {
     };
   }
 
-  private async updateMetadataWithDiscos(noradId: string, info: any): Promise<void> {
+  private async updateMetadataWithDiscos(
+    noradId: string,
+    info: any,
+  ): Promise<void> {
     const dimensions = this.formatDimensions(info);
 
     const updateData = {
@@ -1564,7 +2106,10 @@ export class SatelliteSyncService {
       launch_site_name: info.launchSiteName,
     };
 
-    await this.db.update(satelliteMetadata).set(updateData).where(eq(satelliteMetadata.norad_id, noradId));
+    await this.db
+      .update(satelliteMetadata)
+      .set(updateData)
+      .where(eq(satelliteMetadata.norad_id, noradId));
   }
 
   private formatDimensions(info: any): string | undefined {
@@ -1573,70 +2118,135 @@ export class SatelliteSyncService {
     if (info.width) parts.push(`${info.width}m`);
     if (info.height) parts.push(`${info.height}m`);
     if (info.depth) parts.push(`${info.depth}m`);
-    return parts.length > 0 ? parts.join(' × ') : undefined;
+    return parts.length > 0 ? parts.join(" × ") : undefined;
   }
 
   private async syncTleMock(task: TaskRecord): Promise<void> {
-    this.logger.log('开始 Space-Track TLE 数据同步（模拟模式）...');
+    this.logger.log("开始 Space-Track TLE 数据同步（模拟模式）...");
 
-    const cacheFilePath = require('path').join(process.cwd(), 'data', 'space-track-tle-cache.json');
-    const fs = await import('fs');
-    if (!fs.existsSync(cacheFilePath)) throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
+    const cacheFilePath = join(
+      process.cwd(),
+      "data",
+      "space-track-tle-cache.json",
+    );
+    const fs = await import("fs");
+    if (!fs.existsSync(cacheFilePath))
+      throw new Error(`模拟数据文件不存在：${cacheFilePath}`);
 
-    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, 'utf-8'));
-    await this.db.update(satelliteSyncTasks).set({ total: cacheData.count }).where(eq(satelliteSyncTasks.id, task.id));
+    const cacheData = JSON.parse(fs.readFileSync(cacheFilePath, "utf-8"));
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ total: cacheData.count })
+      .where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0, failed = 0;
+    let success = 0,
+      failed = 0;
 
     for (const item of cacheData.data) {
       const noradId = this.formatNoradId(item.NORAD_CAT_ID);
-      const rawTle = item.TLE_LINE1 && item.TLE_LINE2 ? `${item.TLE_LINE1}\n${item.TLE_LINE2}` : undefined;
+      const rawTle =
+        item.TLE_LINE1 && item.TLE_LINE2
+          ? `${item.TLE_LINE1}\n${item.TLE_LINE2}`
+          : undefined;
 
       if (!item.OBJECT_NAME) {
         failed++;
-        await this.logSyncError(task.id, noradId, undefined, 'space-track', 'missing_name', '缺少 OBJECT_NAME 字段', rawTle);
+        await this.logSyncError(
+          task.id,
+          noradId,
+          undefined,
+          "space-track",
+          "missing_name",
+          "缺少 OBJECT_NAME 字段",
+          rawTle,
+        );
         continue;
       }
 
       try {
-        await this.db.insert(satelliteMetadata).values({
-          norad_id: noradId,
-          has_discos_data: false,
-          has_keeptrack_data: false,
-          has_spacetrack_data: false,
-        }).onConflictDoNothing({ target: satelliteMetadata.norad_id });
+        await this.db
+          .insert(satelliteMetadata)
+          .values({
+            norad_id: noradId,
+            has_discos_data: false,
+            has_keeptrack_data: false,
+            has_spacetrack_data: false,
+          })
+          .onConflictDoNothing({ target: satelliteMetadata.norad_id });
 
-        await this.db.insert(satelliteTle).values({
-          norad_id: noradId,
-          name: item.OBJECT_NAME,
-          source: 'space-track',
-          line1: item.TLE_LINE1,
-          line2: item.TLE_LINE2,
-          epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
-          inclination: item.INCLINATION ? parseFloat(item.INCLINATION) : undefined,
-          raan: item.RA_OF_ASC_NODE ? parseFloat(item.RA_OF_ASC_NODE) : undefined,
-          eccentricity: item.ECCENTRICITY ? parseFloat(item.ECCENTRICITY) : undefined,
-          arg_of_perigee: item.ARG_OF_PERICENTER ? parseFloat(item.ARG_OF_PERICENTER) : undefined,
-          mean_motion: item.MEAN_MOTION ? parseFloat(item.MEAN_MOTION) : undefined,
-        }).onConflictDoUpdate({
-          target: satelliteTle.norad_id,
-          set: { name: item.OBJECT_NAME, line1: item.TLE_LINE1, line2: item.TLE_LINE2, updated_at: new Date() },
-        });
+        await this.db
+          .insert(satelliteTle)
+          .values({
+            norad_id: noradId,
+            name: item.OBJECT_NAME,
+            source: "space-track",
+            line1: item.TLE_LINE1,
+            line2: item.TLE_LINE2,
+            epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+            inclination: item.INCLINATION
+              ? parseFloat(item.INCLINATION)
+              : undefined,
+            raan: item.RA_OF_ASC_NODE
+              ? parseFloat(item.RA_OF_ASC_NODE)
+              : undefined,
+            eccentricity: item.ECCENTRICITY
+              ? parseFloat(item.ECCENTRICITY)
+              : undefined,
+            arg_of_perigee: item.ARG_OF_PERICENTER
+              ? parseFloat(item.ARG_OF_PERICENTER)
+              : undefined,
+            mean_motion: item.MEAN_MOTION
+              ? parseFloat(item.MEAN_MOTION)
+              : undefined,
+          })
+          .onConflictDoUpdate({
+            target: satelliteTle.norad_id,
+            set: {
+              name: item.OBJECT_NAME,
+              line1: item.TLE_LINE1,
+              line2: item.TLE_LINE2,
+              updated_at: new Date(),
+            },
+          });
 
         success++;
       } catch (dbError: any) {
         failed++;
-        await this.logSyncError(task.id, noradId, item.OBJECT_NAME, 'space-track', 'database', dbError.message, rawTle);
+        await this.logSyncError(
+          task.id,
+          noradId,
+          item.OBJECT_NAME,
+          "space-track",
+          "database",
+          dbError.message,
+          rawTle,
+        );
       }
 
-      await this.db.update(satelliteSyncTasks).set({ processed: success + failed, success, failed }).where(eq(satelliteSyncTasks.id, task.id));
+      await this.db
+        .update(satelliteSyncTasks)
+        .set({ processed: success + failed, success, failed })
+        .where(eq(satelliteSyncTasks.id, task.id));
     }
 
-    await this.db.update(satelliteSyncTasks).set({ status: 'completed', completed_at: new Date() }).where(eq(satelliteSyncTasks.id, task.id));
-    this.logger.log(`Space-Track TLE（模拟）同步完成：成功 ${success}, 失败 ${failed}`);
+    await this.db
+      .update(satelliteSyncTasks)
+      .set({ status: "completed", completed_at: new Date() })
+      .where(eq(satelliteSyncTasks.id, task.id));
+    this.logger.log(
+      `Space-Track TLE（模拟）同步完成：成功 ${success}, 失败 ${failed}`,
+    );
   }
 
-  private async logSyncError(taskId: string, noradId: string, name: string | undefined, source: string, errorType: SyncErrorType, errorMessage: string, rawTle?: string): Promise<void> {
+  private async logSyncError(
+    taskId: string,
+    noradId: string,
+    name: string | undefined,
+    source: string,
+    errorType: SyncErrorType,
+    errorMessage: string,
+    rawTle?: string,
+  ): Promise<void> {
     try {
       await this.db.insert(satelliteSyncErrorLogs).values({
         task_id: taskId,
@@ -1654,12 +2264,12 @@ export class SatelliteSyncService {
   }
 
   private formatNoradId(id: string | number): string {
-    return String(id).padStart(5, '0');
+    return String(id).padStart(5, "0");
   }
 
   private generateTaskId(): string {
     const now = new Date();
-    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const dateStr = now.toISOString().slice(0, 10).replace(/-/g, "");
     const random = Math.random().toString(36).substring(2, 6);
     return `sync-${dateStr}-${random}`;
   }
@@ -1669,6 +2279,11 @@ export class SatelliteSyncService {
   }
 
   private getRandomKeepTrackDelay(): number {
-    return Math.floor(Math.random() * (this.KEEPTRACK_MAX_DELAY_MS - this.KEEPTRACK_MIN_DELAY_MS + 1)) + this.KEEPTRACK_MIN_DELAY_MS;
+    return (
+      Math.floor(
+        Math.random() *
+          (this.KEEPTRACK_MAX_DELAY_MS - this.KEEPTRACK_MIN_DELAY_MS + 1),
+      ) + this.KEEPTRACK_MIN_DELAY_MS
+    );
   }
 }

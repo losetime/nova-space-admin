@@ -1,6 +1,7 @@
-import { IsOptional, IsEnum, IsBoolean, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
-import { UserRole } from '../../../common/entities/user.entity';
+import { IsOptional, IsEnum, IsBoolean, IsInt, Min } from "class-validator";
+import { Type } from "class-transformer";
+import { userRoles } from "./create-user.dto";
+import type { UserRole } from "./create-user.dto";
 
 export class QueryUserDto {
   @Type(() => Number)
@@ -18,7 +19,7 @@ export class QueryUserDto {
   @IsOptional()
   keyword?: string;
 
-  @IsEnum(UserRole, { message: '角色不正确' })
+  @IsEnum(userRoles, { message: "角色不正确" })
   @IsOptional()
   role?: UserRole;
 

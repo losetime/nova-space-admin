@@ -2,12 +2,42 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
-} from '@nestjs/common';
-import { parse } from 'csv-parse/sync';
-import * as xlsx from 'xlsx';
-import { ArticleService } from '../article/article.service';
-import { IntelligenceService } from '../intelligence/intelligence.service';
-import { IntelligenceCategory, IntelligenceLevel } from '../intelligence/entities/intelligence.entity';
+} from "@nestjs/common";
+import { parse } from "csv-parse/sync";
+import * as xlsx from "xlsx";
+import { ArticleService } from "../article/article.service";
+import { IntelligenceService } from "../intelligence/intelligence.service";
+
+export type IntelligenceCategory =
+  | "launch"
+  | "satellite"
+  | "industry"
+  | "research"
+  | "environment";
+export type IntelligenceLevel = "free" | "advanced" | "professional";
+
+interface ArticleImportRecord {
+  title: string;
+  content: string;
+  summary?: string;
+  category: string;
+  cover?: string;
+  tags?: string;
+}
+
+interface IntelligenceImportRecord {
+  title: string;
+  content: string;
+  summary: string;
+  category: string;
+  level: string;
+  source: string;
+  cover?: string;
+  sourceUrl?: string;
+  tags?: string;
+}
+
+type ImportRecord = ArticleImportRecord & Partial<IntelligenceImportRecord>;
 
 export interface ImportResult {
   success: number;
@@ -24,9 +54,9 @@ export class ImportService {
 
   async importArticles(
     file: Express.Multer.File,
-    format: 'csv' | 'excel',
+    format: "csv" | "excel",
   ): Promise<ImportResult> {
-    const records = this.parseFile(file, format);
+    const records = this.parseFile(file, format) as ArticleImportRecord[];
     const result: ImportResult = { success: 0, failed: 0, errors: [] };
 
     const validArticles: Partial<any>[] = [];
@@ -54,10 +84,10 @@ export class ImportService {
         }
 
         // 验证分类
-        const validCategories = ['basic', 'advanced', 'mission', 'people'];
+        const validCategories = ["basic", "advanced", "mission", "people"];
         if (!validCategories.includes(record.category)) {
           result.errors.push(
-            `第${rowNum}行: 分类值不正确，可选值: ${validCategories.join(', ')}`,
+            `第${rowNum}行: 分类值不正确，可选值: ${validCategories.join(", ")}`,
           );
           result.failed++;
           continue;
@@ -66,11 +96,15 @@ export class ImportService {
         const article: Partial<any> = {
           title: record.title,
           content: record.content,
-          summary: record.summary || '',
+          summary: record.summary || "",
           category: record.category,
-          cover: record.cover || '',
-          tags: record.tags ? record.tags.split(',').map((t: string) => t.trim()) : [],
-          type: 'article',
+          cover: record.cover || "",
+          tags: record.tags
+            ? String(record.tags)
+                .split(",")
+                .map((t) => t.trim())
+            : [],
+          type: "article",
           isPublished: true,
         };
 
@@ -87,7 +121,9 @@ export class ImportService {
         await this.articleService.batchCreate(validArticles);
         result.success = validArticles.length;
       } catch (error) {
-        throw new InternalServerErrorException(`批量导入失败: ${error.message}`);
+        throw new InternalServerErrorException(
+          `批量导入失败: ${error.message}`,
+        );
       }
     }
 
@@ -96,9 +132,9 @@ export class ImportService {
 
   async importIntelligences(
     file: Express.Multer.File,
-    format: 'csv' | 'excel',
+    format: "csv" | "excel",
   ): Promise<ImportResult> {
-    const records = this.parseFile(file, format);
+    const records = this.parseFile(file, format) as IntelligenceImportRecord[];
     const result: ImportResult = { success: 0, failed: 0, errors: [] };
 
     const validIntelligences: Partial<any>[] = [];
@@ -141,20 +177,26 @@ export class ImportService {
         }
 
         // 验证分类
-        const validCategories = ['launch', 'satellite', 'industry', 'research', 'environment'];
+        const validCategories = [
+          "launch",
+          "satellite",
+          "industry",
+          "research",
+          "environment",
+        ];
         if (!validCategories.includes(record.category)) {
           result.errors.push(
-            `第${rowNum}行: 分类值不正确，可选值: ${validCategories.join(', ')}`,
+            `第${rowNum}行: 分类值不正确，可选值: ${validCategories.join(", ")}`,
           );
           result.failed++;
           continue;
         }
 
         // 验证等级
-        const validLevels = ['free', 'advanced', 'professional'];
+        const validLevels = ["free", "advanced", "professional"];
         if (!validLevels.includes(record.level)) {
           result.errors.push(
-            `第${rowNum}行: 等级值不正确，可选值: ${validLevels.join(', ')}`,
+            `第${rowNum}行: 等级值不正确，可选值: ${validLevels.join(", ")}`,
           );
           result.failed++;
           continue;
@@ -167,9 +209,9 @@ export class ImportService {
           category: record.category,
           level: record.level,
           source: record.source,
-          cover: record.cover || '',
-          sourceUrl: record.sourceUrl || '',
-          tags: record.tags || '',
+          cover: record.cover || "",
+          sourceUrl: record.sourceUrl || "",
+          tags: record.tags || "",
         };
 
         validIntelligences.push(intelligence);
@@ -185,37 +227,42 @@ export class ImportService {
         await this.intelligenceService.batchCreate(validIntelligences);
         result.success = validIntelligences.length;
       } catch (error) {
-        throw new InternalServerErrorException(`批量导入失败: ${error.message}`);
+        throw new InternalServerErrorException(
+          `批量导入失败: ${error.message}`,
+        );
       }
     }
 
     return result;
   }
 
-  private parseFile(file: Express.Multer.File, format: 'csv' | 'excel'): any[] {
-    if (format === 'csv') {
+  private parseFile(
+    file: Express.Multer.File,
+    format: "csv" | "excel",
+  ): ImportRecord[] {
+    if (format === "csv") {
       return this.parseCsv(file.buffer);
     } else {
       return this.parseExcel(file.buffer);
     }
   }
 
-  private parseCsv(buffer: Buffer): any[] {
+  private parseCsv(buffer: Buffer): ImportRecord[] {
     try {
-      const content = buffer.toString('utf-8');
+      const content = buffer.toString("utf-8");
       return parse(content, {
         columns: true,
         skip_empty_lines: true,
         trim: true,
-      });
+      }) as ImportRecord[];
     } catch (error) {
       throw new BadRequestException(`CSV解析失败: ${error.message}`);
     }
   }
 
-  private parseExcel(buffer: Buffer): any[] {
+  private parseExcel(buffer: Buffer): ImportRecord[] {
     try {
-      const workbook = xlsx.read(buffer, { type: 'buffer' });
+      const workbook = xlsx.read(buffer, { type: "buffer" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       return xlsx.utils.sheet_to_json(sheet);

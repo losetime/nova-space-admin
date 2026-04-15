@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import { Transporter } from 'nodemailer';
+import { Injectable, Logger } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import * as nodemailer from "nodemailer";
+import { Transporter } from "nodemailer";
 
 interface DigestData {
   intelligence?: any[];
@@ -19,19 +19,19 @@ export class EmailService {
     this.initializeTransporter();
     // 发件人必须与SMTP登录用户一致（邮件服务商限制）
     this.fromEmail =
-      this.configService.get<string>('app.email.user') ||
-      'noreply@nova-space.com';
+      this.configService.get<string>("app.email.user") ||
+      "noreply@nova-space.com";
   }
 
   private initializeTransporter() {
-    const host = this.configService.get<string>('app.email.host');
-    const port = this.configService.get<number>('app.email.port');
-    const user = this.configService.get<string>('app.email.user');
-    const pass = this.configService.get<string>('app.email.pass');
+    const host = this.configService.get<string>("app.email.host");
+    const port = this.configService.get<number>("app.email.port");
+    const user = this.configService.get<string>("app.email.user");
+    const pass = this.configService.get<string>("app.email.pass");
 
     if (!host || !user || !pass) {
       this.logger.warn(
-        'Email configuration not complete. Email sending will be disabled.',
+        "Email configuration not complete. Email sending will be disabled.",
       );
       return;
     }
@@ -50,7 +50,7 @@ export class EmailService {
   async sendDailyDigest(email: string, data: DigestData): Promise<boolean> {
     if (!this.transporter) {
       this.logger.warn(
-        'Email transporter not configured. Skipping email send.',
+        "Email transporter not configured. Skipping email send.",
       );
       return false;
     }
@@ -77,7 +77,7 @@ export class EmailService {
   async sendTestEmail(email: string): Promise<boolean> {
     if (!this.transporter) {
       this.logger.warn(
-        'Email transporter not configured. Skipping email send.',
+        "Email transporter not configured. Skipping email send.",
       );
       return false;
     }
@@ -86,7 +86,7 @@ export class EmailService {
       await this.transporter.sendMail({
         from: this.fromEmail,
         to: email,
-        subject: 'Nova Space 测试推送',
+        subject: "Nova Space 测试推送",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
             <h1 style="color: #00d4ff;">Nova Space 测试推送</h1>
@@ -106,7 +106,7 @@ export class EmailService {
   }
 
   private generateDigestHtml(data: DigestData): string {
-    const SITE_URL = 'https://space.nuoweibd.com';
+    const SITE_URL = "https://space.nuoweibd.com";
     let content = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0f; padding: 30px; border-radius: 12px;">
         <h1 style="color: #00d4ff; text-align: center; margin-bottom: 30px;">Nova Space 每日资讯</h1>
@@ -115,14 +115,21 @@ export class EmailService {
 
     if (data.spaceWeather) {
       const sw = data.spaceWeather;
-      const hasWarning = sw.radiation?.scale > 0 || sw.solarFlare?.scale > 0 || sw.geomagnetic?.scale > 0;
-      const titleColor = hasWarning ? '#ef4444' : '#22c55e';
-      const icon = hasWarning ? '🚨' : '☀️';
+      const hasWarning =
+        sw.radiation?.scale > 0 ||
+        sw.solarFlare?.scale > 0 ||
+        sw.geomagnetic?.scale > 0;
+      const titleColor = hasWarning ? "#ef4444" : "#22c55e";
+      const icon = hasWarning ? "🚨" : "☀️";
 
       const translateText = (text: string, scale: number): string => {
-        if (!text || text === 'none' || scale === 0) return '平静';
+        if (!text || text === "none" || scale === 0) return "平静";
         const map: Record<string, string> = {
-          'minor': '微弱', 'moderate': '中等', 'strong': '强烈', 'severe': '严重', 'extreme': '极端'
+          minor: "微弱",
+          moderate: "中等",
+          strong: "强烈",
+          severe: "严重",
+          extreme: "极端",
         };
         return map[text.toLowerCase()] || text;
       };
@@ -131,9 +138,9 @@ export class EmailService {
         <div style="margin-bottom: 20px;">
           <h2 style="color: ${titleColor}; margin-top: 0; margin-bottom: 24px;">${icon} 空间天气</h2>
           <div style="color: #ccc; font-size: 14px; line-height: 1.8;">
-            <p style="margin: 5px 0;">辐射风暴 (R): <strong style="color: ${sw.radiation?.scale > 0 ? '#ef4444' : '#22c55e'};">R${sw.radiation?.scale || 0} ${translateText(sw.radiation?.text, sw.radiation?.scale)}</strong></p>
-            <p style="margin: 5px 0;">太阳耀斑 (S): <strong style="color: ${sw.solarFlare?.scale > 0 ? '#ef4444' : '#22c55e'};">S${sw.solarFlare?.scale || 0} ${translateText(sw.solarFlare?.text, sw.solarFlare?.scale)}</strong></p>
-            <p style="margin: 5px 0;">地磁暴 (G): <strong style="color: ${sw.geomagnetic?.scale > 0 ? '#ef4444' : '#22c55e'};">G${sw.geomagnetic?.scale || 0} ${translateText(sw.geomagnetic?.text, sw.geomagnetic?.scale)}</strong></p>
+            <p style="margin: 5px 0;">辐射风暴 (R): <strong style="color: ${sw.radiation?.scale > 0 ? "#ef4444" : "#22c55e"};">R${sw.radiation?.scale || 0} ${translateText(sw.radiation?.text, sw.radiation?.scale)}</strong></p>
+            <p style="margin: 5px 0;">太阳耀斑 (S): <strong style="color: ${sw.solarFlare?.scale > 0 ? "#ef4444" : "#22c55e"};">S${sw.solarFlare?.scale || 0} ${translateText(sw.solarFlare?.text, sw.solarFlare?.scale)}</strong></p>
+            <p style="margin: 5px 0;">地磁暴 (G): <strong style="color: ${sw.geomagnetic?.scale > 0 ? "#ef4444" : "#22c55e"};">G${sw.geomagnetic?.scale || 0} ${translateText(sw.geomagnetic?.text, sw.geomagnetic?.scale)}</strong></p>
             <p style="margin: 5px 0;">太阳风速度: <strong style="color: #00d4ff;">${sw.solarWind?.speed || 0} km/s</strong></p>
           </div>
         </div>
@@ -155,7 +162,7 @@ export class EmailService {
         content += `
           <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 6px; margin-bottom: 10px;">
             <h4 style="color: #fff; margin: 0 0 8px 0;">${item.title}</h4>
-            <p style="color: #aaa; margin: 0; font-size: 14px; line-height: 1.5;">${item.summary || ''}</p>
+            <p style="color: #aaa; margin: 0; font-size: 14px; line-height: 1.5;">${item.summary || ""}</p>
             <a href="${SITE_URL}/intelligence/${item.id}" 
                style="color: #00d4ff; text-decoration: none; font-size: 12px; display: inline-block; margin-top: 8px;">
               查看详情 →
@@ -190,9 +197,13 @@ export class EmailService {
     if (data.spaceWeather) {
       const sw = data.spaceWeather;
       const translateText = (text: string, scale: number): string => {
-        if (!text || text === 'none' || scale === 0) return '平静';
+        if (!text || text === "none" || scale === 0) return "平静";
         const map: Record<string, string> = {
-          'minor': '微弱', 'moderate': '中等', 'strong': '强烈', 'severe': '严重', 'extreme': '极端'
+          minor: "微弱",
+          moderate: "中等",
+          strong: "强烈",
+          severe: "严重",
+          extreme: "极端",
         };
         return map[text.toLowerCase()] || text;
       };
@@ -206,7 +217,7 @@ export class EmailService {
     if (data.intelligence && data.intelligence.length > 0) {
       content += `航天情报\n`;
       data.intelligence.forEach((item: any) => {
-        content += `- ${item.title}\n  ${item.summary || ''}\n`;
+        content += `- ${item.title}\n  ${item.summary || ""}\n`;
       });
     } else {
       content += `今日无重要资讯\n`;

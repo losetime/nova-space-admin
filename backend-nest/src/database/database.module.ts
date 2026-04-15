@@ -1,16 +1,16 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { drizzle } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
-import * as schema from './schema';
+import { Module } from "@nestjs/common";
+import { ConfigModule, ConfigService } from "@nestjs/config";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import * as schema from "./schema";
 
 @Module({
   imports: [ConfigModule],
   providers: [
     {
-      provide: 'DATABASE',
+      provide: "DATABASE",
       useFactory: (configService: ConfigService) => {
-        const connectionString = `postgres://${configService.get('app.database.username')}:${configService.get('app.database.password')}@${configService.get('app.database.host')}:${configService.get('app.database.port')}/${configService.get('app.database.database')}`;
+        const connectionString = `postgres://${configService.get("app.database.username")}:${configService.get("app.database.password")}@${configService.get("app.database.host")}:${configService.get("app.database.port")}/${configService.get("app.database.database")}`;
 
         const client = postgres(connectionString, {
           max: 10,
@@ -23,6 +23,6 @@ import * as schema from './schema';
       inject: [ConfigService],
     },
   ],
-  exports: ['DATABASE'],
+  exports: ["DATABASE"],
 })
 export class DatabaseModule {}

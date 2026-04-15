@@ -1,6 +1,18 @@
-import { IsEnum, IsInt, IsOptional, IsString, IsDateString, Min, IsBoolean, IsEmail } from 'class-validator';
-import { Type } from 'class-transformer';
-import { PushTriggerType, PushRecordStatus, PushSubscriptionStatus } from '../../../common/enums/push.enum';
+import {
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsDateString,
+  Min,
+  IsBoolean,
+} from "class-validator";
+import { Type } from "class-transformer";
+import {
+  PushTriggerType,
+  PushRecordStatus,
+  PushSubscriptionStatus,
+} from "../../../common/enums/push.enum";
 
 export class CreatePushRecordDto {
   @IsString()
