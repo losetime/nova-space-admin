@@ -131,9 +131,11 @@ async function fetchIntelligence() {
   try {
     const res = await intelligenceApi.getOne(Number(route.params.id))
     if (res.success) {
-      Object.assign(form, res.data)
-      // 设置标签数组
-      tagsArray.value = res.data.tags ? res.data.tags.split(',').filter(Boolean) : []
+      Object.assign(form, {
+        ...res.data,
+        tags: Array.isArray(res.data.tags) ? res.data.tags.join(',') : res.data.tags || '',
+      })
+      tagsArray.value = Array.isArray(res.data.tags) ? res.data.tags : (res.data.tags ? res.data.tags.split(',').filter(Boolean) : [])
     }
   } catch (error) {
     MessagePlugin.error('获取情报失败')
@@ -146,7 +148,10 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
 
   loading.value = true
   try {
-    const data = { ...form }
+    const data = {
+      ...form,
+      tags: tagsArray.value,
+    }
     if (isEdit.value) {
       await intelligenceApi.update(Number(route.params.id), data)
       MessagePlugin.success('保存成功')

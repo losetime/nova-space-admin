@@ -11,6 +11,17 @@ import {
   UpdateSubscriptionDto,
 } from "./dto";
 
+function parseSubscriptionTypes(types: string | null): string[] {
+  if (!types) return [];
+  try {
+    const parsed = JSON.parse(types);
+    if (Array.isArray(parsed)) return parsed;
+    return types.split(",").filter(Boolean);
+  } catch {
+    return types.split(",").filter(Boolean);
+  }
+}
+
 @Injectable()
 export class PushRecordService {
   constructor(@Inject("DATABASE") private db: Database) {}
@@ -20,7 +31,7 @@ export class PushRecordService {
 
     const conditions: SQL[] = [];
     if (triggerType) {
-      conditions.push(eq(pushRecords.trigger_type, triggerType as any));
+      conditions.push(eq(pushRecords.triggerType, triggerType as any));
     }
     if (status) {
       conditions.push(eq(pushRecords.status, status as any));
@@ -29,10 +40,10 @@ export class PushRecordService {
     let userIds: string[] = [];
     if (email) {
       const subscriptions = await this.db
-        .select({ user_id: pushSubscriptions.user_id })
+        .select({ userId: pushSubscriptions.userId })
         .from(pushSubscriptions)
         .where(like(pushSubscriptions.email, `%${email}%`));
-      userIds = subscriptions.map((s) => s.user_id);
+      userIds = subscriptions.map((s) => s.userId);
 
       if (userIds.length === 0) {
         return {
@@ -50,7 +61,7 @@ export class PushRecordService {
     }
 
     if (userIds.length > 0) {
-      conditions.push(inArray(pushRecords.user_id, userIds));
+      conditions.push(inArray(pushRecords.userId, userIds));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -58,20 +69,20 @@ export class PushRecordService {
     const records = await this.db
       .select({
         id: pushRecords.id,
-        user_id: pushRecords.user_id,
-        trigger_type: pushRecords.trigger_type,
+        userId: pushRecords.userId,
+        triggerType: pushRecords.triggerType,
         subject: pushRecords.subject,
         content: pushRecords.content,
-        sent_at: pushRecords.sent_at,
+        sentAt: pushRecords.sentAt,
         status: pushRecords.status,
-        error_message: pushRecords.error_message,
-        created_at: pushRecords.created_at,
+        errorMessage: pushRecords.errorMessage,
+        createdAt: pushRecords.createdAt,
       })
       .from(pushRecords)
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(pushRecords.created_at));
+      .orderBy(desc(pushRecords.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -81,22 +92,22 @@ export class PushRecordService {
     const total = Number(countResult[0]?.count || 0);
 
     if (records.length > 0) {
-      const recordUserIds = [...new Set(records.map((r) => r.user_id))];
+      const recordUserIds = [...new Set(records.map((r) => r.userId))];
       const subscriptions = await this.db
         .select({
-          user_id: pushSubscriptions.user_id,
+          userId: pushSubscriptions.userId,
           email: pushSubscriptions.email,
         })
         .from(pushSubscriptions)
-        .where(inArray(pushSubscriptions.user_id, recordUserIds));
+        .where(inArray(pushSubscriptions.userId, recordUserIds));
 
       const subscriptionMap = new Map(
-        subscriptions.map((s) => [s.user_id, s.email]),
+        subscriptions.map((s) => [s.userId, s.email]),
       );
 
       const data = records.map((record) => ({
         ...record,
-        subscriptionEmail: subscriptionMap.get(record.user_id) || null,
+        subscriptionEmail: subscriptionMap.get(record.userId) || null,
       }));
 
       return {
@@ -133,11 +144,11 @@ export class PushRecordService {
     const result = await this.db
       .insert(pushRecords)
       .values({
-        user_id: dto.userId,
-        trigger_type: dto.triggerType || "manual",
+        userId: dto.userId,
+        triggerType: dto.triggerType || "manual",
         subject: dto.subject,
         content: dto.content,
-        sent_at: new Date(dto.sentAt),
+        sentAt: new Date(dto.sentAt),
         status: "sent",
       } as any)
       .returning();
@@ -150,7 +161,7 @@ export class PushRecordService {
       .update(pushRecords)
       .set({
         status: dto.status as any,
-        error_message: dto.errorMessage,
+        errorMessage: dto.errorMessage,
       } as any)
       .where(eq(pushRecords.id, id))
       .returning();
@@ -198,14 +209,17 @@ export class PushRecordService {
     const subscriptions = await this.db
       .select()
       .from(pushSubscriptions)
-      .innerJoin(users, eq(pushSubscriptions.user_id, users.id))
+      .innerJoin(users, eq(pushSubscriptions.userId, users.id))
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(pushSubscriptions.created_at));
+      .orderBy(desc(pushSubscriptions.createdAt));
 
     const data = subscriptions.map((s) => ({
       ...s.push_subscriptions,
+      subscriptionTypes: parseSubscriptionTypes(
+        s.push_subscriptions.subscriptionTypes,
+      ),
       user: {
         id: s.users.id,
         username: s.users.username,

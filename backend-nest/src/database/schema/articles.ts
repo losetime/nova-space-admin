@@ -29,7 +29,7 @@ export const articles = pgTable("education_articles", {
   likes: integer("likes").default(0).notNull(),
   duration: integer("duration"),
   tags: text("tags"),
-  is_published: boolean("is_published").default(true).notNull(),
-  created_at: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
-  updated_at: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  isPublished: boolean("is_published").default(true).notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
 });

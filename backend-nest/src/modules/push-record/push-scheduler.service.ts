@@ -22,7 +22,7 @@ export class PushSchedulerService {
     const result = await this.db
       .select()
       .from(pushSubscriptions)
-      .where(eq(pushSubscriptions.user_id, userId))
+      .where(eq(pushSubscriptions.userId, userId))
       .limit(1);
     const subscription = result[0];
 
@@ -41,19 +41,19 @@ export class PushSchedulerService {
       );
 
       await this.db.insert(pushRecords).values({
-        user_id: userId,
-        trigger_type: "manual",
+        userId: userId,
+        triggerType: "manual",
         subject: `Nova Space 测试推送 - ${content.date}`,
         content: JSON.stringify(content),
-        sent_at: new Date(),
+        sentAt: new Date(),
         status: sent ? "sent" : "failed",
       } as any);
 
       if (sent) {
         await this.db
           .update(pushSubscriptions)
-          .set({ last_push_at: new Date() })
-          .where(eq(pushSubscriptions.user_id, userId));
+          .set({ lastPushAt: new Date() })
+          .where(eq(pushSubscriptions.userId, userId));
       }
 
       return sent;
@@ -153,9 +153,9 @@ export class PushSchedulerService {
     today.setHours(0, 0, 0, 0);
 
     return subscriptions.filter((sub) => {
-      if (!sub.last_push_at) return true;
+      if (!sub.lastPushAt) return true;
 
-      const lastPushDate = new Date(sub.last_push_at);
+      const lastPushDate = new Date(sub.lastPushAt);
       lastPushDate.setHours(0, 0, 0, 0);
 
       return lastPushDate < today;
@@ -213,7 +213,7 @@ export class PushSchedulerService {
       if (sent) {
         await this.db
           .update(pushSubscriptions)
-          .set({ last_push_at: new Date() })
+          .set({ lastPushAt: new Date() })
           .where(eq(pushSubscriptions.id, subscription.id));
       }
 
@@ -232,13 +232,13 @@ export class PushSchedulerService {
     errorMessage?: string,
   ): Promise<void> {
     await this.db.insert(pushRecords).values({
-      user_id: subscription.user_id,
-      trigger_type: "scheduled",
+      userId: subscription.userId,
+      triggerType: "scheduled",
       subject: `Nova Space 每日资讯 - ${new Date().toLocaleDateString("zh-CN")}`,
       content: content ? JSON.stringify(content) : "",
-      sent_at: new Date(),
+      sentAt: new Date(),
       status: success ? "sent" : "failed",
-      error_message: errorMessage || null,
+      errorMessage: errorMessage || null,
     } as any);
   }
 
@@ -254,8 +254,8 @@ export class PushSchedulerService {
       .where(
         and(
           eq(pushRecords.status, "failed"),
-          eq(pushRecords.trigger_type, "scheduled"),
-          between(pushRecords.created_at, today, oneHourAgo),
+          eq(pushRecords.triggerType, "scheduled"),
+          between(pushRecords.createdAt, today, oneHourAgo),
         ),
       )
       .limit(50);
@@ -272,12 +272,12 @@ export class PushSchedulerService {
         const subResult = await this.db
           .select()
           .from(pushSubscriptions)
-          .where(eq(pushSubscriptions.user_id, record.user_id))
+          .where(eq(pushSubscriptions.userId, record.userId))
           .limit(1);
         const subscription = subResult[0];
 
         if (!subscription) {
-          this.logger.warn(`找不到订阅：${record.user_id}`);
+          this.logger.warn(`找不到订阅：${record.userId}`);
           continue;
         }
 
@@ -293,7 +293,7 @@ export class PushSchedulerService {
           .update(pushRecords)
           .set({
             status: sent ? "sent" : "failed",
-            error_message: sent ? null : `重试失败 ${new Date().toISOString()}`,
+            errorMessage: sent ? null : `重试失败 ${new Date().toISOString()}`,
           })
           .where(eq(pushRecords.id, record.id));
 
@@ -301,8 +301,8 @@ export class PushSchedulerService {
           success++;
           await this.db
             .update(pushSubscriptions)
-            .set({ last_push_at: new Date() })
-            .where(eq(pushSubscriptions.user_id, record.user_id));
+            .set({ lastPushAt: new Date() })
+            .where(eq(pushSubscriptions.userId, record.userId));
         } else {
           failed++;
         }

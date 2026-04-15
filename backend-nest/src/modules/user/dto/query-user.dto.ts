@@ -1,5 +1,5 @@
 import { IsOptional, IsEnum, IsBoolean, IsInt, Min } from "class-validator";
-import { Type } from "class-transformer";
+import { Transform, Type } from "class-transformer";
 import { userRoles } from "./create-user.dto";
 import type { UserRole } from "./create-user.dto";
 
@@ -23,7 +23,11 @@ export class QueryUserDto {
   @IsOptional()
   role?: UserRole;
 
-  @Type(() => Boolean)
+  @Transform(({ value }) => {
+    if (value === "true" || value === true) return true;
+    if (value === "false" || value === false) return false;
+    return undefined;
+  })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;

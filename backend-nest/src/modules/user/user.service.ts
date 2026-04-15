@@ -28,7 +28,7 @@ export class UserService {
       conditions.push(eq(users.role, role as UserRoleType));
     }
     if (isActive !== undefined) {
-      conditions.push(eq(users.is_active, isActive));
+      conditions.push(eq(users.isActive, isActive));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -44,18 +44,18 @@ export class UserService {
         role: users.role,
         level: users.level,
         points: users.points,
-        total_points: users.total_points,
-        is_verified: users.is_verified,
-        is_active: users.is_active,
-        last_login_at: users.last_login_at,
-        created_at: users.created_at,
-        updated_at: users.updated_at,
+        totalPoints: users.totalPoints,
+        isVerified: users.isVerified,
+        isActive: users.isActive,
+        lastLoginAt: users.lastLoginAt,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
       })
       .from(users)
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(users.created_at));
+      .orderBy(desc(users.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -85,12 +85,12 @@ export class UserService {
         role: users.role,
         level: users.level,
         points: users.points,
-        total_points: users.total_points,
-        is_verified: users.is_verified,
-        is_active: users.is_active,
-        last_login_at: users.last_login_at,
-        created_at: users.created_at,
-        updated_at: users.updated_at,
+        totalPoints: users.totalPoints,
+        isVerified: users.isVerified,
+        isActive: users.isActive,
+        lastLoginAt: users.lastLoginAt,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
       })
       .from(users)
       .where(eq(users.id, id))
@@ -205,7 +205,7 @@ export class UserService {
         avatar: dto.avatar,
         role: dto.role as UserRoleType,
         level: dto.level as UserLevelType,
-        is_active: dto.isActive,
+        isActive: dto.isActive,
       } as any)
       .where(eq(users.id, id))
       .returning();
@@ -223,7 +223,7 @@ export class UserService {
     }
     await this.db
       .update(users)
-      .set({ is_active: false })
+      .set({ isActive: false })
       .where(eq(users.id, id));
     return { message: "删除成功" };
   }

@@ -16,10 +16,10 @@ type MilestoneCategoryType =
   | "other";
 
 const sortByMap: Record<string, any> = {
-  event_date: milestones.event_date,
-  eventDate: milestones.event_date,
-  created_at: milestones.created_at,
-  createdAt: milestones.created_at,
+  event_date: milestones.eventDate,
+  eventDate: milestones.eventDate,
+  created_at: milestones.createdAt,
+  createdAt: milestones.createdAt,
   importance: milestones.importance,
 };
 
@@ -49,7 +49,7 @@ export class MilestoneService {
       conditions.push(eq(milestones.importance, importance));
     }
     if (isPublished !== undefined) {
-      conditions.push(eq(milestones.is_published, isPublished));
+      conditions.push(eq(milestones.isPublished, isPublished));
     }
     if (search) {
       conditions.push(
@@ -62,7 +62,7 @@ export class MilestoneService {
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const sortColumn = sortByMap[sortBy] || milestones.event_date;
+    const sortColumn = sortByMap[sortBy] || milestones.eventDate;
     const orderByClause =
       sortOrder === "DESC" ? desc(sortColumn) : asc(sortColumn);
 
@@ -109,15 +109,15 @@ export class MilestoneService {
         title: dto.title,
         description: dto.description,
         content: dto.content,
-        event_date: new Date(dto.eventDate),
+        eventDate: new Date(dto.eventDate),
         category: dto.category as MilestoneCategoryType,
         cover: dto.cover,
         media: dto.media,
-        related_satellite_norad_id: dto.relatedSatelliteNoradId,
+        relatedSatelliteNoradId: dto.relatedSatelliteNoradId,
         importance: dto.importance,
         location: dto.location,
         organizer: dto.organizer,
-        is_published: dto.isPublished ?? true,
+        isPublished: dto.isPublished ?? true,
       } as any)
       .returning();
     return result[0];
@@ -129,17 +129,16 @@ export class MilestoneService {
     if (dto.title) updateData.title = dto.title;
     if (dto.description) updateData.description = dto.description;
     if (dto.content) updateData.content = dto.content;
-    if (dto.eventDate) updateData.event_date = new Date(dto.eventDate);
+    if (dto.eventDate) updateData.eventDate = new Date(dto.eventDate);
     if (dto.category) updateData.category = dto.category;
     if (dto.cover) updateData.cover = dto.cover;
     if (dto.media) updateData.media = dto.media;
     if (dto.relatedSatelliteNoradId)
-      updateData.related_satellite_norad_id = dto.relatedSatelliteNoradId;
+      updateData.relatedSatelliteNoradId = dto.relatedSatelliteNoradId;
     if (dto.importance) updateData.importance = dto.importance;
     if (dto.location) updateData.location = dto.location;
     if (dto.organizer) updateData.organizer = dto.organizer;
-    if (dto.isPublished !== undefined)
-      updateData.is_published = dto.isPublished;
+    if (dto.isPublished !== undefined) updateData.isPublished = dto.isPublished;
 
     const result = await this.db
       .update(milestones)
@@ -159,7 +158,7 @@ export class MilestoneService {
     const milestone = await this.findOne(id);
     const result = await this.db
       .update(milestones)
-      .set({ is_published: !milestone.is_published })
+      .set({ isPublished: !milestone.isPublished })
       .where(eq(milestones.id, id))
       .returning();
     return result[0];

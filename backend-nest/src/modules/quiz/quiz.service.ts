@@ -31,7 +31,7 @@ export class QuizService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(quizzes.created_at));
+      .orderBy(desc(quizzes.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -65,7 +65,7 @@ export class QuizService {
     return {
       question: dto.question,
       options: dto.options,
-      correct_index: dto.correctIndex,
+      correctIndex: dto.correctIndex,
       explanation: dto.explanation,
       category: dto.category as QuizCategoryType,
       points: dto.points,

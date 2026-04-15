@@ -6,6 +6,8 @@ import {
   IsUrl,
   IsInt,
   Min,
+  IsArray,
+  ValidateIf,
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -52,13 +54,14 @@ export class CreateIntelligenceDto {
   @IsNotEmpty({ message: "来源不能为空" })
   source: string;
 
-  @IsUrl()
-  @IsOptional()
+  @ValidateIf((o) => o.sourceUrl && o.sourceUrl.length > 0)
+  @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  tags?: string;
+  tags?: string[];
 
   @IsString()
   @IsOptional()
@@ -89,11 +92,11 @@ export class UpdateIntelligenceDto {
   @IsOptional()
   cover?: string;
 
-  @IsEnum(IntelligenceCategory)
+  @IsEnum(IntelligenceCategory, { message: "分类不正确" })
   @IsOptional()
   category?: IntelligenceCategory;
 
-  @IsEnum(IntelligenceLevel)
+  @IsEnum(IntelligenceLevel, { message: "等级不正确" })
   @IsOptional()
   level?: IntelligenceLevel;
 
@@ -101,13 +104,14 @@ export class UpdateIntelligenceDto {
   @IsOptional()
   source?: string;
 
-  @IsUrl()
-  @IsOptional()
+  @ValidateIf((o) => o.sourceUrl && o.sourceUrl.length > 0)
+  @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsString()
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  tags?: string;
+  tags?: string[];
 
   @IsString()
   @IsOptional()

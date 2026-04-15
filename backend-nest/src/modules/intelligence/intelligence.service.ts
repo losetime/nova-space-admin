@@ -16,6 +16,17 @@ type IntelligenceCategoryType =
   | "environment";
 type IntelligenceLevelType = "free" | "advanced" | "professional";
 
+function parseTags(tags: string | null): string[] {
+  if (!tags) return [];
+  try {
+    const parsed = JSON.parse(tags);
+    if (Array.isArray(parsed)) return parsed;
+    return [tags];
+  } catch {
+    return [tags];
+  }
+}
+
 @Injectable()
 export class IntelligenceService {
   constructor(@Inject("DATABASE") private db: Database) {}
@@ -44,7 +55,7 @@ export class IntelligenceService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(intelligences.created_at));
+      .orderBy(desc(intelligences.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -54,7 +65,10 @@ export class IntelligenceService {
     const total = Number(countResult[0]?.count || 0);
 
     return {
-      data,
+      data: data.map((item) => ({
+        ...item,
+        tags: parseTags(item.tags),
+      })),
       total,
       page,
       limit,
@@ -71,7 +85,10 @@ export class IntelligenceService {
     if (!intelligence[0]) {
       throw new NotFoundException("情报不存在");
     }
-    return intelligence[0];
+    return {
+      ...intelligence[0],
+      tags: parseTags(intelligence[0].tags),
+    };
   }
 
   private mapDtoToSchema(dto: CreateIntelligenceDto | UpdateIntelligenceDto) {
@@ -83,11 +100,11 @@ export class IntelligenceService {
       category: dto.category,
       level: dto.level,
       source: dto.source,
-      source_url: dto.sourceUrl,
-      tags: dto.tags,
+      sourceUrl: dto.sourceUrl,
+      tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
       analysis: dto.analysis,
       trend: dto.trend,
-      published_at: dto.publishedAt,
+      publishedAt: dto.publishedAt,
     };
   }
 
@@ -97,7 +114,11 @@ export class IntelligenceService {
       .insert(intelligences)
       .values(values as any)
       .returning();
-    return result[0];
+    const intelligence = result[0];
+    return {
+      ...intelligence,
+      tags: parseTags(intelligence.tags),
+    };
   }
 
   async update(id: number, dto: UpdateIntelligenceDto) {
@@ -108,7 +129,11 @@ export class IntelligenceService {
       .set(values as any)
       .where(eq(intelligences.id, id))
       .returning();
-    return result[0];
+    const intelligence = result[0];
+    return {
+      ...intelligence,
+      tags: parseTags(intelligence.tags),
+    };
   }
 
   async remove(id: number) {

@@ -78,8 +78,8 @@
           <t-link theme="primary" @click="handleResetPassword(row.id)">
             重置密码
           </t-link>
-          <t-popconfirm content="确定要删除这个用户吗？" @confirm="handleDelete(row.id)">
-            <t-link theme="danger">删除</t-link>
+          <t-popconfirm content="确定要禁用这个用户吗？禁用后用户将无法登录。" @confirm="handleDelete(row.id)">
+            <t-link theme="danger">禁用</t-link>
           </t-popconfirm>
         </t-space>
       </template>
@@ -185,10 +185,10 @@ function handlePageChange(pageInfo: { current: number; pageSize: number }) {
 async function handleDelete(id: string) {
   try {
     await userApi.delete(id)
-    MessagePlugin.success('删除成功')
+    MessagePlugin.success('用户已禁用')
     fetchUsers()
   } catch (error) {
-    MessagePlugin.error('删除失败')
+    MessagePlugin.error('禁用失败')
   }
 }
 

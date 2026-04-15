@@ -14,9 +14,9 @@ export interface UserProfile {
   avatar: string | null;
   role: string;
   level: string;
-  is_active: boolean;
-  is_verified: boolean;
-  created_at: Date;
+  isActive: boolean;
+  isVerified: boolean;
+  createdAt: Date;
 }
 
 function userWithoutPassword(
@@ -53,7 +53,7 @@ export class AuthService {
       throw new UnauthorizedException("用户名或密码错误");
     }
 
-    if (!user.is_active) {
+    if (!user.isActive) {
       throw new UnauthorizedException("账号已被禁用");
     }
 

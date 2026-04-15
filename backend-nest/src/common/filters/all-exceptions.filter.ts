@@ -14,15 +14,16 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = "Internal server error";
+    let message = "服务器内部错误";
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      message =
+      const rawMessage =
         typeof exceptionResponse === "string"
           ? exceptionResponse
           : (exceptionResponse as any).message || message;
+      message = Array.isArray(rawMessage) ? rawMessage[0] : rawMessage;
     } else if (exception instanceof Error) {
       message = exception.message;
     }

@@ -27,7 +27,7 @@ export class FeedbackService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(feedbacks.created_at));
+      .orderBy(desc(feedbacks.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })

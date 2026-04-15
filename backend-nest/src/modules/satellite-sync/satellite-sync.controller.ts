@@ -63,10 +63,10 @@ export class SatelliteSyncController {
     if (task.status === "running") {
       const errors = await this.syncService.getRecentErrors(task.id, 5);
       recentErrors = errors.map((err) => ({
-        noradId: err.norad_id,
+        noradId: err.noradId,
         name: err.name ?? "",
-        errorType: err.error_type,
-        errorMessage: err.error_message,
+        errorType: err.errorType,
+        errorMessage: err.errorMessage,
         timestamp: err.timestamp.toISOString(),
       }));
     }
@@ -75,8 +75,8 @@ export class SatelliteSyncController {
       taskId: task.id,
       type: task.type,
       status: task.status,
-      startedAt: task.started_at?.toISOString(),
-      completedAt: task.completed_at?.toISOString(),
+      startedAt: task.startedAt?.toISOString(),
+      completedAt: task.completedAt?.toISOString(),
       progress: {
         total: task.total,
         processed: task.processed,

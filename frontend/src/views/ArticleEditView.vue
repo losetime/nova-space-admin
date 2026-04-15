@@ -107,7 +107,7 @@ async function fetchArticle() {
     if (res.success) {
       Object.assign(form, {
         ...res.data,
-        tags: res.data.tags || [],
+        tags: Array.isArray(res.data.tags) ? res.data.tags : (res.data.tags ? [res.data.tags] : []),
       })
     }
   } catch (error) {

@@ -32,19 +32,15 @@ export const satelliteSyncTasks = pgTable(
     processed: integer("processed").default(0).notNull(),
     success: integer("success").default(0).notNull(),
     failed: integer("failed").default(0).notNull(),
-    started_at: timestamp("started_at", { mode: "date" }),
-    completed_at: timestamp("completed_at", { mode: "date" }),
+    startedAt: timestamp("started_at", { mode: "date" }),
+    completedAt: timestamp("completed_at", { mode: "date" }),
     error: text("error"),
-    created_at: timestamp("created_at", { mode: "date" })
-      .defaultNow()
-      .notNull(),
-    updated_at: timestamp("updated_at", { mode: "date" })
-      .defaultNow()
-      .notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
   },
   (table) => [
     index("satellite_sync_tasks_status_idx").on(table.status),
     index("satellite_sync_tasks_type_idx").on(table.type),
-    index("satellite_sync_tasks_started_at_idx").on(table.started_at),
+    index("satellite_sync_tasks_started_at_idx").on(table.startedAt),
   ],
 );

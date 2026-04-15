@@ -7,6 +7,17 @@ import { CreateArticleDto, UpdateArticleDto, QueryArticleDto } from "./dto";
 type ArticleCategory = "basic" | "advanced" | "mission" | "people";
 type ArticleType = "article" | "video";
 
+function parseTags(tags: string | null): string[] {
+  if (!tags) return [];
+  try {
+    const parsed = JSON.parse(tags);
+    if (Array.isArray(parsed)) return parsed;
+    return [tags];
+  } catch {
+    return [tags];
+  }
+}
+
 @Injectable()
 export class ArticleService {
   constructor(@Inject("DATABASE") private db: Database) {}
@@ -22,7 +33,7 @@ export class ArticleService {
       conditions.push(like(articles.title, `%${keyword}%`));
     }
     if (isPublished !== undefined) {
-      conditions.push(eq(articles.is_published, isPublished));
+      conditions.push(eq(articles.isPublished, isPublished));
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -33,7 +44,7 @@ export class ArticleService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(articles.created_at));
+      .orderBy(desc(articles.createdAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -43,7 +54,10 @@ export class ArticleService {
     const total = Number(countResult[0]?.count || 0);
 
     return {
-      data,
+      data: data.map((item) => ({
+        ...item,
+        tags: parseTags(item.tags),
+      })),
       total,
       page,
       limit,
@@ -60,7 +74,10 @@ export class ArticleService {
     if (!article[0]) {
       throw new NotFoundException("文章不存在");
     }
-    return article[0];
+    return {
+      ...article[0],
+      tags: parseTags(article[0].tags),
+    };
   }
 
   private mapDtoToSchema(dto: CreateArticleDto | UpdateArticleDto) {
@@ -73,7 +90,7 @@ export class ArticleService {
       type: dto.type as ArticleType,
       duration: dto.duration,
       tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
-      is_published: dto.isPublished,
+      isPublished: dto.isPublished,
     };
   }
 
@@ -86,7 +103,7 @@ export class ArticleService {
     const article = result[0];
     return {
       ...article,
-      tags: article.tags ? JSON.parse(article.tags) : null,
+      tags: parseTags(article.tags),
     };
   }
 
@@ -101,7 +118,7 @@ export class ArticleService {
     const article = result[0];
     return {
       ...article,
-      tags: article.tags ? JSON.parse(article.tags) : null,
+      tags: parseTags(article.tags),
     };
   }
 

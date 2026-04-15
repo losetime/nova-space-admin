@@ -13,10 +13,10 @@ interface DigestContent {
 }
 
 interface SubscriptionRecord {
-  user_id: string;
-  subscription_types?: string | null;
-  intelligence_categories?: string | null;
-  intelligence_level?: string | null;
+  userId: string;
+  subscriptionTypes?: string | null;
+  intelligenceCategories?: string | null;
+  intelligenceLevel?: string | null;
 }
 
 @Injectable()
@@ -43,7 +43,7 @@ export class DigestService {
       date,
     };
 
-    const subscriptionTypes = subscription.subscription_types?.split(",") || [];
+    const subscriptionTypes = subscription.subscriptionTypes?.split(",") || [];
 
     if (subscriptionTypes.includes("intelligence")) {
       content.intelligence = await this.getIntelligenceContent(subscription);
@@ -84,7 +84,7 @@ export class DigestService {
       const userResult = await this.db
         .select()
         .from(users)
-        .where(eq(users.id, subscription.user_id))
+        .where(eq(users.id, subscription.userId))
         .limit(1);
       const level = userResult[0]?.level || "basic";
 
@@ -101,16 +101,16 @@ export class DigestService {
           title: intelligences.title,
           summary: intelligences.summary,
           category: intelligences.category,
-          published_at: intelligences.published_at,
+          publishedAt: intelligences.publishedAt,
         })
         .from(intelligences)
         .where(
           and(
             inArray(intelligences.level, whereLevels as any),
-            gt(intelligences.created_at, YESTERDAY),
+            gt(intelligences.createdAt, YESTERDAY),
           ),
         )
-        .orderBy(desc(intelligences.created_at))
+        .orderBy(desc(intelligences.createdAt))
         .limit(3);
 
       return items;
@@ -130,16 +130,16 @@ export class DigestService {
           title: intelligences.title,
           summary: intelligences.summary,
           category: intelligences.category,
-          published_at: intelligences.published_at,
+          publishedAt: intelligences.publishedAt,
         })
         .from(intelligences)
         .where(
           and(
             eq(intelligences.level, "free"),
-            gt(intelligences.created_at, YESTERDAY),
+            gt(intelligences.createdAt, YESTERDAY),
           ),
         )
-        .orderBy(desc(intelligences.created_at))
+        .orderBy(desc(intelligences.createdAt))
         .limit(3);
 
       return items;

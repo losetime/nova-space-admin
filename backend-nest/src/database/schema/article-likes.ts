@@ -4,11 +4,11 @@ import { articles } from "./articles";
 
 export const articleLikes = pgTable("article_likes", {
   id: serial("id").primaryKey(),
-  user_id: uuid("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
-  article_id: integer("article_id")
+  articleId: integer("article_id")
     .notNull()
     .references(() => articles.id, { onDelete: "cascade" }),
-  created_at: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });

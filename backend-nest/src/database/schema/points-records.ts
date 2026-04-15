@@ -23,7 +23,7 @@ export const pointsActionEnum = pgEnum("points_action", [
 
 export const pointsRecords = pgTable("points_records", {
   id: uuid("id").primaryKey().defaultRandom(),
-  user_id: uuid("user_id")
+  userId: uuid("user_id")
     .notNull()
     .references(() => users.id, { onDelete: "cascade" }),
   action: pointsActionEnum("action").notNull(),
@@ -32,7 +32,7 @@ export const pointsRecords = pgTable("points_records", {
     .default("0")
     .notNull(),
   description: varchar("description", { length: 255 }),
-  related_id: varchar("related_id", { length: 100 }),
-  related_type: varchar("related_type", { length: 50 }),
-  created_at: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
+  relatedId: varchar("related_id", { length: 100 }),
+  relatedType: varchar("related_type", { length: 50 }),
+  createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
 });

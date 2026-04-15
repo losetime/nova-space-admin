@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject } from "@nestjs/common";
-import { eq, like, desc, and, sql } from "drizzle-orm";
+import { eq, like, desc, and, sql, asc } from "drizzle-orm";
 import type { Database } from "../../database";
 import { companies } from "../../database/schema/companies";
 import { CreateCompanyDto, UpdateCompanyDto, QueryCompanyDto } from "./dto";
@@ -27,7 +27,7 @@ export class CompanyService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(companies.created_at));
+      .orderBy(desc(companies.updatedAt));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
@@ -66,7 +66,10 @@ export class CompanyService {
     await this.findOne(id);
     const result = await this.db
       .update(companies)
-      .set(dto)
+      .set({
+        ...dto,
+        updatedAt: new Date(),
+      })
       .where(eq(companies.id, id))
       .returning();
     return result[0];
