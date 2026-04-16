@@ -19,6 +19,7 @@ export const pointsActionEnum = pgEnum("points_action", [
   "consume",
   "admin_grant",
   "expire",
+  "points_exchange_member",
 ]);
 
 export const pointsRecords = pgTable("points_records", {

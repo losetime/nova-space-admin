@@ -117,6 +117,26 @@ const routes = [
         name: 'CompanyEdit',
         component: () => import('@/views/CompanyEditView.vue'),
       },
+      {
+        path: 'membership/plans',
+        name: 'MembershipPlans',
+        component: () => import('@/views/MembershipPlansView.vue'),
+      },
+      {
+        path: 'membership/benefits',
+        name: 'MembershipBenefits',
+        component: () => import('@/views/MembershipBenefitsView.vue'),
+      },
+      {
+        path: 'membership/levels',
+        name: 'MembershipLevels',
+        component: () => import('@/views/MembershipLevelsView.vue'),
+      },
+      {
+        path: 'membership/subscriptions',
+        name: 'MembershipSubscriptions',
+        component: () => import('@/views/MembershipSubscriptionsView.vue'),
+      },
     ],
   },
 ]

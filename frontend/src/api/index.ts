@@ -582,4 +582,173 @@ export const companyApi = {
     api.get<any, ApiResponse<{ total: number; countries: any[] }>>('/companies/statistics'),
 }
 
+// Membership API
+export interface MembershipPlan {
+  id: string
+  name: string
+  planCode: string
+  durationMonths: number
+  level: 'basic' | 'advanced' | 'professional'
+  price: number
+  pointsPrice: number | null
+  description: string | null
+  features: Record<string, any> | null
+  isActive: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+// 权益（新结构）
+export interface Benefit {
+  id: string
+  name: string
+  description: string | null
+  valueType: 'number' | 'text' | 'boolean'
+  unit: string | null
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
+
+// 会员等级
+export interface MemberLevel {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  icon: string | null
+  isDefault: boolean
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+  benefits?: {
+    id: string
+    name: string
+    description: string | null
+    valueType: string
+    unit: string | null
+    value: string
+  }[]
+  userCount?: number
+}
+
+export interface MembershipSubscription {
+  id: string
+  userId: string
+  plan: string
+  status: 'active' | 'expired' | 'cancelled' | 'pending'
+  price: number
+  startDate: string
+  endDate: string
+  paymentMethod: string | null
+  paymentId: string | null
+  autoRenew: boolean
+  cancelledAt: string | null
+  cancelReason: string | null
+  createdAt: string
+  updatedAt: string
+  user?: {
+    id: string
+    username: string
+    email: string | null
+    nickname: string | null
+    level: string
+  }
+}
+
+export interface MembershipStatistics {
+  total: number
+  active: number
+  expired: number
+  planStats: { plan: string; count: number }[]
+  levelStats: { level: string; count: number }[]
+}
+
+export const membershipApi = {
+  // Plans
+  getPlans: (params?: { page?: number; limit?: number; isActive?: boolean; level?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<MembershipPlan>>>('/membership/plans', { params }),
+
+  getPlan: (id: string) =>
+    api.get<any, ApiResponse<MembershipPlan>>(`/membership/plans/${id}`),
+
+  createPlan: (data: Partial<MembershipPlan>) =>
+    api.post<any, ApiResponse<MembershipPlan>>('/membership/plans', data),
+
+  updatePlan: (id: string, data: Partial<MembershipPlan>) =>
+    api.put<any, ApiResponse<MembershipPlan>>(`/membership/plans/${id}`, data),
+
+  deletePlan: (id: string) =>
+    api.delete<any, ApiResponse<void>>(`/membership/plans/${id}`),
+
+  // Benefits
+  getBenefits: (params?: { page?: number; limit?: number }) =>
+    api.get<any, ApiResponse<PaginatedResponse<Benefit>>>('/membership/benefits', { params }),
+
+  getBenefit: (id: string) =>
+    api.get<any, ApiResponse<Benefit>>(`/membership/benefits/${id}`),
+
+  createBenefit: (data: Partial<Benefit>) =>
+    api.post<any, ApiResponse<Benefit>>('/membership/benefits', data),
+
+  updateBenefit: (id: string, data: Partial<Benefit>) =>
+    api.put<any, ApiResponse<Benefit>>(`/membership/benefits/${id}`, data),
+
+  deleteBenefit: (id: string) =>
+    api.delete<any, ApiResponse<void>>(`/membership/benefits/${id}`),
+
+  // Member Levels
+  getLevels: (params?: { page?: number; limit?: number }) =>
+    api.get<any, ApiResponse<PaginatedResponse<MemberLevel>>>('/membership/levels', { params }),
+
+  getLevel: (id: string) =>
+    api.get<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}`),
+
+  createLevel: (data: Partial<MemberLevel>) =>
+    api.post<any, ApiResponse<MemberLevel>>('/membership/levels', data),
+
+  updateLevel: (id: string, data: Partial<MemberLevel>) =>
+    api.put<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}`, data),
+
+  deleteLevel: (id: string) =>
+    api.delete<any, ApiResponse<void>>(`/membership/levels/${id}`),
+
+  configureLevelBenefits: (id: string, data: { benefits: { benefitId: string; value: string }[] }) =>
+    api.put<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}/benefits`, data),
+
+  addLevelBenefit: (id: string, data: { benefitId: string; value: string }) =>
+    api.post<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}/benefits`, data),
+
+  removeLevelBenefit: (id: string, benefitId: string) =>
+    api.delete<any, ApiResponse<void>>(`/membership/levels/${id}/benefits/${benefitId}`),
+
+  // Subscriptions
+  getSubscriptions: (params?: {
+    page?: number
+    limit?: number
+    userId?: string
+    username?: string
+    status?: string
+    plan?: string
+  }) =>
+    api.get<any, ApiResponse<PaginatedResponse<MembershipSubscription>>>('/membership/subscriptions', { params }),
+
+  getSubscription: (id: string) =>
+    api.get<any, ApiResponse<MembershipSubscription>>(`/membership/subscriptions/${id}`),
+
+  activateUser: (userId: string, data: { plan: string; startDate?: string; endDate?: string; reason?: string }) =>
+    api.post<any, ApiResponse<MembershipSubscription>>(`/membership/users/${userId}/activate`, data),
+
+  extendSubscription: (id: string, months: number, reason?: string) =>
+    api.post<any, ApiResponse<MembershipSubscription>>(`/membership/subscriptions/${id}/extend`, { months, reason }),
+
+  cancelSubscription: (id: string, reason?: string) =>
+    api.post<any, ApiResponse<MembershipSubscription>>(`/membership/subscriptions/${id}/cancel`, { reason }),
+
+  // Statistics
+  getStatistics: () =>
+    api.get<any, ApiResponse<MembershipStatistics>>('/membership/statistics'),
+}
+
 export default api

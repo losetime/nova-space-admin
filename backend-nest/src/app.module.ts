@@ -14,6 +14,7 @@ import { QuizModule } from "./modules/quiz/quiz.module";
 import { SatelliteSyncModule } from "./modules/satellite-sync/satellite-sync.module";
 import { MilestoneModule } from "./modules/milestone/milestone.module";
 import { CompanyModule } from "./modules/company/company.module";
+import { MembershipModule } from "./modules/membership/membership.module";
 import { HealthModule } from "./common/health/health.module";
 import { AllExceptionsFilter } from "./common/filters";
 import { TransformInterceptor } from "./common/interceptors";
@@ -40,6 +41,7 @@ import appConfig from "./config/app.config";
     SatelliteSyncModule,
     MilestoneModule,
     CompanyModule,
+    MembershipModule,
     HealthModule,
   ],
   providers: [

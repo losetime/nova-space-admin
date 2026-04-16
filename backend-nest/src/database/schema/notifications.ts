@@ -14,6 +14,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "intelligence",
   "system",
   "achievement",
+  "membership",
 ]);
 
 export const notifications = pgTable(

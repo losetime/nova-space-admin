@@ -51,6 +51,7 @@ export default registerAs("app", () => ({
     secretKey: process.env.MINIO_SECRET_KEY || "admin123456",
     bucket: process.env.MINIO_BUCKET || "nova-space",
     useSSL: process.env.MINIO_USE_SSL === "true" || false,
+    publicUrl: process.env.MINIO_PUBLIC_URL || "",
   },
   push: {
     enabled: process.env.PUSH_ENABLED === "true" || true,

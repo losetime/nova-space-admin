@@ -10,6 +10,7 @@ export class UploadService implements OnModuleInit {
   private endpoint: string;
   private port: number;
   private useSSL: boolean;
+  private publicUrl: string;
 
   constructor(private configService: ConfigService) {
     const minioConfig = this.configService.get("app.minio");
@@ -17,6 +18,7 @@ export class UploadService implements OnModuleInit {
     this.endpoint = minioConfig.endpoint;
     this.port = minioConfig.port;
     this.useSSL = minioConfig.useSSL;
+    this.publicUrl = minioConfig.publicUrl;
 
     this.minioClient = new Minio.Client({
       endPoint: this.endpoint,
@@ -78,25 +80,17 @@ export class UploadService implements OnModuleInit {
       },
     );
 
-    const protocol = this.useSSL ? "https" : "http";
-    const url = `${protocol}://${this.endpoint}:${this.port}/${this.bucketName}/${filename}`;
+    let url: string;
+    if (this.publicUrl) {
+      url = `${this.publicUrl}/${filename}`;
+    } else {
+      const protocol = this.useSSL ? "https" : "http";
+      url = `${protocol}://${this.endpoint}:${this.port}/${this.bucketName}/${filename}`;
+    }
 
     return {
       url,
       filename,
-      originalname: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
-    };
-  }
-
-  getImageInfo(file: Express.Multer.File) {
-    const baseUrl = this.configService.get<string>("app.baseUrl") || "";
-    const imageUrl = `${baseUrl}/uploads/images/${file.filename}`;
-
-    return {
-      url: imageUrl,
-      filename: file.filename,
       originalname: file.originalname,
       size: file.size,
       mimetype: file.mimetype,

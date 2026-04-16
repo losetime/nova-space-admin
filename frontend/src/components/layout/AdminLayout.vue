@@ -41,6 +41,22 @@
           <template #icon><SendIcon /></template>
           邮件订阅
         </t-menu-item>
+        <t-menu-item value="membershipBenefits">
+          <template #icon><GiftIcon /></template>
+          权益管理
+        </t-menu-item>
+        <t-menu-item value="membershipLevels">
+          <template #icon><MemberIcon /></template>
+          会员管理
+        </t-menu-item>
+        <t-menu-item value="membershipPlans">
+          <template #icon><CartIcon /></template>
+          套餐管理
+        </t-menu-item>
+        <t-menu-item value="membershipSubscriptions">
+          <template #icon><HistoryIcon /></template>
+          订阅记录
+        </t-menu-item>
         <t-menu-item value="quiz">
           <template #icon><QuestionnaireIcon /></template>
           问答管理
@@ -135,6 +151,10 @@ import {
   CloudDownloadIcon,
   TimeFilledIcon,
   BuildingIcon,
+  MemberIcon,
+  GiftIcon,
+  CartIcon,
+  HistoryIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
@@ -158,6 +178,10 @@ const routeTitleMap: Record<string, string> = {
   UserEdit: '编辑用户',
   Feedback: '反馈管理',
   Subscriptions: '邮件订阅',
+  MembershipBenefits: '权益管理',
+  MembershipLevels: '会员管理',
+  MembershipPlans: '套餐管理',
+  MembershipSubscriptions: '订阅记录',
   Quiz: '问答管理',
   SatelliteSync: '卫星数据同步',
   Milestones: '里程碑管理',
@@ -185,6 +209,14 @@ watch(
       activeMenu.value = 'feedback'
     } else if (name === 'Subscriptions') {
       activeMenu.value = 'subscriptions'
+    } else if (name === 'MembershipBenefits') {
+      activeMenu.value = 'membershipBenefits'
+    } else if (name === 'MembershipLevels') {
+      activeMenu.value = 'membershipLevels'
+    } else if (name === 'MembershipPlans') {
+      activeMenu.value = 'membershipPlans'
+    } else if (name === 'MembershipSubscriptions') {
+      activeMenu.value = 'membershipSubscriptions'
     } else if (name === 'Quiz') {
       activeMenu.value = 'quiz'
     } else if (name === 'SatelliteSync') {
@@ -208,6 +240,10 @@ function handleMenuClick(value: string) {
     users: 'Users',
     feedback: 'Feedback',
     subscriptions: 'Subscriptions',
+    membershipBenefits: 'MembershipBenefits',
+    membershipLevels: 'MembershipLevels',
+    membershipPlans: 'MembershipPlans',
+    membershipSubscriptions: 'MembershipSubscriptions',
     quiz: 'Quiz',
     satelliteSync: 'SatelliteSync',
     milestones: 'Milestones',

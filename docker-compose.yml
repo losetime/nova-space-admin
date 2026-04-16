@@ -50,6 +50,7 @@ services:
       - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
       - MINIO_BUCKET=${MINIO_BUCKET:-nova-space}
       - MINIO_USE_SSL=false
+      - MINIO_PUBLIC_URL=${MINIO_PUBLIC_URL:-http://8.160.178.247:8081/minio}
       
       # SMTP 邮件配置
       - SMTP_HOST=${SMTP_HOST:-}
