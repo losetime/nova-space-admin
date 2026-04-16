@@ -23,9 +23,6 @@ RUN pnpm run build
 # 阶段2: 生产环境
 FROM node:22-alpine AS production
 
-# 添加编译工具（bcrypt需要）
-RUN apk add --no-cache python3 make g++
-
 WORKDIR /app
 
 # 安装 pnpm

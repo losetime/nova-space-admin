@@ -5,7 +5,7 @@ import {
   Inject,
 } from "@nestjs/common";
 import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";

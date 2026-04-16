@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException, Inject } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { eq } from "drizzle-orm";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
 
