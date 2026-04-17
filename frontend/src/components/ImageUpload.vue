@@ -13,7 +13,7 @@
       @remove="handleRemove"
     />
     <div v-if="modelValue && files.length === 0" class="preview-container">
-      <img :src="modelValue" class="preview-image" />
+      <img :src="getFullImageUrl(modelValue)" class="preview-image" />
       <t-button
         theme="danger"
         variant="text"
@@ -31,6 +31,7 @@
 import { ref, watch } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { uploadApi } from '@/api'
+import { getFullImageUrl } from '@/utils/image-url'
 
 interface Props {
   modelValue?: string

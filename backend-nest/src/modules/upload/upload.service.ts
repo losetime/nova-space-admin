@@ -80,13 +80,9 @@ export class UploadService implements OnModuleInit {
       },
     );
 
-    let url: string;
-    if (this.publicUrl) {
-      url = `${this.publicUrl}/${filename}`;
-    } else {
-      const protocol = this.useSSL ? "https" : "http";
-      url = `${protocol}://${this.endpoint}:${this.port}/${this.bucketName}/${filename}`;
-    }
+    // 存储相对路径，前端各自拼接完整 URL
+    // 格式: /minio/images/xxx.jpg
+    const url = `/minio/${filename}`;
 
     return {
       url,

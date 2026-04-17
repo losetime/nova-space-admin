@@ -36,7 +36,7 @@
       </t-form-item>
 
       <t-form-item label="封面" name="cover">
-        <t-input v-model="form.cover" placeholder="封面图片URL" clearable />
+        <ImageUpload v-model="form.cover" tips="支持 jpg、png、gif 格式，最大 5MB" />
       </t-form-item>
 
       <t-form-item label="标签" name="tags">
@@ -77,6 +77,7 @@ import { MessagePlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
 import { articleApi } from '@/api'
 import RichTextEditor from '@/components/RichTextEditor.vue'
+import ImageUpload from '@/components/ImageUpload.vue'
 
 const router = useRouter()
 const route = useRoute()
