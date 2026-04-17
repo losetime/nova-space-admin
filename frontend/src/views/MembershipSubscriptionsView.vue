@@ -28,13 +28,9 @@
           style="width: 100px"
           placeholder="套餐类型"
           clearable
+          :options="planFilterOptions"
           @change="handleSearch"
-        >
-          <t-option value="monthly" label="月卡" />
-          <t-option value="quarterly" label="季卡" />
-          <t-option value="yearly" label="年卡" />
-          <t-option value="lifetime" label="永久卡" />
-        </t-select>
+        />
       </t-space>
     </div>
 
@@ -149,12 +145,7 @@
           </t-select>
         </t-form-item>
         <t-form-item label="套餐" name="plan">
-          <t-select v-model="newUserForm.plan" @change="handlePlanChange">
-            <t-option value="monthly" label="月卡（高级会员）" />
-            <t-option value="quarterly" label="季卡（高级会员）" />
-            <t-option value="yearly" label="年卡（高级会员）" />
-            <t-option value="lifetime" label="永久卡（专业会员）" />
-          </t-select>
+          <t-select v-model="newUserForm.plan" :options="planOptions" @change="handlePlanChange" />
         </t-form-item>
         <t-form-item label="开始时间">
           <t-date-picker v-model="newUserForm.startDate" enable-time-picker />
@@ -181,12 +172,7 @@
           <span class="font-medium">{{ activateForm.username }}</span>
         </t-form-item>
         <t-form-item label="套餐" name="plan">
-          <t-select v-model="activateForm.plan" @change="handleActivatePlanChange">
-            <t-option value="monthly" label="月卡（高级会员）" />
-            <t-option value="quarterly" label="季卡（高级会员）" />
-            <t-option value="yearly" label="年卡（高级会员）" />
-            <t-option value="lifetime" label="永久卡（专业会员）" />
-          </t-select>
+          <t-select v-model="activateForm.plan" :options="planOptions" @change="handleActivatePlanChange" />
         </t-form-item>
         <t-form-item label="开始时间">
           <t-date-picker v-model="activateForm.startDate" enable-time-picker />
@@ -224,12 +210,13 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next'
 import dayjs from 'dayjs'
-import { membershipApi, userApi, type MembershipSubscription, type MembershipStatistics, type User } from '@/api'
+import { membershipApi, userApi, type MembershipSubscription, type MembershipStatistics, type User, type MembershipPlan } from '@/api'
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const newUserSubmitLoading = ref(false)
 const subscriptions = ref<MembershipSubscription[]>([])
+const plans = ref<MembershipPlan[]>([])
 const statistics = ref<MembershipStatistics>({
   total: 0,
   active: 0,
@@ -292,11 +279,25 @@ const newUserRules = {
   plan: [{ required: true, message: '请选择套餐' }],
 }
 
-const planDurationMap = {
-  monthly: 1,
-  quarterly: 3,
-  yearly: 12,
-  lifetime: 1200,
+const planOptions = computed(() => {
+  return plans.value
+    .filter(p => p.isActive)
+    .map(p => ({
+      value: p.planCode,
+      label: `${p.name} (${p.durationMonths === 1200 ? '永久' : `${p.durationMonths}个月`})`,
+    }))
+})
+
+const planFilterOptions = computed(() => {
+  return plans.value.map(p => ({
+    value: p.planCode,
+    label: p.name,
+  }))
+})
+
+function getPlanDuration(planCode: string): number {
+  const plan = plans.value.find(p => p.planCode === planCode)
+  return plan?.durationMonths || 1
 }
 
 const columns = [
@@ -313,13 +314,7 @@ const columns = [
   { colKey: 'action', title: '操作', width: 180 },
 ]
 
-const planMap = {
-  monthly: '月卡',
-  quarterly: '季卡',
-  yearly: '年卡',
-  lifetime: '永久卡',
-  custom: '自定义',
-}
+const planMap: Record<string, string> = {}
 
 const statusMap = {
   active: { text: '有效', theme: 'success' },
@@ -336,7 +331,11 @@ const paymentMap = {
 }
 
 function getPlanText(plan: string) {
-  return planMap[plan as keyof typeof planMap] || plan
+  if (planMap[plan]) {
+    return planMap[plan]
+  }
+  const foundPlan = plans.value.find(p => p.planCode === plan)
+  return foundPlan?.name || plan
 }
 
 function getStatusText(status: string) {
@@ -385,6 +384,17 @@ async function fetchSubscriptions() {
   }
 }
 
+async function fetchPlans() {
+  try {
+    const res = await membershipApi.getPlans({ limit: 100 })
+    if (res.success) {
+      plans.value = res.data.data
+    }
+  } catch (error) {
+    console.error('获取套餐列表失败')
+  }
+}
+
 async function fetchStatistics() {
   try {
     const res = await membershipApi.getStatistics()
@@ -414,20 +424,20 @@ async function handleUserSearch(keyword: string) {
   }
 }
 
-function handlePlanChange(plan: string) {
-  const duration = planDurationMap[plan as keyof typeof planDurationMap] || 1
+function handlePlanChange(planCode: string) {
+  const duration = getPlanDuration(planCode)
   newUserForm.startDate = dayjs().format('YYYY-MM-DD HH:mm:ss')
-  if (plan === 'lifetime') {
+  if (duration >= 1200) {
     newUserForm.endDate = dayjs().add(100, 'year').format('YYYY-MM-DD HH:mm:ss')
   } else {
     newUserForm.endDate = dayjs().add(duration, 'month').format('YYYY-MM-DD HH:mm:ss')
   }
 }
 
-function handleActivatePlanChange(plan: string) {
-  const duration = planDurationMap[plan as keyof typeof planDurationMap] || 1
+function handleActivatePlanChange(planCode: string) {
+  const duration = getPlanDuration(planCode)
   activateForm.startDate = dayjs().format('YYYY-MM-DD HH:mm:ss')
-  if (plan === 'lifetime') {
+  if (duration >= 1200) {
     activateForm.endDate = dayjs().add(100, 'year').format('YYYY-MM-DD HH:mm:ss')
   } else {
     activateForm.endDate = dayjs().add(duration, 'month').format('YYYY-MM-DD HH:mm:ss')
@@ -553,6 +563,7 @@ function showUserDetail(row: MembershipSubscription) {
 }
 
 onMounted(() => {
+  fetchPlans()
   fetchSubscriptions()
   fetchStatistics()
 })

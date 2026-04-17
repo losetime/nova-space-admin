@@ -20,7 +20,7 @@
           <div class="benefits-list">
             <div v-for="benefit in level.benefits" :key="benefit.id" class="benefit-item">
               <span class="benefit-name">{{ benefit.name }}</span>
-              <span class="benefit-value">{{ benefit.value }} {{ benefit.unit || '' }}</span>
+              <span class="benefit-value">{{ benefit.displayText || `${benefit.value} ${benefit.unit || ''}` }}</span>
             </div>
             <div v-if="level.benefits?.length === 0" class="no-benefit">
               暂未配置权益
@@ -73,7 +73,8 @@
           <div class="configured-benefits">
             <div v-for="(config, index) in levelForm.benefits" :key="index" class="config-item">
               <span class="config-name">{{ getBenefitName(config.benefitId) }}</span>
-              <t-input v-model="config.value" class="config-input" placeholder="权益值" />
+              <t-input v-model="config.value" class="config-input" placeholder="权益值（控制逻辑）" />
+              <t-input v-model="config.displayText" class="config-display-input" placeholder="展示文案（用户看到的）" />
               <t-link theme="danger" @click="removeBenefitConfig(index)">移除</t-link>
             </div>
           </div>
@@ -85,7 +86,8 @@
               class="add-select"
               :options="benefitOptions"
             />
-            <t-input v-model="addBenefitValue" placeholder="权益值" class="add-input" />
+            <t-input v-model="addBenefitValue" placeholder="权益值（控制逻辑）" class="add-input" />
+            <t-input v-model="addBenefitDisplayText" placeholder="展示文案" class="add-display-input" />
             <t-button theme="default" @click="addBenefitConfig">添加</t-button>
           </div>
         </div>
@@ -137,11 +139,12 @@ const levelForm = reactive({
   icon: '',
   isDefault: false,
   sortOrder: 0,
-  benefits: [] as { benefitId: string; value: string }[],
+  benefits: [] as { benefitId: string; value: string; displayText?: string }[],
 })
 
 const addBenefitId = ref('')
 const addBenefitValue = ref('')
+const addBenefitDisplayText = ref('')
 
 const levelRules = {
   name: [{ required: true, message: '请输入等级名称' }],
@@ -240,6 +243,7 @@ function handleEditLevel(level: MemberLevel) {
   levelForm.benefits = (level.benefits || []).map((b) => ({
     benefitId: b.id,
     value: b.value,
+    displayText: b.displayText || '',
   }))
   showLevelDialog.value = true
 }
@@ -253,15 +257,18 @@ function addBenefitConfig() {
   const existing = levelForm.benefits.find((b) => b.benefitId === addBenefitId.value)
   if (existing) {
     existing.value = addBenefitValue.value
+    existing.displayText = addBenefitDisplayText.value
   } else {
     levelForm.benefits.push({
       benefitId: addBenefitId.value,
       value: addBenefitValue.value,
+      displayText: addBenefitDisplayText.value,
     })
   }
   
   addBenefitId.value = ''
   addBenefitValue.value = ''
+  addBenefitDisplayText.value = ''
 }
 
 function removeBenefitConfig(index: number) {
@@ -277,6 +284,7 @@ async function handleLevelSubmit() {
     if (isEditLevel.value && editingLevel.value) {
       await membershipApi.updateLevel(editingLevel.value.id, {
         name: levelForm.name,
+        code: levelForm.code,
         description: levelForm.description,
         icon: levelForm.icon,
         isDefault: levelForm.isDefault,
@@ -487,6 +495,10 @@ onMounted(() => {
   width: 100px;
 }
 
+.config-display-input {
+  width: 160px;
+}
+
 .add-benefit-section {
   display: flex;
   gap: 8px;
@@ -498,6 +510,10 @@ onMounted(() => {
 
 .add-input {
   width: 100px;
+}
+
+.add-display-input {
+  width: 140px;
 }
 
 .delete-content {

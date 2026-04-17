@@ -253,6 +253,7 @@ export class MembershipService {
             valueType: schema.benefits.valueType,
             unit: schema.benefits.unit,
             value: schema.levelBenefits.value,
+            displayText: schema.levelBenefits.displayText,
           })
           .from(schema.levelBenefits)
           .innerJoin(schema.benefits, eq(schema.levelBenefits.benefitId, schema.benefits.id))
@@ -301,6 +302,7 @@ export class MembershipService {
         valueType: schema.benefits.valueType,
         unit: schema.benefits.unit,
         value: schema.levelBenefits.value,
+        displayText: schema.levelBenefits.displayText,
       })
       .from(schema.levelBenefits)
       .innerJoin(schema.benefits, eq(schema.levelBenefits.benefitId, schema.benefits.id))
@@ -390,6 +392,13 @@ export class MembershipService {
   async updateLevel(id: string, dto: UpdateLevelDto) {
     const level = await this.findLevelById(id);
 
+    if (dto.code && dto.code !== level.code) {
+      const existing = await this.findLevelByCode(dto.code);
+      if (existing && existing.id !== id) {
+        throw new ConflictException('等级编码已存在');
+      }
+    }
+
     if (dto.isDefault && !level.isDefault) {
       await this.db
         .update(schema.memberLevels)
@@ -399,6 +408,7 @@ export class MembershipService {
 
     const updateData: any = { updatedAt: new Date() };
     if (dto.name) updateData.name = dto.name;
+    if (dto.code) updateData.code = dto.code;
     if (dto.description) updateData.description = dto.description;
     if (dto.icon) updateData.icon = dto.icon;
     if (dto.isDefault !== undefined) updateData.isDefault = dto.isDefault;
@@ -449,6 +459,7 @@ export class MembershipService {
             levelId: id,
             benefitId: item.benefitId,
             value: item.value,
+            displayText: item.displayText,
           });
       }
     }
@@ -474,7 +485,11 @@ export class MembershipService {
     if (existing) {
       await this.db
         .update(schema.levelBenefits)
-        .set({ value: dto.value, updatedAt: new Date() })
+        .set({
+          value: dto.value,
+          displayText: dto.displayText,
+          updatedAt: new Date(),
+        })
         .where(eq(schema.levelBenefits.id, existing.id));
     } else {
       await this.db
@@ -484,6 +499,7 @@ export class MembershipService {
           levelId: id,
           benefitId: dto.benefitId,
           value: dto.value,
+          displayText: dto.displayText,
         });
     }
 

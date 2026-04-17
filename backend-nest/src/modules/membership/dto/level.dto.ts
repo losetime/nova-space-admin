@@ -42,6 +42,10 @@ export class UpdateLevelDto {
 
   @IsOptional()
   @IsString()
+  code?: string;
+
+  @IsOptional()
+  @IsString()
   description?: string;
 
   @IsOptional()
@@ -66,6 +70,10 @@ export class LevelBenefitItemDto {
 
   @IsString()
   value: string;
+
+  @IsOptional()
+  @IsString()
+  displayText?: string;
 }
 
 export class ConfigureLevelBenefitsDto {
@@ -79,6 +87,10 @@ export class AddLevelBenefitDto {
 
   @IsString()
   value: string;
+
+  @IsOptional()
+  @IsString()
+  displayText?: string;
 }
 
 export class QueryLevelDto {

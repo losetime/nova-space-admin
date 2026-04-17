@@ -85,10 +85,7 @@
           <t-input-number v-model="formData.durationMonths" :min="1" placeholder="月数，永久卡填1200" />
         </t-form-item>
         <t-form-item label="会员等级" name="level">
-          <t-select v-model="formData.level">
-            <t-option value="advanced" label="高级会员" />
-            <t-option value="professional" label="专业会员" />
-          </t-select>
+          <t-select v-model="formData.level" :options="levelOptions" placeholder="请选择会员等级" />
         </t-form-item>
         <t-form-item label="价格（元）" name="price">
           <t-input-number v-model="formData.price" :min="0" :decimalPlaces="2" />
@@ -120,10 +117,7 @@
           <t-input-number v-model="editFormData.durationMonths" :min="1" />
         </t-form-item>
         <t-form-item label="会员等级" name="level">
-          <t-select v-model="editFormData.level">
-            <t-option value="advanced" label="高级会员" />
-            <t-option value="professional" label="专业会员" />
-          </t-select>
+          <t-select v-model="editFormData.level" :options="levelOptions" placeholder="请选择会员等级" />
         </t-form-item>
         <t-form-item label="价格（元）" name="price">
           <t-input-number v-model="editFormData.price" :min="0" :decimalPlaces="2" />
@@ -146,14 +140,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next'
 import dayjs from 'dayjs'
-import { membershipApi, type MembershipPlan } from '@/api'
+import { membershipApi, type MembershipPlan, type MemberLevel } from '@/api'
 
 const loading = ref(false)
 const submitLoading = ref(false)
 const plans = ref<MembershipPlan[]>([])
+const levels = ref<MemberLevel[]>([])
 const pagination = reactive({
   current: 1,
   pageSize: 10,
@@ -171,7 +166,7 @@ const formData = reactive({
   name: '',
   planCode: 'monthly' as 'monthly' | 'quarterly' | 'yearly' | 'lifetime' | 'custom',
   durationMonths: 1,
-  level: 'advanced' as 'basic' | 'advanced' | 'professional',
+  level: '' as string,
   price: 0,
   pointsPrice: null as number | null,
   description: '',
@@ -181,7 +176,7 @@ const formData = reactive({
 const editFormData = reactive({
   name: '',
   durationMonths: 1,
-  level: 'advanced' as 'basic' | 'advanced' | 'professional',
+  level: '' as string,
   price: 0,
   pointsPrice: null as number | null,
   description: '',
@@ -210,18 +205,32 @@ const columns = [
   { colKey: 'action', title: '操作', width: 150 },
 ]
 
-const levelMap = {
-  basic: { text: '普通会员', theme: 'default' },
-  advanced: { text: '高级会员', theme: 'primary' },
-  professional: { text: '专业会员', theme: 'warning' },
-}
+const levelMap: Record<string, { text: string; theme: string }> = {}
+
+const levelOptions = computed(() => {
+  return levels.value.map((l) => ({
+    value: l.code,
+    label: `${l.icon || ''} ${l.name}`,
+  }))
+})
 
 function getLevelText(level: string) {
-  return levelMap[level as keyof typeof levelMap]?.text || level
+  if (levelMap[level]) {
+    return levelMap[level].text
+  }
+  const foundLevel = levels.value.find((l) => l.code === level)
+  return foundLevel?.name || level
 }
 
 function getLevelTheme(level: string) {
-  return levelMap[level as keyof typeof levelMap]?.theme || 'default'
+  if (levelMap[level]) {
+    return levelMap[level].theme
+  }
+  const foundLevel = levels.value.find((l) => l.code === level)
+  if (!foundLevel) return 'default'
+  if (foundLevel.sortOrder >= 2) return 'warning'
+  if (foundLevel.sortOrder >= 1) return 'primary'
+  return 'default'
 }
 
 function formatDate(date: string) {
@@ -246,6 +255,17 @@ async function fetchPlans() {
   }
 }
 
+async function fetchLevels() {
+  try {
+    const res = await membershipApi.getLevels({ limit: 100 })
+    if (res.success) {
+      levels.value = res.data.data
+    }
+  } catch (error) {
+    console.error('获取会员等级失败')
+  }
+}
+
 function handlePageChange(pageInfo: { current: number; pageSize: number }) {
   pagination.current = pageInfo.current
   pagination.pageSize = pageInfo.pageSize
@@ -257,7 +277,7 @@ function handleEdit(row: MembershipPlan) {
   editFormData.name = row.name
   editFormData.durationMonths = row.durationMonths
   editFormData.level = row.level
-  editFormData.price = row.price
+  editFormData.price = Number(row.price)
   editFormData.pointsPrice = row.pointsPrice
   editFormData.description = row.description || ''
   editFormData.sortOrder = row.sortOrder
@@ -359,7 +379,7 @@ function resetForm() {
   formData.name = ''
   formData.planCode = 'monthly'
   formData.durationMonths = 1
-  formData.level = 'advanced'
+  formData.level = ''
   formData.price = 0
   formData.pointsPrice = null
   formData.description = ''
@@ -367,6 +387,7 @@ function resetForm() {
 }
 
 onMounted(() => {
+  fetchLevels()
   fetchPlans()
 })
 </script>

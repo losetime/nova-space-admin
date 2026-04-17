@@ -588,8 +588,8 @@ export interface MembershipPlan {
   name: string
   planCode: string
   durationMonths: number
-  level: 'basic' | 'advanced' | 'professional'
-  price: number
+  level: string
+  price: string | number
   pointsPrice: number | null
   description: string | null
   features: Record<string, any> | null
@@ -629,6 +629,7 @@ export interface MemberLevel {
     valueType: string
     unit: string | null
     value: string
+    displayText?: string | null
   }[]
   userCount?: number
 }
@@ -714,10 +715,10 @@ export const membershipApi = {
   deleteLevel: (id: string) =>
     api.delete<any, ApiResponse<void>>(`/membership/levels/${id}`),
 
-  configureLevelBenefits: (id: string, data: { benefits: { benefitId: string; value: string }[] }) =>
+  configureLevelBenefits: (id: string, data: { benefits: { benefitId: string; value: string; displayText?: string }[] }) =>
     api.put<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}/benefits`, data),
 
-  addLevelBenefit: (id: string, data: { benefitId: string; value: string }) =>
+  addLevelBenefit: (id: string, data: { benefitId: string; value: string; displayText?: string }) =>
     api.post<any, ApiResponse<MemberLevel>>(`/membership/levels/${id}/benefits`, data),
 
   removeLevelBenefit: (id: string, benefitId: string) =>

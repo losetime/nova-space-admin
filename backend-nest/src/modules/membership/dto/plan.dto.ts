@@ -23,8 +23,8 @@ export class CreatePlanDto {
   @Min(1)
   durationMonths: number;
 
-  @IsEnum(['basic', 'advanced', 'professional'])
-  level: PlanLevel;
+  @IsString()
+  level: string;
 
   @IsNumber()
   @Min(0)
@@ -57,20 +57,23 @@ export class UpdatePlanDto {
   name?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   durationMonths?: number;
 
   @IsOptional()
-  @IsEnum(['basic', 'advanced', 'professional'])
-  level?: PlanLevel;
+  @IsString()
+  level?: string;
 
   @IsOptional()
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   price?: number;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   @Min(0)
   pointsPrice?: number;
@@ -83,10 +86,12 @@ export class UpdatePlanDto {
   features?: Record<string, any>;
 
   @IsOptional()
+  @Type(() => Boolean)
   @IsBoolean()
   isActive?: boolean;
 
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   sortOrder?: number;
 }
@@ -98,8 +103,8 @@ export class QueryPlanDto {
   isActive?: boolean;
 
   @IsOptional()
-  @IsEnum(['basic', 'advanced', 'professional'])
-  level?: PlanLevel;
+  @IsString()
+  level?: string;
 
   @IsOptional()
   @Type(() => Number)

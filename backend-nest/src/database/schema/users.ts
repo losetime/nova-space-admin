@@ -13,11 +13,6 @@ export const userRoleEnum = pgEnum("user_role", [
   "admin",
   "super_admin",
 ]);
-export const userLevelEnum = pgEnum("user_level", [
-  "basic",
-  "advanced",
-  "professional",
-]);
 
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -28,7 +23,7 @@ export const users = pgTable("users", {
   avatar: varchar("avatar", { length: 500 }),
   nickname: varchar("nickname", { length: 100 }),
   role: userRoleEnum("role").default("user").notNull(),
-  level: userLevelEnum("level").default("basic").notNull(),
+  level: varchar("level", { length: 50 }).default("basic").notNull(),
   points: integer("points").default(0).notNull(),
   totalPoints: integer("total_points").default(0).notNull(),
   isVerified: boolean("is_verified").default(false).notNull(),
