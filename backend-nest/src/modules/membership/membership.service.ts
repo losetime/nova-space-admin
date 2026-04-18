@@ -190,6 +190,8 @@ export class MembershipService {
       .values({
         id: randomUUID(),
         name: dto.name,
+        code: dto.code,
+        category: dto.category || 'general',
         description: dto.description,
         valueType: dto.valueType || 'number',
         unit: dto.unit,
@@ -204,6 +206,8 @@ export class MembershipService {
 
     const updateData: any = { updatedAt: new Date() };
     if (dto.name) updateData.name = dto.name;
+    if (dto.code !== undefined) updateData.code = dto.code;
+    if (dto.category !== undefined) updateData.category = dto.category;
     if (dto.description) updateData.description = dto.description;
     if (dto.valueType) updateData.valueType = dto.valueType;
     if (dto.unit) updateData.unit = dto.unit;

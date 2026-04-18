@@ -48,7 +48,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { AddIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
-import { intelligenceApi, type Intelligence } from '@/api'
+import { intelligenceApi, membershipApi, type Intelligence } from '@/api'
+
+interface MemberLevel {
+  id: string
+  code: string
+  name: string
+}
 
 const loading = ref(false)
 const intelligences = ref<Intelligence[]>([])
@@ -78,10 +84,9 @@ const categoryMap: Record<string, { text: string; theme: 'danger' | 'primary' | 
   environment: { text: '环境', theme: 'default' },
 }
 
-const levelMap: Record<string, { text: string; theme: 'success' | 'primary' | 'warning' }> = {
+// 等级映射，动态从会员管理获取
+const levelMap: Record<string, { text: string; theme: string }> = {
   free: { text: '免费', theme: 'success' },
-  advanced: { text: '进阶', theme: 'primary' },
-  professional: { text: '专业', theme: 'warning' },
 }
 
 function getCategoryText(category: string) {
@@ -102,6 +107,23 @@ function getLevelTheme(level: string) {
 
 function formatDate(date: string) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
+
+// 获取会员等级列表，动态构建等级映射
+async function fetchLevelMap() {
+  try {
+    const res = await membershipApi.getLevels({ page: 1, limit: 100 })
+    if (res.success && res.data?.data) {
+      res.data.data.forEach((level: MemberLevel) => {
+        levelMap[level.code] = {
+          text: level.name,
+          theme: 'primary',
+        }
+      })
+    }
+  } catch (error) {
+    console.error('获取会员等级失败', error)
+  }
 }
 
 async function fetchIntelligences() {
@@ -138,7 +160,10 @@ async function handleDelete(id: number) {
   }
 }
 
-onMounted(fetchIntelligences)
+onMounted(() => {
+  fetchLevelMap()
+  fetchIntelligences()
+})
 </script>
 
 <style scoped>

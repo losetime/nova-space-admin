@@ -17,6 +17,7 @@ export const intelligenceCategoryEnum = pgEnum("intelligence_category", [
 ]);
 export const intelligenceLevelEnum = pgEnum("intelligence_level", [
   "free",
+  "basic",
   "advanced",
   "professional",
 ]);
