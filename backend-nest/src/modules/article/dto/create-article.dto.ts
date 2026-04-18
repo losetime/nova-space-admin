@@ -5,7 +5,6 @@ import {
   IsEnum,
   IsBoolean,
   IsInt,
-  IsArray,
   Min,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -39,9 +38,9 @@ export class CreateArticleDto {
   @IsOptional()
   duration?: number;
 
-  @IsArray()
+  @IsString()
   @IsOptional()
-  tags?: string[];
+  tags?: string;
 
   @IsBoolean()
   @IsOptional()
@@ -77,9 +76,9 @@ export class UpdateArticleDto {
   @IsOptional()
   duration?: number;
 
-  @IsArray()
+  @IsString()
   @IsOptional()
-  tags?: string[];
+  tags?: string;
 
   @IsBoolean()
   @IsOptional()

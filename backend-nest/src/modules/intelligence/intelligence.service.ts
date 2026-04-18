@@ -18,13 +18,7 @@ type IntelligenceLevelType = "free" | "advanced" | "professional";
 
 function parseTags(tags: string | null): string[] {
   if (!tags) return [];
-  try {
-    const parsed = JSON.parse(tags);
-    if (Array.isArray(parsed)) return parsed;
-    return [tags];
-  } catch {
-    return [tags];
-  }
+  return tags.split(',').map((t) => t.trim()).filter(Boolean);
 }
 
 @Injectable()
@@ -101,10 +95,10 @@ export class IntelligenceService {
       level: dto.level,
       source: dto.source,
       sourceUrl: dto.sourceUrl,
-      tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
+      tags: dto.tags || undefined,
       analysis: dto.analysis,
       trend: dto.trend,
-      publishedAt: dto.publishedAt,
+      publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
     };
   }
 
