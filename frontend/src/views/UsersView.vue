@@ -58,8 +58,8 @@
         </t-tag>
       </template>
       <template #level="{ row }">
-        <t-tag :theme="getLevelTheme(row.level)" variant="light">
-          {{ getLevelText(row.level) }}
+        <t-tag variant="light">
+          {{ row.levelName || row.level || '-' }}
         </t-tag>
       </template>
       <template #isActive="{ row }">
@@ -117,7 +117,7 @@ const columns = [
   { colKey: 'username', title: '用户名', width: 200 },
   { colKey: 'email', title: '邮箱', ellipsis: true },
   { colKey: 'role', title: '角色', width: 120 },
-  { colKey: 'level', title: '等级', width: 100 },
+  { colKey: 'level', title: '会员等级', width: 100 },
   { colKey: 'points', title: '积分', width: 80 },
   { colKey: 'isActive', title: '状态', width: 80 },
   { colKey: 'createdAt', title: '注册时间', width: 180 },
@@ -130,26 +130,12 @@ const roleMap: Record<string, { text: string; theme: 'default' | 'primary' | 'wa
   super_admin: { text: '超级管理员', theme: 'warning' },
 }
 
-const levelMap: Record<string, { text: string; theme: 'default' | 'primary' | 'warning' }> = {
-  basic: { text: '基础', theme: 'default' },
-  advanced: { text: '进阶', theme: 'primary' },
-  professional: { text: '专业', theme: 'warning' },
-}
-
 function getRoleText(role: string) {
   return roleMap[role]?.text || role
 }
 
 function getRoleTheme(role: string) {
   return roleMap[role]?.theme || 'default'
-}
-
-function getLevelText(level: string) {
-  return levelMap[level]?.text || level
-}
-
-function getLevelTheme(level: string) {
-  return levelMap[level]?.theme || 'default'
 }
 
 function formatDate(date: string) {

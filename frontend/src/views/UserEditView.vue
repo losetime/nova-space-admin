@@ -51,11 +51,7 @@
       </t-form-item>
 
       <t-form-item label="等级" name="level">
-        <t-select v-model="form.level" placeholder="请选择等级" clearable>
-          <t-option value="basic" label="基础" />
-          <t-option value="advanced" label="进阶" />
-          <t-option value="professional" label="专业" />
-        </t-select>
+        <span>{{ form.levelName || form.level || '无' }}</span>
       </t-form-item>
 
       <t-form-item label="状态" name="isActive">
@@ -71,6 +67,20 @@
         </t-space>
       </t-form-item>
     </t-form>
+
+    <div v-if="isEdit && subscription" class="subscription-info">
+      <h3 class="text-lg font-bold mb-4">订阅信息</h3>
+      <t-descriptions :column="2" border>
+        <t-descriptions-item label="套餐名称">{{ subscription.planName || subscription.plan }}</t-descriptions-item>
+        <t-descriptions-item label="状态">
+          <t-tag :theme="subscription.status === 'active' ? 'success' : 'default'" variant="light">
+            {{ subscription.status === 'active' ? '生效中' : subscription.status }}
+          </t-tag>
+        </t-descriptions-item>
+        <t-descriptions-item label="开始日期">{{ formatDate(subscription.startDate) }}</t-descriptions-item>
+        <t-descriptions-item label="到期日期">{{ formatDate(subscription.endDate) }}</t-descriptions-item>
+      </t-descriptions>
+    </div>
   </div>
 </template>
 
@@ -80,12 +90,14 @@ import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin, DialogPlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
 import { userApi } from '@/api'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const route = useRoute()
 
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
+const subscription = ref<any>(null)
 
 const form = reactive({
   username: '',
@@ -95,9 +107,14 @@ const form = reactive({
   nickname: '',
   avatar: '',
   role: 'user' as 'user' | 'admin' | 'super_admin',
-  level: 'basic' as 'basic' | 'advanced' | 'professional',
+  level: '',
+  levelName: '',
   isActive: true,
 })
+
+function formatDate(date: string) {
+  return dayjs(date).format('YYYY-MM-DD HH:mm')
+}
 
 const rules = {
   username: [
@@ -121,10 +138,12 @@ async function fetchUser() {
   try {
     const res = await userApi.getOne(route.params.id as string)
     if (res.success) {
+      const { subscription: sub, ...userData } = res.data
       Object.assign(form, {
-        ...res.data,
+        ...userData,
         password: '',
       })
+      subscription.value = sub
     }
   } catch (error) {
     MessagePlugin.error('获取用户信息失败')
@@ -138,9 +157,9 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
   loading.value = true
   try {
     const data: any = { ...form }
-    if (isEdit.value) {
-      delete data.password
-    }
+    delete data.password
+    delete data.level
+    delete data.levelName
     if (isEdit.value) {
       await userApi.update(route.params.id as string, data)
       MessagePlugin.success('保存成功')
@@ -185,5 +204,10 @@ onMounted(fetchUser)
   background: #fff;
   padding: 24px;
   border-radius: 3px;
+}
+.subscription-info {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid #e7e7e7;
 }
 </style>

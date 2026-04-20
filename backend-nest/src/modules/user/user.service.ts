@@ -5,15 +5,16 @@ import {
   BadRequestException,
   Inject,
 } from "@nestjs/common";
-import { eq, like, desc, and, sql, SQL, lt, gte } from "drizzle-orm";
+import { eq, like, desc, and, sql, SQL, gte } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
 import { subscriptions } from "../../database/schema/subscriptions";
+import { memberLevels } from "../../database/schema/member-levels";
+import { membershipPlans } from "../../database/schema/membership-plans";
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";
 
 type UserRoleType = "user" | "admin" | "super_admin";
-type UserLevelType = "basic" | "advanced" | "professional";
 
 @Injectable()
 export class UserService {
@@ -45,6 +46,7 @@ export class UserService {
         avatar: users.avatar,
         role: users.role,
         level: users.level,
+        levelName: memberLevels.name,
         points: users.points,
         totalPoints: users.totalPoints,
         isVerified: users.isVerified,
@@ -54,6 +56,7 @@ export class UserService {
         updatedAt: users.updatedAt,
       })
       .from(users)
+      .leftJoin(memberLevels, eq(users.level, memberLevels.code))
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
@@ -86,6 +89,7 @@ export class UserService {
         avatar: users.avatar,
         role: users.role,
         level: users.level,
+        levelName: memberLevels.name,
         points: users.points,
         totalPoints: users.totalPoints,
         isVerified: users.isVerified,
@@ -95,12 +99,17 @@ export class UserService {
         updatedAt: users.updatedAt,
       })
       .from(users)
+      .leftJoin(memberLevels, eq(users.level, memberLevels.code))
       .where(eq(users.id, id))
       .limit(1);
     if (!result[0]) {
       throw new NotFoundException("用户不存在");
     }
-    return result[0];
+
+    return {
+      ...result[0],
+      subscription: null,
+    };
   }
 
   async create(dto: CreateUserDto) {
@@ -147,7 +156,6 @@ export class UserService {
         nickname: dto.nickname,
         avatar: dto.avatar,
         role: dto.role as UserRoleType,
-        level: dto.level as UserLevelType,
       } as any)
       .returning();
     return result[0];
@@ -206,7 +214,6 @@ export class UserService {
         nickname: dto.nickname,
         avatar: dto.avatar,
         role: dto.role as UserRoleType,
-        level: dto.level as UserLevelType,
         isActive: dto.isActive,
       } as any)
       .where(eq(users.id, id))

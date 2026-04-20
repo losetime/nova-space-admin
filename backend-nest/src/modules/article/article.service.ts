@@ -9,7 +9,10 @@ type ArticleType = "article" | "video";
 
 function parseTags(tags: string | null): string[] {
   if (!tags) return [];
-  return tags.split(',').map((t) => t.trim()).filter(Boolean);
+  return tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 @Injectable()

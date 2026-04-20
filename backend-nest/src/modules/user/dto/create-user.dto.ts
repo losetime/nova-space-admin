@@ -9,9 +9,7 @@ import {
 } from "class-validator";
 
 export const userRoles = ["user", "admin", "super_admin"] as const;
-export const userLevels = ["basic", "advanced", "professional"] as const;
 export type UserRole = (typeof userRoles)[number];
-export type UserLevel = (typeof userLevels)[number];
 
 export class CreateUserDto {
   @IsString()
@@ -48,10 +46,6 @@ export class CreateUserDto {
   @IsEnum(userRoles, { message: "角色不正确" })
   @IsOptional()
   role?: UserRole;
-
-  @IsEnum(userLevels, { message: "等级不正确" })
-  @IsOptional()
-  level?: UserLevel;
 
   @IsBoolean()
   @IsOptional()

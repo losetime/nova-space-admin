@@ -195,7 +195,7 @@ export class MembershipService {
         id: randomUUID(),
         name: dto.name,
         code: dto.code,
-        category: dto.category || 'general',
+        category: dto.category || "general",
         description: dto.description,
         valueType: dto.valueType || "number",
         unit: dto.unit,

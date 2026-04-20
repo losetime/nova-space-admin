@@ -144,7 +144,8 @@ export interface User {
   nickname?: string
   avatar?: string
   role: 'user' | 'admin' | 'super_admin'
-  level: 'basic' | 'advanced' | 'professional'
+  level?: string
+  levelName?: string
   points: number
   totalPoints: number
   isVerified: boolean
@@ -152,6 +153,14 @@ export interface User {
   lastLoginAt?: string
   createdAt: string
   updatedAt: string
+  subscription?: {
+    id: string
+    plan: string
+    planName?: string
+    status: string
+    startDate: string
+    endDate: string
+  } | null
 }
 
 export const userApi = {

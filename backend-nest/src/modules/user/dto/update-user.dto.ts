@@ -6,8 +6,8 @@ import {
   IsEmail,
   Matches,
 } from "class-validator";
-import { userRoles, userLevels } from "./create-user.dto";
-import type { UserRole, UserLevel } from "./create-user.dto";
+import { userRoles } from "./create-user.dto";
+import type { UserRole } from "./create-user.dto";
 
 export class UpdateUserDto {
   @IsString()
@@ -37,10 +37,6 @@ export class UpdateUserDto {
   @IsEnum(userRoles, { message: "角色不正确" })
   @IsOptional()
   role?: UserRole;
-
-  @IsEnum(userLevels, { message: "等级不正确" })
-  @IsOptional()
-  level?: UserLevel;
 
   @IsBoolean()
   @IsOptional()
