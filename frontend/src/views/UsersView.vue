@@ -78,15 +78,15 @@
           <t-link theme="primary" @click="handleResetPassword(row.id)">
             重置密码
           </t-link>
-          <t-link v-if="row.isActive" theme="danger" @click="handleHardDelete(row)">
-            删除
-          </t-link>
           <t-popconfirm v-if="row.isActive" content="确定要禁用这个用户吗？禁用后用户将无法登录。" @confirm="handleDisable(row.id)">
             <t-link theme="warning">禁用</t-link>
           </t-popconfirm>
           <t-popconfirm v-else content="确定要重新启用这个用户吗？" @confirm="handleEnable(row.id)">
             <t-link theme="success">启用</t-link>
           </t-popconfirm>
+          <t-link theme="danger" @click="handleHardDelete(row)">
+            删除
+          </t-link>
         </t-space>
       </template>
     </t-table>
@@ -114,14 +114,14 @@ const pagination = reactive({
 })
 
 const columns = [
-  { colKey: 'username', title: '用户名', width: 120 },
+  { colKey: 'username', title: '用户名', width: 200 },
   { colKey: 'email', title: '邮箱', ellipsis: true },
   { colKey: 'role', title: '角色', width: 120 },
   { colKey: 'level', title: '等级', width: 100 },
   { colKey: 'points', title: '积分', width: 80 },
   { colKey: 'isActive', title: '状态', width: 80 },
-  { colKey: 'createdAt', title: '注册时间', width: 140 },
-  { colKey: 'action', title: '操作', width: 180 },
+  { colKey: 'createdAt', title: '注册时间', width: 180 },
+  { colKey: 'action', title: '操作', width: 260 },
 ]
 
 const roleMap: Record<string, { text: string; theme: 'default' | 'primary' | 'warning' }> = {

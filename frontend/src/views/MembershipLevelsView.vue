@@ -69,12 +69,19 @@
 
         <div v-if="isEditLevel" class="benefits-config">
           <div class="config-title">权益配置</div>
-          
+
           <div class="configured-benefits">
             <div v-for="(config, index) in levelForm.benefits" :key="index" class="config-item">
               <span class="config-name">{{ getBenefitName(config.benefitId) }}</span>
-              <t-input v-model="config.value" class="config-input" placeholder="权益值（控制逻辑）" />
               <t-input v-model="config.displayText" class="config-display-input" placeholder="展示文案（用户看到的）" />
+              <div class="config-switch">
+                <t-switch
+                  v-if="getBenefitValueType(config.benefitId) === 'boolean'"
+                  :model-value="config.value === 'true'"
+                  disabled
+                />
+                <t-input v-else v-model="config.value" class="config-input" placeholder="权益值（控制逻辑）" />
+              </div>
               <t-link theme="danger" @click="removeBenefitConfig(index)">移除</t-link>
             </div>
           </div>
@@ -85,9 +92,17 @@
               placeholder="选择权益"
               class="add-select"
               :options="benefitOptions"
+              @change="handleBenefitSelectChange"
             />
-            <t-input v-model="addBenefitValue" placeholder="权益值（控制逻辑）" class="add-input" />
             <t-input v-model="addBenefitDisplayText" placeholder="展示文案" class="add-display-input" />
+            <div class="config-switch">
+              <t-switch
+                v-if="selectedBenefitValueType === 'boolean'"
+                :model-value="true"
+                disabled
+              />
+              <t-input v-else v-model="addBenefitValue" placeholder="权益值（控制逻辑）" class="add-input" />
+            </div>
             <t-button theme="default" @click="addBenefitConfig">添加</t-button>
           </div>
         </div>
@@ -145,6 +160,22 @@ const levelForm = reactive({
 const addBenefitId = ref('')
 const addBenefitValue = ref('')
 const addBenefitDisplayText = ref('')
+const selectedBenefitValueType = ref<'number' | 'text' | 'boolean' | null>(null)
+
+function getBenefitValueType(benefitId: string): 'number' | 'text' | 'boolean' | null {
+  const benefit = benefits.value.find((b) => b.id === benefitId)
+  return benefit?.valueType || null
+}
+
+function handleBenefitSelectChange() {
+  const benefit = benefits.value.find((b) => b.id === addBenefitId.value)
+  selectedBenefitValueType.value = benefit?.valueType || null
+  if (selectedBenefitValueType.value === 'boolean') {
+    addBenefitValue.value = 'true'
+  } else {
+    addBenefitValue.value = ''
+  }
+}
 
 const levelRules = {
   name: [{ required: true, message: '请输入等级名称' }],
@@ -222,6 +253,10 @@ function resetLevelForm() {
   levelForm.isDefault = false
   levelForm.sortOrder = 0
   levelForm.benefits = []
+  addBenefitId.value = ''
+  addBenefitValue.value = ''
+  addBenefitDisplayText.value = ''
+  selectedBenefitValueType.value = null
 }
 
 function handleCreateLevel() {
@@ -265,10 +300,11 @@ function addBenefitConfig() {
       displayText: addBenefitDisplayText.value,
     })
   }
-  
+
   addBenefitId.value = ''
   addBenefitValue.value = ''
   addBenefitDisplayText.value = ''
+  selectedBenefitValueType.value = null
 }
 
 function removeBenefitConfig(index: number) {
@@ -495,6 +531,10 @@ onMounted(() => {
   width: 100px;
 }
 
+.config-switch {
+  width: 100px;
+}
+
 .config-display-input {
   width: 160px;
 }
@@ -513,7 +553,7 @@ onMounted(() => {
 }
 
 .add-display-input {
-  width: 140px;
+  width: 160px;
 }
 
 .delete-content {
