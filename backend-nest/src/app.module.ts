@@ -5,7 +5,7 @@ import { APP_FILTER, APP_INTERCEPTOR } from "@nestjs/core";
 import { AuthModule } from "./modules/auth/auth.module";
 import { ArticleModule } from "./modules/article/article.module";
 import { IntelligenceModule } from "./modules/intelligence/intelligence.module";
-import { ImportModule } from "./modules/import/import.module";
+
 import { UserModule } from "./modules/user/user.module";
 import { FeedbackModule } from "./modules/feedback/feedback.module";
 import { PushRecordModule } from "./modules/push-record/push-record.module";
@@ -32,7 +32,7 @@ import appConfig from "./config/app.config";
     AuthModule,
     ArticleModule,
     IntelligenceModule,
-    ImportModule,
+
     UserModule,
     FeedbackModule,
     PushRecordModule,

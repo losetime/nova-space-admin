@@ -94,16 +94,6 @@ export const articleApi = {
 
   delete: (id: number) =>
     api.delete<any, ApiResponse<void>>(`/articles/${id}`),
-
-  import: (file: File, format: 'csv' | 'excel') => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return api.post<any, ApiResponse<{ success: number; failed: number; errors: string[] }>>(
-      `/import/articles?format=${format}`,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
-    )
-  },
 }
 
 // Intelligence API
@@ -143,16 +133,6 @@ export const intelligenceApi = {
 
   delete: (id: number) =>
     api.delete<any, ApiResponse<void>>(`/intelligence/${id}`),
-
-  import: (file: File, format: 'csv' | 'excel') => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return api.post<any, ApiResponse<{ success: number; failed: number; errors: string[] }>>(
-      `/import/intelligence?format=${format}`,
-      formData,
-      { headers: { 'Content-Type': 'multipart/form-data' } }
-    )
-  },
 }
 
 // User API
@@ -189,6 +169,9 @@ export const userApi = {
 
   delete: (id: string) =>
     api.delete<any, ApiResponse<void>>(`/users/${id}`),
+
+  hardDelete: (id: string) =>
+    api.delete<any, ApiResponse<{ message: string }>>(`/users/${id}/hard`),
 
   resetPassword: (id: string, password?: string) =>
     api.post<any, ApiResponse<{ message: string; password: string }>>(`/users/${id}/reset-password`, { password }),

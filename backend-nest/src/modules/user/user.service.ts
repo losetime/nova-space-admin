@@ -2,12 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
   Inject,
 } from "@nestjs/common";
-import { eq, like, desc, and, sql, SQL } from "drizzle-orm";
+import { eq, like, desc, and, sql, SQL, lt, gte } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
+import { subscriptions } from "../../database/schema/subscriptions";
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";
 
 type UserRoleType = "user" | "admin" | "super_admin";
@@ -247,6 +249,55 @@ export class UserService {
       .where(eq(users.id, id));
 
     return { message: "密码重置成功", password };
+  }
+
+  async hasActiveSubscription(userId: string): Promise<boolean> {
+    const now = new Date();
+    const [sub] = await this.db
+      .select()
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.userId, userId),
+          eq(subscriptions.status, "active"),
+          gte(subscriptions.endDate, now),
+        ),
+      )
+      .limit(1);
+    return !!sub;
+  }
+
+  async canHardDelete(
+    userId: string,
+  ): Promise<{ canDelete: boolean; reason?: string }> {
+    const user = await this.findOne(userId);
+
+    if (user.level !== "basic") {
+      return {
+        canDelete: false,
+        reason: "该用户为付费会员，无法删除",
+      };
+    }
+
+    const hasActive = await this.hasActiveSubscription(userId);
+    if (hasActive) {
+      return {
+        canDelete: false,
+        reason: "该用户有有效订阅，无法删除",
+      };
+    }
+
+    return { canDelete: true };
+  }
+
+  async hardDelete(userId: string): Promise<{ message: string }> {
+    const canDelete = await this.canHardDelete(userId);
+    if (!canDelete.canDelete) {
+      throw new BadRequestException(canDelete.reason);
+    }
+
+    await this.db.delete(users).where(eq(users.id, userId));
+    return { message: "用户已彻底删除" };
   }
 
   private generateRandomPassword(): string {

@@ -7,6 +7,10 @@ import { AppModule } from "./app.module";
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  // 解决 Express 默认 1mb 限制问题，文件上传最大 5MB
+  app.useBodyParser("json", { limit: "5mb" });
+  app.useBodyParser("urlencoded", { extended: true, limit: "5mb" });
+
   // 配置静态文件服务 - 用于访问上传的图片
   app.useStaticAssets(join(__dirname, "..", "uploads"), {
     prefix: "/uploads/",

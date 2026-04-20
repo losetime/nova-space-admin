@@ -1,11 +1,5 @@
-import {
-  IsString,
-  IsOptional,
-  IsBoolean,
-  IsInt,
-  Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsBoolean, IsInt, Min } from "class-validator";
+import { Type } from "class-transformer";
 
 export class CreateLevelDto {
   @IsString()

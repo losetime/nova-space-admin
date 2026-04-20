@@ -78,8 +78,14 @@
           <t-link theme="primary" @click="handleResetPassword(row.id)">
             重置密码
           </t-link>
-          <t-popconfirm content="确定要禁用这个用户吗？禁用后用户将无法登录。" @confirm="handleDelete(row.id)">
-            <t-link theme="danger">禁用</t-link>
+          <t-link v-if="row.isActive" theme="danger" @click="handleHardDelete(row)">
+            删除
+          </t-link>
+          <t-popconfirm v-if="row.isActive" content="确定要禁用这个用户吗？禁用后用户将无法登录。" @confirm="handleDisable(row.id)">
+            <t-link theme="warning">禁用</t-link>
+          </t-popconfirm>
+          <t-popconfirm v-else content="确定要重新启用这个用户吗？" @confirm="handleEnable(row.id)">
+            <t-link theme="success">启用</t-link>
           </t-popconfirm>
         </t-space>
       </template>
@@ -182,7 +188,7 @@ function handlePageChange(pageInfo: { current: number; pageSize: number }) {
   fetchUsers()
 }
 
-async function handleDelete(id: string) {
+async function handleDisable(id: string) {
   try {
     await userApi.delete(id)
     MessagePlugin.success('用户已禁用')
@@ -190,6 +196,40 @@ async function handleDelete(id: string) {
   } catch (error) {
     MessagePlugin.error('禁用失败')
   }
+}
+
+async function handleEnable(id: string) {
+  try {
+    await userApi.update(id, { isActive: true } as any)
+    MessagePlugin.success('用户已启用')
+    fetchUsers()
+  } catch (error) {
+    MessagePlugin.error('启用失败')
+  }
+}
+
+function handleHardDelete(row: User) {
+  const confirmDialog = DialogPlugin.confirm({
+    header: '删除用户',
+    body: `确定要彻底删除用户「${row.username}」吗？此操作不可恢复！`,
+    confirmBtn: { content: '确认删除', theme: 'danger' },
+    cancelBtn: '取消',
+    onConfirm: async () => {
+      try {
+        const res = await userApi.hardDelete(row.id)
+        if (res.success) {
+          MessagePlugin.success('用户已彻底删除')
+          fetchUsers()
+        }
+      } catch (error: any) {
+        MessagePlugin.error(error.message || '删除失败')
+      }
+      confirmDialog.hide()
+    },
+    onCancel: () => {
+      confirmDialog.hide()
+    },
+  })
 }
 
 async function handleResetPassword(id: string) {

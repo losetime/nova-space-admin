@@ -7,11 +7,16 @@ import {
   IsBoolean,
   IsInt,
   Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
-export type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending';
-export type SubscriptionPlan = 'monthly' | 'quarterly' | 'yearly' | 'lifetime' | 'custom';
+export type SubscriptionStatus = "active" | "expired" | "cancelled" | "pending";
+export type SubscriptionPlan =
+  | "monthly"
+  | "quarterly"
+  | "yearly"
+  | "lifetime"
+  | "custom";
 
 export class QuerySubscriptionDto {
   @IsOptional()
@@ -23,11 +28,11 @@ export class QuerySubscriptionDto {
   username?: string;
 
   @IsOptional()
-  @IsEnum(['active', 'expired', 'cancelled', 'pending'])
+  @IsEnum(["active", "expired", "cancelled", "pending"])
   status?: SubscriptionStatus;
 
   @IsOptional()
-  @IsEnum(['monthly', 'quarterly', 'yearly', 'lifetime', 'custom'])
+  @IsEnum(["monthly", "quarterly", "yearly", "lifetime", "custom"])
   plan?: SubscriptionPlan;
 
   @IsOptional()
@@ -60,7 +65,7 @@ export class QuerySubscriptionDto {
 }
 
 export class AdminActivateDto {
-  @IsEnum(['monthly', 'quarterly', 'yearly', 'lifetime', 'custom'])
+  @IsEnum(["monthly", "quarterly", "yearly", "lifetime", "custom"])
   plan: SubscriptionPlan;
 
   @IsOptional()

@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { MembershipController } from './membership.controller';
-import { MembershipService } from './membership.service';
-import { DatabaseModule } from '../../database/database.module';
+import { Module } from "@nestjs/common";
+import { MembershipController } from "./membership.controller";
+import { MembershipService } from "./membership.service";
+import { DatabaseModule } from "../../database/database.module";
 
 @Module({
   imports: [DatabaseModule],

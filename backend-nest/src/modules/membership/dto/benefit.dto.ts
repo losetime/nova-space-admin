@@ -1,13 +1,7 @@
-import {
-  IsString,
-  IsOptional,
-  IsEnum,
-  IsInt,
-  Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsEnum, IsInt, Min } from "class-validator";
+import { Type } from "class-transformer";
 
-export type ValueType = 'number' | 'text' | 'boolean';
+export type ValueType = "number" | "text" | "boolean";
 
 export class CreateBenefitDto {
   @IsString()
@@ -18,7 +12,7 @@ export class CreateBenefitDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(['number', 'text', 'boolean'])
+  @IsEnum(["number", "text", "boolean"])
   valueType?: ValueType;
 
   @IsOptional()
@@ -42,7 +36,7 @@ export class UpdateBenefitDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(['number', 'text', 'boolean'])
+  @IsEnum(["number", "text", "boolean"])
   valueType?: ValueType;
 
   @IsOptional()

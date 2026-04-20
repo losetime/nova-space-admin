@@ -4,11 +4,12 @@ import {
   ConflictException,
   BadRequestException,
   Inject,
-} from '@nestjs/common';
-import { eq, desc, and, sql, lt, gte, asc, inArray } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
-import * as schema from '../../database/schema';
-import type { Database } from '../../database';
+} from "@nestjs/common";
+import { Cron } from "@nestjs/schedule";
+import { eq, desc, and, sql, lt, gte, asc, inArray } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import * as schema from "../../database/schema";
+import type { Database } from "../../database";
 import {
   CreatePlanDto,
   UpdatePlanDto,
@@ -24,14 +25,14 @@ import {
   QuerySubscriptionDto,
   AdminActivateDto,
   AdminCancelDto,
-} from './dto';
+} from "./dto";
 
-type PlanLevel = 'basic' | 'advanced' | 'professional';
-type SubscriptionStatus = 'active' | 'expired' | 'cancelled' | 'pending';
+type PlanLevel = "basic" | "advanced" | "professional";
+type SubscriptionStatus = "active" | "expired" | "cancelled" | "pending";
 
 @Injectable()
 export class MembershipService {
-  constructor(@Inject('DATABASE') private db: Database) {}
+  constructor(@Inject("DATABASE") private db: Database) {}
 
   // ============ Plans ============
 
@@ -53,7 +54,10 @@ export class MembershipService {
       .select()
       .from(schema.membershipPlans)
       .where(whereClause)
-      .orderBy(desc(schema.membershipPlans.sortOrder), desc(schema.membershipPlans.createdAt))
+      .orderBy(
+        desc(schema.membershipPlans.sortOrder),
+        desc(schema.membershipPlans.createdAt),
+      )
       .limit(limit)
       .offset(offset);
 
@@ -78,7 +82,7 @@ export class MembershipService {
       .where(eq(schema.membershipPlans.id, id))
       .limit(1);
     if (!plan) {
-      throw new NotFoundException('套餐不存在');
+      throw new NotFoundException("套餐不存在");
     }
     return plan;
   }
@@ -95,7 +99,7 @@ export class MembershipService {
   async createPlan(dto: CreatePlanDto) {
     const existing = await this.findPlanByCode(dto.planCode);
     if (existing) {
-      throw new ConflictException('套餐代码已存在');
+      throw new ConflictException("套餐代码已存在");
     }
 
     const [plan] = await this.db
@@ -144,7 +148,7 @@ export class MembershipService {
     await this.db
       .delete(schema.membershipPlans)
       .where(eq(schema.membershipPlans.id, id));
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   // ============ Benefits (New) ============
@@ -179,7 +183,7 @@ export class MembershipService {
       .where(eq(schema.benefits.id, id))
       .limit(1);
     if (!benefit) {
-      throw new NotFoundException('权益不存在');
+      throw new NotFoundException("权益不存在");
     }
     return benefit;
   }
@@ -191,7 +195,7 @@ export class MembershipService {
         id: randomUUID(),
         name: dto.name,
         description: dto.description,
-        valueType: dto.valueType || 'number',
+        valueType: dto.valueType || "number",
         unit: dto.unit,
         sortOrder: dto.sortOrder || 0,
       })
@@ -219,15 +223,13 @@ export class MembershipService {
 
   async deleteBenefit(id: string) {
     await this.findBenefitById(id);
-    
+
     await this.db
       .delete(schema.levelBenefits)
       .where(eq(schema.levelBenefits.benefitId, id));
-    
-    await this.db
-      .delete(schema.benefits)
-      .where(eq(schema.benefits.id, id));
-    return { message: '删除成功' };
+
+    await this.db.delete(schema.benefits).where(eq(schema.benefits.id, id));
+    return { message: "删除成功" };
   }
 
   // ============ Member Levels (New) ============
@@ -239,7 +241,10 @@ export class MembershipService {
     const levels = await this.db
       .select()
       .from(schema.memberLevels)
-      .orderBy(asc(schema.memberLevels.sortOrder), asc(schema.memberLevels.createdAt))
+      .orderBy(
+        asc(schema.memberLevels.sortOrder),
+        asc(schema.memberLevels.createdAt),
+      )
       .limit(limit)
       .offset(offset);
 
@@ -256,7 +261,10 @@ export class MembershipService {
             displayText: schema.levelBenefits.displayText,
           })
           .from(schema.levelBenefits)
-          .innerJoin(schema.benefits, eq(schema.levelBenefits.benefitId, schema.benefits.id))
+          .innerJoin(
+            schema.benefits,
+            eq(schema.levelBenefits.benefitId, schema.benefits.id),
+          )
           .where(eq(schema.levelBenefits.levelId, level.id));
 
         const [{ userCount }] = await this.db
@@ -269,7 +277,7 @@ export class MembershipService {
           benefits,
           userCount: Number(userCount),
         };
-      })
+      }),
     );
 
     const [{ count }] = await this.db
@@ -291,7 +299,7 @@ export class MembershipService {
       .where(eq(schema.memberLevels.id, id))
       .limit(1);
     if (!level) {
-      throw new NotFoundException('等级不存在');
+      throw new NotFoundException("等级不存在");
     }
 
     const benefits = await this.db
@@ -305,7 +313,10 @@ export class MembershipService {
         displayText: schema.levelBenefits.displayText,
       })
       .from(schema.levelBenefits)
-      .innerJoin(schema.benefits, eq(schema.levelBenefits.benefitId, schema.benefits.id))
+      .innerJoin(
+        schema.benefits,
+        eq(schema.levelBenefits.benefitId, schema.benefits.id),
+      )
       .where(eq(schema.levelBenefits.levelId, id));
 
     const [{ userCount }] = await this.db
@@ -331,34 +342,34 @@ export class MembershipService {
 
   generateLevelCode(name: string): string {
     const pinyinMap: Record<string, string> = {
-      '普通': 'basic',
-      '高级': 'advanced',
-      '专业': 'professional',
-      '至尊': 'supreme',
-      '钻石': 'diamond',
-      '黄金': 'gold',
-      '白银': 'silver',
-      'VIP': 'vip',
+      普通: "basic",
+      高级: "advanced",
+      专业: "professional",
+      至尊: "supreme",
+      钻石: "diamond",
+      黄金: "gold",
+      白银: "silver",
+      VIP: "vip",
     };
-    
+
     for (const [key, value] of Object.entries(pinyinMap)) {
       if (name.includes(key)) {
         return value;
       }
     }
-    
+
     const base = name
       .toLowerCase()
-      .replace(/[^\w\s]/g, '')
-      .replace(/\s+/g, '_')
+      .replace(/[^\w\s]/g, "")
+      .replace(/\s+/g, "_")
       .slice(0, 20);
-    
-    return base || 'level';
+
+    return base || "level";
   }
 
   async createLevel(dto: CreateLevelDto) {
     let code = dto.code || this.generateLevelCode(dto.name);
-    
+
     let existing = await this.findLevelByCode(code);
     let suffix = 1;
     while (existing) {
@@ -395,7 +406,7 @@ export class MembershipService {
     if (dto.code && dto.code !== level.code) {
       const existing = await this.findLevelByCode(dto.code);
       if (existing && existing.id !== id) {
-        throw new ConflictException('等级编码已存在');
+        throw new ConflictException("等级编码已存在");
       }
     }
 
@@ -426,11 +437,13 @@ export class MembershipService {
     const level = await this.findLevelById(id);
 
     if (level.isDefault) {
-      throw new BadRequestException('默认等级不能删除');
+      throw new BadRequestException("默认等级不能删除");
     }
 
     if (level.userCount > 0) {
-      throw new BadRequestException(`有 ${level.userCount} 个用户使用该等级，请先将这些用户调整到其他等级后再删除`);
+      throw new BadRequestException(
+        `有 ${level.userCount} 个用户使用该等级，请先将这些用户调整到其他等级后再删除`,
+      );
     }
 
     await this.db
@@ -440,7 +453,7 @@ export class MembershipService {
     await this.db
       .delete(schema.memberLevels)
       .where(eq(schema.memberLevels.id, id));
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async configureLevelBenefits(id: string, dto: ConfigureLevelBenefitsDto) {
@@ -452,15 +465,13 @@ export class MembershipService {
         .where(eq(schema.levelBenefits.levelId, id));
 
       for (const item of dto.benefits) {
-        await this.db
-          .insert(schema.levelBenefits)
-          .values({
-            id: randomUUID(),
-            levelId: id,
-            benefitId: item.benefitId,
-            value: item.value,
-            displayText: item.displayText,
-          });
+        await this.db.insert(schema.levelBenefits).values({
+          id: randomUUID(),
+          levelId: id,
+          benefitId: item.benefitId,
+          value: item.value,
+          displayText: item.displayText,
+        });
       }
     }
 
@@ -477,8 +488,8 @@ export class MembershipService {
       .where(
         and(
           eq(schema.levelBenefits.levelId, id),
-          eq(schema.levelBenefits.benefitId, dto.benefitId)
-        )
+          eq(schema.levelBenefits.benefitId, dto.benefitId),
+        ),
       )
       .limit(1);
 
@@ -492,15 +503,13 @@ export class MembershipService {
         })
         .where(eq(schema.levelBenefits.id, existing.id));
     } else {
-      await this.db
-        .insert(schema.levelBenefits)
-        .values({
-          id: randomUUID(),
-          levelId: id,
-          benefitId: dto.benefitId,
-          value: dto.value,
-          displayText: dto.displayText,
-        });
+      await this.db.insert(schema.levelBenefits).values({
+        id: randomUUID(),
+        levelId: id,
+        benefitId: dto.benefitId,
+        value: dto.value,
+        displayText: dto.displayText,
+      });
     }
 
     return this.findLevelById(id);
@@ -515,11 +524,11 @@ export class MembershipService {
       .where(
         and(
           eq(schema.levelBenefits.levelId, id),
-          eq(schema.levelBenefits.benefitId, benefitId)
-        )
+          eq(schema.levelBenefits.benefitId, benefitId),
+        ),
       );
 
-    return { message: '删除成功' };
+    return { message: "删除成功" };
   }
 
   async getDefaultLevel() {
@@ -542,7 +551,9 @@ export class MembershipService {
       conditions.push(eq(schema.subscriptions.userId, userId));
     }
     if (status) {
-      conditions.push(eq(schema.subscriptions.status, status as SubscriptionStatus));
+      conditions.push(
+        eq(schema.subscriptions.status, status as SubscriptionStatus),
+      );
     }
     if (plan) {
       conditions.push(eq(schema.subscriptions.plan, plan));
@@ -600,7 +611,7 @@ export class MembershipService {
       .where(eq(schema.subscriptions.id, id))
       .limit(1);
     if (!result) {
-      throw new NotFoundException('订阅不存在');
+      throw new NotFoundException("订阅不存在");
     }
     return {
       ...result.subscription,
@@ -611,22 +622,24 @@ export class MembershipService {
   async adminActivate(userId: string, dto: AdminActivateDto) {
     const planConfig = await this.findPlanByCode(dto.plan);
     if (!planConfig) {
-      throw new NotFoundException('套餐配置不存在');
+      throw new NotFoundException("套餐配置不存在");
     }
 
     const startDate = dto.startDate ? new Date(dto.startDate) : new Date();
-    const endDate = dto.endDate ? new Date(dto.endDate) : this.calculateEndDate(startDate, planConfig.durationMonths);
+    const endDate = dto.endDate
+      ? new Date(dto.endDate)
+      : this.calculateEndDate(startDate, planConfig.durationMonths);
 
     const [subscription] = await this.db
       .insert(schema.subscriptions)
       .values({
         userId,
         plan: dto.plan,
-        status: 'active',
-        price: '0',
+        status: "active",
+        price: "0",
         startDate,
         endDate,
-        paymentMethod: 'admin',
+        paymentMethod: "admin",
         paymentId: `admin_${new Date().toISOString()}`,
       })
       .returning();
@@ -666,9 +679,9 @@ export class MembershipService {
     const [updated] = await this.db
       .update(schema.subscriptions)
       .set({
-        status: 'cancelled',
+        status: "cancelled",
         cancelledAt: new Date(),
-        cancelReason: dto.reason || '管理员取消',
+        cancelReason: dto.reason || "管理员取消",
         updatedAt: new Date(),
       })
       .where(eq(schema.subscriptions.id, subscriptionId))
@@ -678,12 +691,61 @@ export class MembershipService {
     await this.db
       .update(schema.users)
       .set({
-        level: (defaultLevel?.code || 'basic') as any,
+        level: (defaultLevel?.code || "basic") as any,
         updatedAt: new Date(),
       })
       .where(eq(schema.users.id, subscription.userId));
 
     return updated;
+  }
+
+  // ============ Cron: Handle Expired Subscriptions ============
+
+  @Cron("0 3 * * *")
+  async handleExpiredSubscriptions() {
+    const now = new Date();
+
+    const expiredSubscriptions = await this.db
+      .select({
+        id: schema.subscriptions.id,
+        userId: schema.subscriptions.userId,
+      })
+      .from(schema.subscriptions)
+      .where(
+        and(
+          eq(schema.subscriptions.status, "active"),
+          lt(schema.subscriptions.endDate, now),
+        ),
+      );
+
+    if (expiredSubscriptions.length === 0) {
+      return;
+    }
+
+    const defaultLevel = await this.getDefaultLevel();
+    const defaultLevelCode = defaultLevel?.code || "basic";
+
+    for (const sub of expiredSubscriptions) {
+      await this.db
+        .update(schema.subscriptions)
+        .set({
+          status: "expired",
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.subscriptions.id, sub.id));
+
+      await this.db
+        .update(schema.users)
+        .set({
+          level: defaultLevelCode as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.users.id, sub.userId));
+    }
+
+    console.log(
+      `[Cron] Processed ${expiredSubscriptions.length} expired subscriptions and downgraded users to ${defaultLevelCode}`,
+    );
   }
 
   // ============ Statistics ============
@@ -696,12 +758,12 @@ export class MembershipService {
     const [{ active }] = await this.db
       .select({ active: sql<number>`count(*)` })
       .from(schema.subscriptions)
-      .where(eq(schema.subscriptions.status, 'active'));
+      .where(eq(schema.subscriptions.status, "active"));
 
     const [{ expired }] = await this.db
       .select({ expired: sql<number>`count(*)` })
       .from(schema.subscriptions)
-      .where(eq(schema.subscriptions.status, 'expired'));
+      .where(eq(schema.subscriptions.status, "expired"));
 
     const planStats = await this.db
       .select({
@@ -723,8 +785,14 @@ export class MembershipService {
       total: Number(total),
       active: Number(active),
       expired: Number(expired),
-      planStats: planStats.map((p) => ({ plan: p.plan, count: Number(p.count) })),
-      levelStats: levelStats.map((l) => ({ level: l.level, count: Number(l.count) })),
+      planStats: planStats.map((p) => ({
+        plan: p.plan,
+        count: Number(p.count),
+      })),
+      levelStats: levelStats.map((l) => ({
+        level: l.level,
+        count: Number(l.count),
+      })),
     };
   }
 

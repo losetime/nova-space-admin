@@ -6,17 +6,22 @@ import {
   IsBoolean,
   IsEnum,
   Min,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+} from "class-validator";
+import { Type } from "class-transformer";
 
-export type PlanLevel = 'basic' | 'advanced' | 'professional';
-export type PlanCode = 'monthly' | 'quarterly' | 'yearly' | 'lifetime' | 'custom';
+export type PlanLevel = "basic" | "advanced" | "professional";
+export type PlanCode =
+  | "monthly"
+  | "quarterly"
+  | "yearly"
+  | "lifetime"
+  | "custom";
 
 export class CreatePlanDto {
   @IsString()
   name: string;
 
-  @IsEnum(['monthly', 'quarterly', 'yearly', 'lifetime', 'custom'])
+  @IsEnum(["monthly", "quarterly", "yearly", "lifetime", "custom"])
   planCode: PlanCode;
 
   @IsInt()

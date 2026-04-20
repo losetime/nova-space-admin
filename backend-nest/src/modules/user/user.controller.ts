@@ -44,6 +44,11 @@ export class UserController {
     return this.userService.softDelete(id);
   }
 
+  @Delete(":id/hard")
+  hardDelete(@Param("id") id: string) {
+    return this.userService.hardDelete(id);
+  }
+
   @Post(":id/reset-password")
   resetPassword(@Param("id") id: string, @Body("password") password?: string) {
     return this.userService.resetPassword(id, password);
