@@ -8,7 +8,7 @@ import {
   Min,
   ValidateIf,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 
 export enum IntelligenceCategory {
   LAUNCH = "launch",
@@ -58,8 +58,12 @@ export class CreateIntelligenceDto {
   @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsString()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.length > 0 ? value.join(",") : "";
+    return value;
+  })
+  @IsString()
   tags?: string;
 
   @IsString()
@@ -107,8 +111,12 @@ export class UpdateIntelligenceDto {
   @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsString()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.length > 0 ? value.join(",") : "";
+    return value;
+  })
+  @IsString()
   tags?: string;
 
   @IsString()

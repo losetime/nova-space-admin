@@ -18,7 +18,10 @@ type IntelligenceLevelType = "free" | "advanced" | "professional";
 
 function parseTags(tags: string | null): string[] {
   if (!tags) return [];
-  return tags.split(',').map((t) => t.trim()).filter(Boolean);
+  return tags
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
 }
 
 @Injectable()
@@ -86,6 +89,12 @@ export class IntelligenceService {
   }
 
   private mapDtoToSchema(dto: CreateIntelligenceDto | UpdateIntelligenceDto) {
+    let tagsValue: string | undefined;
+    if (Array.isArray(dto.tags)) {
+      tagsValue = dto.tags.length > 0 ? dto.tags.join(",") : "";
+    } else if (dto.tags !== undefined) {
+      tagsValue = dto.tags;
+    }
     return {
       title: dto.title,
       content: dto.content,
@@ -95,7 +104,7 @@ export class IntelligenceService {
       level: dto.level,
       source: dto.source,
       sourceUrl: dto.sourceUrl,
-      tags: dto.tags || undefined,
+      tags: tagsValue,
       analysis: dto.analysis,
       trend: dto.trend,
       publishedAt: dto.publishedAt ? new Date(dto.publishedAt) : undefined,
