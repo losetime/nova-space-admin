@@ -6,7 +6,6 @@ import {
   IsUrl,
   IsInt,
   Min,
-  IsArray,
   ValidateIf,
 } from "class-validator";
 import { Type } from "class-transformer";
@@ -21,6 +20,7 @@ export enum IntelligenceCategory {
 
 export enum IntelligenceLevel {
   FREE = "free",
+  BASIC = "basic",
   ADVANCED = "advanced",
   PROFESSIONAL = "professional",
 }
@@ -58,10 +58,9 @@ export class CreateIntelligenceDto {
   @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsArray()
-  @IsString({ each: true })
+  @IsString()
   @IsOptional()
-  tags?: string[];
+  tags?: string;
 
   @IsString()
   @IsOptional()
@@ -108,10 +107,9 @@ export class UpdateIntelligenceDto {
   @IsUrl({}, { message: "来源链接必须是有效的URL地址" })
   sourceUrl?: string;
 
-  @IsArray()
-  @IsString({ each: true })
+  @IsString()
   @IsOptional()
-  tags?: string[];
+  tags?: string;
 
   @IsString()
   @IsOptional()

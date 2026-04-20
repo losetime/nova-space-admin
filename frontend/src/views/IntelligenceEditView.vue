@@ -31,8 +31,12 @@
       <t-form-item label="等级" name="level">
         <t-select v-model="form.level" placeholder="请选择等级" clearable>
           <t-option value="free" label="免费" />
-          <t-option value="advanced" label="进阶" />
-          <t-option value="professional" label="专业" />
+          <t-option
+            v-for="level in levels"
+            :key="level.code"
+            :value="level.code"
+            :label="level.name"
+          />
         </t-select>
       </t-form-item>
 
@@ -88,15 +92,25 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
-import { intelligenceApi } from '@/api'
+import { intelligenceApi, membershipApi } from '@/api'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
+
+interface MemberLevel {
+  id: string
+  code: string
+  name: string
+  description?: string
+  icon?: string
+  isDefault?: boolean
+}
 
 const router = useRouter()
 const route = useRoute()
 
 const isEdit = computed(() => !!route.params.id)
 const loading = ref(false)
+const levels = ref<MemberLevel[]>([])
 
 const form = reactive({
   title: '',
@@ -104,7 +118,7 @@ const form = reactive({
   summary: '',
   cover: '',
   category: 'launch' as 'launch' | 'satellite' | 'industry' | 'research' | 'environment',
-  level: 'free' as 'free' | 'advanced' | 'professional',
+  level: 'free' as 'free' | 'basic' | 'advanced' | 'professional',
   source: '',
   sourceUrl: '',
   tags: '',
@@ -125,6 +139,18 @@ const rules = {
   category: [{ required: true, message: '请选择分类', trigger: 'change' }],
   level: [{ required: true, message: '请选择等级', trigger: 'change' }],
   source: [{ required: true, message: '请输入来源', trigger: 'blur' }],
+}
+
+// 获取会员等级列表
+async function fetchLevels() {
+  try {
+    const res = await membershipApi.getLevels({ page: 1, limit: 100 })
+    if (res.success && res.data?.data) {
+      levels.value = res.data.data
+    }
+  } catch (error) {
+    console.error('获取会员等级失败', error)
+  }
 }
 
 async function fetchIntelligence() {
@@ -168,7 +194,10 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
   }
 }
 
-onMounted(fetchIntelligence)
+onMounted(() => {
+  fetchLevels()
+  fetchIntelligence()
+})
 </script>
 
 <style scoped>

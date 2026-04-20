@@ -9,13 +9,7 @@ type ArticleType = "article" | "video";
 
 function parseTags(tags: string | null): string[] {
   if (!tags) return [];
-  try {
-    const parsed = JSON.parse(tags);
-    if (Array.isArray(parsed)) return parsed;
-    return [tags];
-  } catch {
-    return [tags];
-  }
+  return tags.split(',').map((t) => t.trim()).filter(Boolean);
 }
 
 @Injectable()
@@ -89,7 +83,7 @@ export class ArticleService {
       category: dto.category as ArticleCategory,
       type: dto.type as ArticleType,
       duration: dto.duration,
-      tags: dto.tags ? JSON.stringify(dto.tags) : undefined,
+      tags: dto.tags || undefined,
       isPublished: dto.isPublished,
     };
   }

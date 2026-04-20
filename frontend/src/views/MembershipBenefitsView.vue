@@ -18,6 +18,10 @@
         </t-tag>
       </template>
 
+      <template #category="{ row }">
+        <t-tag variant="outline">{{ getCategoryText(row.category) }}</t-tag>
+      </template>
+
       <template #createdAt="{ row }">
         {{ formatDate(row.createdAt) }}
       </template>
@@ -41,6 +45,16 @@
       <t-form :data="form" :rules="rules" ref="formRef" label-align="left">
         <t-form-item label="权益名称" name="name">
           <t-input v-model="form.name" placeholder="如：每日推送次数" />
+        </t-form-item>
+        <t-form-item label="功能代码" name="code" help="用于前端权限判断，如 satellite_orbit">
+          <t-input v-model="form.code" placeholder="如：satellite_orbit" />
+        </t-form-item>
+        <t-form-item label="分类" name="category">
+          <t-select v-model="form.category" placeholder="选择分类">
+            <t-option value="satellite" label="卫星" />
+            <t-option value="intelligence" label="情报" />
+            <t-option value="general" label="通用" />
+          </t-select>
         </t-form-item>
         <t-form-item label="权益描述" name="description">
           <t-input v-model="form.description" placeholder="权益说明" />
@@ -93,6 +107,8 @@ const deletingBenefit = ref<Benefit | null>(null)
 
 const form = reactive({
   name: '',
+  code: '',
+  category: 'general',
   description: '',
   valueType: 'number',
   unit: '',
@@ -106,11 +122,11 @@ const rules = {
 
 const columns = [
   { colKey: 'name', title: '权益名称', width: 150 },
-  { colKey: 'description', title: '权益描述', width: 200 },
-  { colKey: 'valueType', title: '值类型', width: 100 },
+  { colKey: 'code', title: '代码', width: 150 },
+  { colKey: 'category', title: '分类', width: 100 },
+  { colKey: 'valueType', title: '值类型', width: 80 },
   { colKey: 'unit', title: '单位', width: 80 },
   { colKey: 'sortOrder', title: '排序', width: 60 },
-  { colKey: 'createdAt', title: '创建时间', width: 150 },
   { colKey: 'action', title: '操作', width: 100 },
 ]
 
@@ -120,12 +136,22 @@ const valueTypeMap = {
   boolean: { text: '布尔', theme: 'warning' },
 }
 
+const categoryMap: Record<string, string> = {
+  satellite: '卫星',
+  intelligence: '情报',
+  general: '通用',
+}
+
 function getValueTypeText(type: string) {
   return valueTypeMap[type as keyof typeof valueTypeMap]?.text || type
 }
 
 function getValueTypeTheme(type: string) {
   return valueTypeMap[type as keyof typeof valueTypeMap]?.theme || 'default'
+}
+
+function getCategoryText(category: string | undefined) {
+  return categoryMap[category || ''] || category || '通用'
 }
 
 function formatDate(date: string) {
@@ -148,6 +174,8 @@ async function fetchBenefits() {
 
 function resetForm() {
   form.name = ''
+  form.code = ''
+  form.category = 'general'
   form.description = ''
   form.valueType = 'number'
   form.unit = ''
@@ -165,6 +193,8 @@ function handleEdit(row: Benefit) {
   isEdit.value = true
   editingBenefit.value = row
   form.name = row.name
+  form.code = row.code || ''
+  form.category = row.category || 'general'
   form.description = row.description || ''
   form.valueType = row.valueType || 'number'
   form.unit = row.unit || ''
@@ -178,23 +208,20 @@ async function handleSubmit() {
 
   submitLoading.value = true
   try {
+    const data = {
+      name: form.name,
+      code: form.code || undefined,
+      category: form.category,
+      description: form.description,
+      valueType: form.valueType,
+      unit: form.unit || undefined,
+      sortOrder: form.sortOrder,
+    }
     if (isEdit.value && editingBenefit.value) {
-      await membershipApi.updateBenefit(editingBenefit.value.id, {
-        name: form.name,
-        description: form.description,
-        valueType: form.valueType,
-        unit: form.unit,
-        sortOrder: form.sortOrder,
-      })
+      await membershipApi.updateBenefit(editingBenefit.value.id, data)
       MessagePlugin.success('编辑成功')
     } else {
-      await membershipApi.createBenefit({
-        name: form.name,
-        description: form.description,
-        valueType: form.valueType,
-        unit: form.unit,
-        sortOrder: form.sortOrder,
-      })
+      await membershipApi.createBenefit(data)
       MessagePlugin.success('新增成功')
     }
     showDialog.value = false
