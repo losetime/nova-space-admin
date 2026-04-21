@@ -17,7 +17,6 @@ export const satelliteMetadata = pgTable(
     name: varchar("name", { length: 200 }),
     objectId: varchar("object_id", { length: 20 }),
     altName: varchar("alt_name", { length: 100 }),
-    altNames: text("alt_names"),
     objectType: varchar("object_type", { length: 50 }),
     status: varchar("status", { length: 10 }),
     countryCode: varchar("country_code", { length: 50 }),

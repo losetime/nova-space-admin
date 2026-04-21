@@ -1615,14 +1615,6 @@ export class SatelliteSyncService {
         ? 1440 / detail.MEAN_MOTION
         : undefined;
 
-    let altNames: string[] | undefined;
-    if (detail.ALT_NAME) {
-      altNames = detail.ALT_NAME.split(/[;,]/)
-        .map((s) => s.trim())
-        .filter((s) => s.length > 0);
-      if (altNames.length === 0) altNames = undefined;
-    }
-
     const epochDate = this.parseKeepTrackDate(detail.EPOCH);
     const tleAge = epochDate
       ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -1632,7 +1624,6 @@ export class SatelliteSyncService {
       name: detail.NAME,
       objectId: detail.OBJECT_ID,
       altName: detail.ALT_NAME,
-      altNames: altNames ? JSON.stringify(altNames) : undefined,
       countryCode:
         detail.COUNTRY &&
         detail.COUNTRY.length <= 20 &&
