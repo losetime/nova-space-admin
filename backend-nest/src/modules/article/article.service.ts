@@ -78,6 +78,12 @@ export class ArticleService {
   }
 
   private mapDtoToSchema(dto: CreateArticleDto | UpdateArticleDto) {
+    let tagsValue: string | undefined;
+    if (Array.isArray(dto.tags)) {
+      tagsValue = dto.tags.length > 0 ? dto.tags.join(",") : "";
+    } else if (dto.tags !== undefined) {
+      tagsValue = dto.tags;
+    }
     return {
       title: dto.title,
       content: dto.content,
@@ -86,7 +92,7 @@ export class ArticleService {
       category: dto.category as ArticleCategory,
       type: dto.type as ArticleType,
       duration: dto.duration,
-      tags: dto.tags || undefined,
+      tags: tagsValue,
       isPublished: dto.isPublished,
     };
   }
@@ -123,12 +129,5 @@ export class ArticleService {
     await this.findOne(id);
     await this.db.delete(articles).where(eq(articles.id, id));
     return { message: "删除成功" };
-  }
-
-  async batchCreate(articlesData: Partial<typeof articles.$inferInsert>[]) {
-    return this.db
-      .insert(articles)
-      .values(articlesData as any)
-      .returning();
   }
 }

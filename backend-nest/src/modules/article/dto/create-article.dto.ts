@@ -7,7 +7,7 @@ import {
   IsInt,
   Min,
 } from "class-validator";
-import { Type } from "class-transformer";
+import { Type, Transform } from "class-transformer";
 
 export class CreateArticleDto {
   @IsString()
@@ -38,8 +38,12 @@ export class CreateArticleDto {
   @IsOptional()
   duration?: number;
 
-  @IsString()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.length > 0 ? value.join(",") : "";
+    return value;
+  })
+  @IsString()
   tags?: string;
 
   @IsBoolean()
@@ -76,8 +80,12 @@ export class UpdateArticleDto {
   @IsOptional()
   duration?: number;
 
-  @IsString()
   @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) return value.length > 0 ? value.join(",") : "";
+    return value;
+  })
+  @IsString()
   tags?: string;
 
   @IsBoolean()

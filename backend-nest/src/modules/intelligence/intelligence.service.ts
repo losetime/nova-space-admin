@@ -144,8 +144,4 @@ export class IntelligenceService {
     await this.db.delete(intelligences).where(eq(intelligences.id, id));
     return { message: "删除成功" };
   }
-
-  async batchCreate(intelligencesData: any[]) {
-    return this.db.insert(intelligences).values(intelligencesData).returning();
-  }
 }
