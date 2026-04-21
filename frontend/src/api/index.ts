@@ -744,4 +744,101 @@ export const membershipApi = {
     api.get<any, ApiResponse<MembershipStatistics>>('/membership/statistics'),
 }
 
+// Satellite Metadata API
+export interface SatelliteMetadataListItem {
+  noradId: string
+  name: string | null
+  countryCode: string | null
+  objectType: string | null
+  status: string | null
+  launchDate: string | null
+  objectClass: string | null
+  inclination: number | null
+  apogee: number | null
+  perigee: number | null
+  hasDiscosData: boolean
+  hasKeepTrackData: boolean
+  hasSpaceTrackData: boolean
+}
+
+export interface SatelliteMetadataDetail {
+  noradId: string
+  name: string | null
+  objectId: string | null
+  altName: string | null
+  objectType: string | null
+  status: string | null
+  countryCode: string | null
+  launchDate: string | null
+  stableDate: string | null
+  launchSite: string | null
+  launchPad: string | null
+  launchVehicle: string | null
+  flightNo: string | null
+  cosparLaunchNo: string | null
+  launchFailure: boolean | null
+  launchSiteName: string | null
+  decayDate: string | null
+  period: number | null
+  inclination: number | null
+  apogee: number | null
+  perigee: number | null
+  eccentricity: number | null
+  raan: number | null
+  argOfPerigee: number | null
+  rcs: string | null
+  stdMag: number | null
+  tleEpoch: string | null
+  tleAge: number | null
+  cosparId: string | null
+  objectClass: string | null
+  launchMass: number | null
+  shape: string | null
+  dimensions: string | null
+  span: number | null
+  mission: string | null
+  firstEpoch: string | null
+  operator: string | null
+  manufacturer: string | null
+  contractor: string | null
+  bus: string | null
+  configuration: string | null
+  purpose: string | null
+  power: string | null
+  motor: string | null
+  length: number | null
+  diameter: number | null
+  dryMass: number | null
+  equipment: string | null
+  adcs: string | null
+  payload: string | null
+  constellationName: string | null
+  lifetime: string | null
+  platform: string | null
+  color: string | null
+  materialComposition: string | null
+  majorEvents: string | null
+  relatedSatellites: string | null
+  transmitterFrequencies: string | null
+  sources: string | null
+  referenceUrls: string | null
+  summary: string | null
+  anomalyFlags: string | null
+  lastReviewed: string | null
+  predDecayDate: string | null
+  hasDiscosData: boolean
+  hasKeepTrackData: boolean
+  hasSpaceTrackData: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export const satelliteMetadataApi = {
+  getList: (params?: { page?: number; limit?: number; noradId?: string; name?: string }) =>
+    api.get<any, ApiResponse<PaginatedResponse<SatelliteMetadataListItem>>>('/satellite-metadata', { params }),
+
+  getOne: (noradId: string) =>
+    api.get<any, ApiResponse<SatelliteMetadataDetail>>(`/satellite-metadata/${noradId}`),
+}
+
 export default api

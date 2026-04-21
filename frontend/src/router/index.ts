@@ -88,6 +88,16 @@ const routes = [
         component: () => import('@/views/SatelliteSyncView.vue'),
       },
       {
+        path: 'satellite-metadata',
+        name: 'SatelliteMetadata',
+        component: () => import('@/views/SatelliteMetadataView.vue'),
+      },
+      {
+        path: 'satellite-metadata/:noradId',
+        name: 'SatelliteMetadataDetail',
+        component: () => import('@/views/SatelliteMetadataDetailView.vue'),
+      },
+      {
         path: 'milestones',
         name: 'Milestones',
         component: () => import('@/views/MilestonesView.vue'),

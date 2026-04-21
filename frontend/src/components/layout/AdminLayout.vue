@@ -65,6 +65,10 @@
           <template #icon><CloudDownloadIcon /></template>
           卫星数据同步
         </t-menu-item>
+        <t-menu-item value="satelliteMetadata">
+          <template #icon><RocketIcon /></template>
+          卫星元数据
+        </t-menu-item>
         <t-menu-item value="milestones">
           <template #icon><TimeFilledIcon /></template>
           里程碑管理
@@ -155,6 +159,7 @@ import {
   GiftIcon,
   CartIcon,
   HistoryIcon,
+  RocketIcon,
 } from 'tdesign-icons-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
@@ -184,6 +189,8 @@ const routeTitleMap: Record<string, string> = {
   MembershipSubscriptions: '订阅记录',
   Quiz: '问答管理',
   SatelliteSync: '卫星数据同步',
+  SatelliteMetadata: '卫星元数据',
+  SatelliteMetadataDetail: '卫星元数据详情',
   Milestones: '里程碑管理',
   MilestoneCreate: '新建里程碑',
   MilestoneEdit: '编辑里程碑',
@@ -221,6 +228,8 @@ watch(
       activeMenu.value = 'quiz'
     } else if (name === 'SatelliteSync') {
       activeMenu.value = 'satelliteSync'
+    } else if (name === 'SatelliteMetadata' || name === 'SatelliteMetadataDetail') {
+      activeMenu.value = 'satelliteMetadata'
     } else if (name === 'Milestones' || name === 'MilestoneCreate' || name === 'MilestoneEdit') {
       activeMenu.value = 'milestones'
     } else if (name === 'Companies' || name === 'CompanyCreate' || name === 'CompanyEdit') {
@@ -246,6 +255,7 @@ function handleMenuClick(value: string) {
     membershipSubscriptions: 'MembershipSubscriptions',
     quiz: 'Quiz',
     satelliteSync: 'SatelliteSync',
+    satelliteMetadata: 'SatelliteMetadata',
     milestones: 'Milestones',
     companies: 'Companies',
   }
