@@ -48,7 +48,7 @@ export const satelliteMetadata = pgTable(
     shape: varchar("shape", { length: 100 }),
     dimensions: varchar("dimensions", { length: 50 }),
     span: doublePrecision("span"),
-    mission: varchar("mission", { length: 100 }),
+    mission: text("mission"),
     firstEpoch: date("first_epoch", { mode: "date" }),
     operator: varchar("operator", { length: 100 }),
     manufacturer: varchar("manufacturer", { length: 100 }),
