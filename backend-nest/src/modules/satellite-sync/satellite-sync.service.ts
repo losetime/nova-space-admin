@@ -2276,13 +2276,14 @@ export class SatelliteSyncService {
     constraint?: string;
     stack?: string;
   } {
+    const pgError = error.cause || error;
     return {
-      code: error.code,
-      detail: error.detail,
-      hint: error.hint,
-      column: error.column,
-      table: error.table,
-      constraint: error.constraint,
+      code: pgError.code,
+      detail: pgError.detail,
+      hint: pgError.hint,
+      column: pgError.column,
+      table: pgError.table,
+      constraint: pgError.constraint,
       stack: error.stack,
     };
   }
