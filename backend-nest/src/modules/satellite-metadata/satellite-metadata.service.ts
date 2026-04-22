@@ -98,9 +98,7 @@ export class SatelliteMetadataService {
 
   constructor(@Inject("DATABASE") private readonly db: Database) {}
 
-  async findAll(
-    query: QuerySatelliteMetadataDto,
-  ): Promise<{
+  async findAll(query: QuerySatelliteMetadataDto): Promise<{
     data: SatelliteMetadataListItem[];
     total: number;
     page: number;
