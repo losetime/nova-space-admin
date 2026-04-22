@@ -17,10 +17,10 @@
       "breakpoints": true
     },
     {
-      "idx": 2,
+      "idx": 6,
       "version": "7",
-      "when": 1745210000000,
-      "tag": "0002_remove_alt_names",
+      "when": 1745337900000,
+      "tag": "0006_change_alt_name_to_varchar200",
       "breakpoints": true
     }
   ]
