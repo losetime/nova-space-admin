@@ -149,8 +149,9 @@
     <t-dialog
       v-model:visible="syncDetailVisible"
       :header="syncDetailTitle"
-      width="800px"
       :footer="false"
+      mode="full-screen"
+      class="sync-detail-dialog"
     >
       <div class="sync-detail-content">
         <!-- 历史任务列表 -->
@@ -210,7 +211,7 @@
             :loading="errorsLoading"
             row-key="id"
             size="small"
-            max-height="200px"
+            max-height="400px"
           >
             <template #errorType="{ row }">
               <t-tag :theme="getErrorTypeTheme(row.errorType)" size="small">
@@ -220,16 +221,29 @@
             <template #timestamp="{ row }">
               {{ formatDate(row.timestamp) }}
             </template>
+            <template #action="{ row }">
+              <t-button size="small" variant="text" @click="showErrorDetailDialog(row)">
+                详情
+              </t-button>
+            </template>
           </t-table>
         </div>
       </div>
     </t-dialog>
+
+    <!-- 错误详情弹窗 -->
+    <ErrorDetailDialog
+      v-if="selectedError"
+      v-model:visible="errorDetailVisible"
+      :error="selectedError"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
+import ErrorDetailDialog from '@/components/ErrorDetailDialog.vue'
 import {
   satelliteSyncApi,
   type SyncType,
@@ -370,6 +384,10 @@ const selectedTask = ref<SyncTaskItem | null>(null)
 const taskErrors = ref<SyncErrorLog[]>([])
 const errorsLoading = ref(false)
 
+// 错误详情弹窗
+const errorDetailVisible = ref(false)
+const selectedError = ref<SyncErrorLog | null>(null)
+
 const taskColumns = [
   { colKey: 'id', title: '任务 ID', width: 140, ellipsis: true },
   { colKey: 'status', title: '状态', width: 80 },
@@ -379,12 +397,17 @@ const taskColumns = [
 ]
 
 const errorColumns = [
-  { colKey: 'noradId', title: 'NORAD ID', width: 80 },
-  { colKey: 'name', title: '名称', ellipsis: true },
-  { colKey: 'errorType', title: '错误类型', width: 100 },
-  { colKey: 'errorMessage', title: '错误信息', ellipsis: true },
-  { colKey: 'timestamp', title: '时间', width: 120 },
+  { colKey: 'noradId', title: 'NORAD ID' },
+  { colKey: 'name', title: '名称', ellipsis: true, width: 600 },
+  { colKey: 'errorType', title: '错误类型' },
+  { colKey: 'timestamp', title: '时间' },
+  { colKey: 'action', title: '操作' },
 ]
+
+function showErrorDetailDialog(error: SyncErrorLog) {
+  selectedError.value = error
+  errorDetailVisible.value = true
+}
 
 // 加载统计数据
 async function loadStats() {
@@ -851,5 +874,14 @@ onUnmounted(() => stopPolling())
   margin: 0 0 12px;
   font-size: 14px;
   font-weight: 600;
+}
+
+.sync-detail-dialog :deep(.t-dialog) {
+  height: 80vh;
+}
+
+.sync-detail-dialog :deep(.t-dialog__body) {
+  max-height: calc(80vh - 120px);
+  overflow-y: auto;
 }
 </style>

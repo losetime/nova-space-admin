@@ -234,6 +234,15 @@ export interface ErrorLogItem {
   source: string;
   errorType: string;
   errorMessage: string;
+  rawTle?: string;
+  errorDetails?: {
+    code?: string;
+    detail?: string;
+    hint?: string;
+    column?: string;
+    table?: string;
+    constraint?: string;
+  };
   timestamp: string;
 }
 

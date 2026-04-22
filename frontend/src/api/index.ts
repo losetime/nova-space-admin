@@ -414,6 +414,15 @@ export interface SyncTaskItem {
   error?: string
 }
 
+export interface ErrorDetails {
+  code?: string
+  detail?: string
+  hint?: string
+  column?: string
+  table?: string
+  constraint?: string
+}
+
 // 错误日志项
 export interface SyncErrorLog {
   id: string
@@ -422,6 +431,8 @@ export interface SyncErrorLog {
   source: string
   errorType: string
   errorMessage: string
+  rawTle?: string
+  errorDetails?: ErrorDetails
   timestamp: string
 }
 

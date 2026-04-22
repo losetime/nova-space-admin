@@ -4,6 +4,7 @@ import {
   varchar,
   text,
   timestamp,
+  jsonb,
   index,
 } from "drizzle-orm/pg-core";
 
@@ -29,6 +30,7 @@ export const satelliteSyncErrorLogs = pgTable(
     errorType: varchar("error_type", { length: 30 }).notNull(),
     errorMessage: text("error_message").notNull(),
     rawTle: text("raw_tle"),
+    errorDetails: jsonb("error_details"),
     timestamp: timestamp("timestamp", { mode: "date" }).notNull(),
   },
   (table) => [

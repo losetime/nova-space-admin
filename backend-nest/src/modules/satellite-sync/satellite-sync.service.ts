@@ -606,6 +606,8 @@ export class SatelliteSyncService {
       source: err.source,
       errorType: err.errorType as SyncErrorType,
       errorMessage: err.errorMessage,
+      rawTle: err.rawTle ?? undefined,
+      errorDetails: err.errorDetails ?? undefined,
       timestamp: err.timestamp.toISOString(),
     }));
 
@@ -1001,6 +1003,8 @@ export class SatelliteSyncService {
           "celestrak",
           "database",
           dbError.message,
+          undefined,
+          this.extractErrorDetails(dbError),
         );
       }
 
@@ -1222,6 +1226,8 @@ export class SatelliteSyncService {
           "space-track",
           "database",
           error.message,
+          undefined,
+          this.extractErrorDetails(error),
         );
       }
     }
@@ -1469,6 +1475,8 @@ export class SatelliteSyncService {
           "keeptrack",
           "database",
           dbError.message,
+          undefined,
+          this.extractErrorDetails(dbError),
         );
       }
 
@@ -1551,6 +1559,8 @@ export class SatelliteSyncService {
               "keeptrack",
               "database",
               dbError.message,
+              undefined,
+              this.extractErrorDetails(dbError),
             );
           }
         } else {
@@ -1585,6 +1595,8 @@ export class SatelliteSyncService {
           "keeptrack",
           errorType,
           error.message,
+          undefined,
+          this.extractErrorDetails(error),
         );
       }
 
@@ -2236,6 +2248,7 @@ export class SatelliteSyncService {
           "database",
           dbError.message,
           rawTle,
+          this.extractErrorDetails(dbError),
         );
       }
 
@@ -2254,6 +2267,26 @@ export class SatelliteSyncService {
     );
   }
 
+  private extractErrorDetails(error: any): {
+    code?: string;
+    detail?: string;
+    hint?: string;
+    column?: string;
+    table?: string;
+    constraint?: string;
+    stack?: string;
+  } {
+    return {
+      code: error.code,
+      detail: error.detail,
+      hint: error.hint,
+      column: error.column,
+      table: error.table,
+      constraint: error.constraint,
+      stack: error.stack,
+    };
+  }
+
   private async logSyncError(
     taskId: string,
     noradId: string,
@@ -2262,6 +2295,15 @@ export class SatelliteSyncService {
     errorType: SyncErrorType,
     errorMessage: string,
     rawTle?: string,
+    errorDetails?: {
+      code?: string;
+      detail?: string;
+      hint?: string;
+      column?: string;
+      table?: string;
+      constraint?: string;
+      stack?: string;
+    },
   ): Promise<void> {
     try {
       await this.db.insert(satelliteSyncErrorLogs).values({
@@ -2272,6 +2314,7 @@ export class SatelliteSyncService {
         errorType: errorType,
         errorMessage: errorMessage,
         rawTle: rawTle,
+        errorDetails: errorDetails || undefined,
         timestamp: new Date(),
       });
     } catch (logError: any) {
