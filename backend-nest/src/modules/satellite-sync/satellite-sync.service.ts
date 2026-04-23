@@ -1326,6 +1326,9 @@ export class SatelliteSyncService {
 
     let success = 0;
     for (const sat of data) {
+      if (!sat.status) {
+        continue;
+      }
       try {
         const noradId = this.extractNoradId(sat.tle1);
         await this.db
