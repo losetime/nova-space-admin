@@ -1332,6 +1332,16 @@ export class SatelliteSyncService {
       try {
         const noradId = this.extractNoradId(sat.tle1);
         await this.db
+          .insert(satelliteMetadata)
+          .values({
+            noradId: noradId,
+            hasDiscosData: false,
+            hasKeepTrackData: false,
+            hasSpaceTrackData: false,
+          })
+          .onConflictDoNothing({ target: satelliteMetadata.noradId });
+
+        await this.db
           .insert(satelliteTle)
           .values({
             noradId: noradId,
