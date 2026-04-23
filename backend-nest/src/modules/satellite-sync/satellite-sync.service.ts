@@ -857,6 +857,16 @@ export class SatelliteSyncService {
         }
 
         await this.db
+          .insert(satelliteMetadata)
+          .values({
+            noradId: noradId,
+            hasDiscosData: false,
+            hasKeepTrackData: false,
+            hasSpaceTrackData: false,
+          })
+          .onConflictDoNothing({ target: satelliteMetadata.noradId });
+
+        await this.db
           .insert(satelliteTle)
           .values({
             noradId: noradId,
@@ -2205,15 +2215,7 @@ export class SatelliteSyncService {
       }
 
       try {
-        await this.db
-          .insert(satelliteMetadata)
-          .values({
-            noradId: noradId,
-            hasDiscosData: false,
-            hasKeepTrackData: false,
-            hasSpaceTrackData: false,
-          })
-          .onConflictDoNothing({ target: satelliteMetadata.noradId });
+        await this.upsertMetadata(item);
 
         await this.db
           .insert(satelliteTle)
