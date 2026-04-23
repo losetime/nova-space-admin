@@ -57,7 +57,6 @@ export interface SatelliteMetadataDetail {
   payload: string | null;
   constellationName: string | null;
   lifetime: string | null;
-  platform: string | null;
   color: string | null;
   materialComposition: string | null;
   majorEvents: string | null;
@@ -249,7 +248,6 @@ export class SatelliteMetadataService {
       payload: m.payload,
       constellationName: m.constellationName,
       lifetime: m.lifetime,
-      platform: m.platform,
       color: m.color,
       materialComposition: m.materialComposition,
       majorEvents: m.majorEvents,

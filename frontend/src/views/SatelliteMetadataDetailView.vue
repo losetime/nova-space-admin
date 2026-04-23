@@ -31,12 +31,12 @@
         <t-descriptions :column="3" bordered>
           <t-descriptions-item label="发射日期 (launch_date)">{{ metadata.launchDate || '-' }}</t-descriptions-item>
           <t-descriptions-item label="稳定日期 (stable_date)">{{ metadata.stableDate || '-' }}</t-descriptions-item>
-          <t-descriptions-item label="decay日期 (decay_date)">{{ metadata.decayDate || '-' }}</t-descriptions-item>
-          <t-descriptions-item label="预测decay日期 (pred_decay_date)">{{ metadata.predDecayDate || '-' }}</t-descriptions-item>
-          <t-descriptions-item label="发射场 (launch_site)">{{ metadata.launchSite || '-' }}</t-descriptions-item>
+          <t-descriptions-item label="衰减日期 (decay_date)">{{ metadata.decayDate || '-' }}</t-descriptions-item>
+          <t-descriptions-item label="预测衰减日期 (pred_decay_date)">{{ metadata.predDecayDate || '-' }}</t-descriptions-item>
+          <t-descriptions-item label="发射地点 (launch_site)">{{ metadata.launchSite || '-' }}</t-descriptions-item>
           <t-descriptions-item label="发射工位 (launch_pad)">{{ metadata.launchPad || '-' }}</t-descriptions-item>
           <t-descriptions-item label="运载火箭 (launch_vehicle)">{{ metadata.launchVehicle || '-' }}</t-descriptions-item>
-          <t-descriptions-item label="航班号 (flight_no)">{{ metadata.flightNo || '-' }}</t-descriptions-item>
+          <t-descriptions-item label="发射序号 (flight_no)">{{ metadata.flightNo || '-' }}</t-descriptions-item>
           <t-descriptions-item label="COSPAR发射号 (cospar_launch_no)">{{ metadata.cosparLaunchNo || '-' }}</t-descriptions-item>
           <t-descriptions-item label="发射失败 (launch_failure)">{{ metadata.launchFailure ? '是' : '否' }}</t-descriptions-item>
           <t-descriptions-item label="发射场名称 (launch_site_name)">{{ metadata.launchSiteName || '-' }}</t-descriptions-item>
@@ -118,7 +118,6 @@
           <t-descriptions-item label="承包商 (contractor)">{{ metadata.contractor || '-' }}</t-descriptions-item>
           <t-descriptions-item label="总线 (bus)">{{ metadata.bus || '-' }}</t-descriptions-item>
           <t-descriptions-item label="构型 (configuration)">{{ metadata.configuration || '-' }}</t-descriptions-item>
-          <t-descriptions-item label="平台 (platform)">{{ metadata.platform || '-' }}</t-descriptions-item>
         </t-descriptions>
       </t-card>
 
