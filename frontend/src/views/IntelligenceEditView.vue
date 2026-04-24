@@ -30,7 +30,6 @@
 
       <t-form-item label="等级" name="level">
         <t-select v-model="form.level" placeholder="请选择等级" clearable>
-          <t-option value="free" label="免费" />
           <t-option
             v-for="level in levels"
             :key="level.code"
@@ -118,7 +117,7 @@ const form = reactive({
   summary: '',
   cover: '',
   category: 'launch' as 'launch' | 'satellite' | 'industry' | 'research' | 'environment',
-  level: 'free' as 'free' | 'basic' | 'advanced' | 'professional',
+  level: '',
   source: '',
   sourceUrl: '',
   tags: '',

@@ -106,7 +106,7 @@ export class EmailService {
   }
 
   private generateDigestHtml(data: DigestData): string {
-    const SITE_URL = "https://space.nwbd.net";
+    const SITE_URL = "https://space.nuoweibd.com";
     let content = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0f; padding: 30px; border-radius: 12px;">
         <h1 style="color: #00d4ff; text-align: center; margin-bottom: 30px;">Nova Space 每日资讯</h1>
@@ -223,7 +223,7 @@ export class EmailService {
       content += `今日无重要资讯\n`;
     }
 
-    content += `\n访问 https://space.nwbd.net\n`;
+    content += `\n访问 https://space.nuoweibd.com\n`;
     return content;
   }
 }

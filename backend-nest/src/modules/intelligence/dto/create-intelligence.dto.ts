@@ -18,13 +18,6 @@ export enum IntelligenceCategory {
   ENVIRONMENT = "environment",
 }
 
-export enum IntelligenceLevel {
-  FREE = "free",
-  BASIC = "basic",
-  ADVANCED = "advanced",
-  PROFESSIONAL = "professional",
-}
-
 export class CreateIntelligenceDto {
   @IsString()
   @IsNotEmpty({ message: "标题不能为空" })
@@ -46,9 +39,9 @@ export class CreateIntelligenceDto {
   @IsNotEmpty({ message: "分类不能为空" })
   category: IntelligenceCategory;
 
-  @IsEnum(IntelligenceLevel, { message: "等级不正确" })
+  @IsString()
   @IsNotEmpty({ message: "等级不能为空" })
-  level: IntelligenceLevel;
+  level: string;
 
   @IsString()
   @IsNotEmpty({ message: "来源不能为空" })
@@ -99,9 +92,9 @@ export class UpdateIntelligenceDto {
   @IsOptional()
   category?: IntelligenceCategory;
 
-  @IsEnum(IntelligenceLevel, { message: "等级不正确" })
+  @IsString()
   @IsOptional()
-  level?: IntelligenceLevel;
+  level?: string;
 
   @IsString()
   @IsOptional()
@@ -149,8 +142,8 @@ export class QueryIntelligenceDto {
   category?: IntelligenceCategory;
 
   @IsOptional()
-  @IsEnum(IntelligenceLevel)
-  level?: IntelligenceLevel;
+  @IsString()
+  level?: string;
 
   @IsOptional()
   @IsString()

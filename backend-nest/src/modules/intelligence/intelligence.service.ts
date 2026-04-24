@@ -14,7 +14,6 @@ type IntelligenceCategoryType =
   | "industry"
   | "research"
   | "environment";
-type IntelligenceLevelType = "free" | "advanced" | "professional";
 
 function parseTags(tags: string | null): string[] {
   if (!tags) return [];
@@ -38,7 +37,7 @@ export class IntelligenceService {
       );
     }
     if (level) {
-      conditions.push(eq(intelligences.level, level as IntelligenceLevelType));
+      conditions.push(eq(intelligences.level, level));
     }
     if (keyword) {
       conditions.push(like(intelligences.title, `%${keyword}%`));

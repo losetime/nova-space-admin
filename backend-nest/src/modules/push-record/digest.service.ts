@@ -1,9 +1,8 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { eq, desc, gt, inArray, and } from "drizzle-orm";
+import { desc, gt } from "drizzle-orm";
 import type { Database } from "../../database";
 import { intelligences } from "../../database/schema/intelligences";
-import { users } from "../../database/schema/users";
 import axios from "axios";
 
 interface DigestContent {
@@ -81,20 +80,6 @@ export class DigestService {
     try {
       const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-      const userResult = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.id, subscription.userId))
-        .limit(1);
-      const level = userResult[0]?.level || "basic";
-
-      let whereLevels: string[] = ["free"];
-      if (level === "professional") {
-        whereLevels = ["free", "advanced", "professional"];
-      } else if (level === "advanced") {
-        whereLevels = ["free", "advanced"];
-      }
-
       const items = await this.db
         .select({
           id: intelligences.id,
@@ -104,12 +89,7 @@ export class DigestService {
           publishedAt: intelligences.publishedAt,
         })
         .from(intelligences)
-        .where(
-          and(
-            inArray(intelligences.level, whereLevels as any),
-            gt(intelligences.createdAt, YESTERDAY),
-          ),
-        )
+        .where(gt(intelligences.createdAt, YESTERDAY))
         .orderBy(desc(intelligences.createdAt))
         .limit(3);
 
@@ -133,12 +113,7 @@ export class DigestService {
           publishedAt: intelligences.publishedAt,
         })
         .from(intelligences)
-        .where(
-          and(
-            eq(intelligences.level, "free"),
-            gt(intelligences.createdAt, YESTERDAY),
-          ),
-        )
+        .where(gt(intelligences.createdAt, YESTERDAY))
         .orderBy(desc(intelligences.createdAt))
         .limit(3);
 
