@@ -157,10 +157,10 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
   loading.value = true
   try {
     const data: any = { ...form }
-    delete data.password
     delete data.level
     delete data.levelName
     if (isEdit.value) {
+      delete data.password
       await userApi.update(route.params.id as string, data)
       MessagePlugin.success('保存成功')
     } else {
