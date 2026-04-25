@@ -2,71 +2,66 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## 项目概述
 
-Nova Space Admin is a monorepo containing an admin dashboard for managing space education articles and intelligence content. It consists of:
-- **backend-nest**: NestJS backend API (port 3002)
-- **frontend**: Vue 3 admin dashboard (port 5180)
+Nova Space Admin 是一个 monorepo，包含：
+- **backend-nest**: NestJS 后端 API（端口 3002）
+- **frontend**: Vue 3 管理后台（端口 5180）
 
-The admin system uses PostgreSQL database. Database schema is managed by this project through migration files in `backend-nest/src/database/migrations/`. TypeORM uses `synchronize: false` in production to prevent automatic schema changes.
+数据库：PostgreSQL + Drizzle ORM，架构通过迁移文件管理
 
-## Common Commands
+## 常用命令
 
-### Backend (from backend-nest/)
+### 后端 (from backend-nest/)
 ```bash
-pnpm install          # Install dependencies
-pnpm run start:dev    # Development server with hot reload
-pnpm run build        # Build for production
-pnpm run lint         # Run ESLint
-pnpm run test         # Run unit tests
-pnpm run test:e2e     # Run e2e tests
-npx ts-node scripts/create-admin.ts  # Create/update admin user (admin/admin123)
+pnpm run start:dev    # 开发模式热重载
+pnpm run build        # 生产构建
+pnpm run lint         # ESLint 检查
+pnpm run test         # 单元测试
+pnpm run test:e2e     # e2e 测试
+npx ts-node scripts/create-admin.ts  # 创建管理员 (admin/admin123)
 ```
 
-### Frontend (from frontend/)
+### 前端 (from frontend/)
 ```bash
-pnpm install    # Install dependencies
-pnpm run dev    # Development server
-pnpm run build  # Build for production
+pnpm run dev    # 开发模式
+pnpm run build  # 生产构建
 ```
 
-## Architecture
+## 架构要点
 
-### Backend Structure
-- `src/modules/` - Feature modules (article, intelligence, auth, import)
-- `src/common/` - Shared utilities (entities, guards, filters, interceptors)
-- `src/config/` - Configuration using @nestjs/config
+### 后端结构
+- `modules/` - 功能模块（article, intelligence, auth, import, upload, quiz, feedback, satellite-sync, satellite-metadata, membership, milestone, company, push-record, user）
+- `common/` - 共享：entities, guards, filters, interceptors, enums
+- `config/` - @nestjs/config 配置
+- `database/` - Drizzle ORM 配置
+  - `schema/` - 表结构定义（articles.ts, users.ts 等）
+  - `migrations/` - SQL 迁移文件
+- `modules/*/` - 功能模块，每个包含：*.module.ts, *.controller.ts, *.service.ts, dto/*.dto.ts
 
-Each module follows NestJS conventions:
-- `*.module.ts` - Module definition
-- `*.controller.ts` - REST endpoints
-- `*.service.ts` - Business logic
-- `entities/*.entity.ts` - TypeORM entities
-- `dto/*.dto.ts` - Data transfer objects with class-validator
+### 前端结构
+- `views/` - 页面组件
+- `components/layout/` - AdminLayout 侧边栏布局
+- `stores/` - Pinia stores（auth store）
+- `api/` - Axios 客户端（含请求/响应拦截器）
+- `router/` - Vue Router（含 auth 守卫）
 
-### Frontend Structure
-- `src/views/` - Page components (ArticlesView, IntelligenceView, DashboardView, LoginView)
-- `src/components/layout/` - Layout components (AdminLayout with sidebar)
-- `src/stores/` - Pinia stores (auth store for authentication state)
-- `src/api/` - Axios API client with request/response interceptors
-- `src/router/` - Vue Router with auth guards
+### 认证流程
+JWT token 存于 localStorage (`admin_token`)，前端拦截器自动添加 Bearer token，后端使用 JwtAuthGuard 和 AdminGuard 保护路由。
 
-### Key Entities
-- **Article** (`education_articles`): Education content with categories: basic, advanced, mission, people
-- **Intelligence** (`intelligences`): Space intelligence with categories: launch, satellite, industry, research, environment; levels: free, advanced, professional
-- **User** (`users`): Users with roles: user, admin, super_admin
+### API 响应格式
+- 成功：`{ success: true, data, message }`
+- 分页：`{ data, total, page, limit, totalPages }`
+- 全局异常：AllExceptionsFilter
 
-### Authentication
-- JWT-based authentication with Passport
-- Token stored in localStorage as `admin_token`
-- Frontend API interceptor adds Bearer token to requests
-- Backend uses JwtAuthGuard and AdminGuard for protected routes
+### 核心实体
+- **Article** (`education_articles`) - 分类: basic/advanced/mission/people
+- **Intelligence** (`intelligences`) - 分类: launch/satellite/industry/research/environment，等级: free/advanced/professional
+- **User** (`users`) - 角色: user/admin/super_admin
+- **Quiz**, **Feedback**, **PushRecord**, **SatelliteMetadata**, **Membership**, **Milestone**, **Company**
 
-### API Patterns
-- All API routes prefixed with `/api`
-- Responses wrapped in `{ success, data, message }` format via TransformInterceptor
-- Errors handled globally via AllExceptionsFilter
-- Pagination returns `{ data, total, page, limit, totalPages }`
+## 重要约定
 
-### Import Feature
-The import module supports CSV and Excel file uploads for batch importing articles and intelligence data. Files are parsed and validated before batch insertion.
+- 所有 API 路由前缀 `/api`
+- 数据库迁移文件在 `backend-nest/src/database/migrations/`，格式 `YYYYMMDD-description.sql`
+- 数据库使用 Drizzle ORM，迁移文件在 `database/migrations/`
