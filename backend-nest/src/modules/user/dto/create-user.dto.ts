@@ -27,12 +27,12 @@ export class CreateUserDto {
   })
   password: string;
 
-  @Transform(({ value }) => value === '' ? undefined : value)
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsOptional()
   @IsEmail({}, { message: "邮箱格式不正确" })
   email?: string;
 
-  @Transform(({ value }) => value === '' ? undefined : value)
+  @Transform(({ value }) => (value === "" ? undefined : value))
   @IsString()
   @IsOptional()
   @Matches(/^1[3-9]\d{9}$/, { message: "手机号格式不正确" })

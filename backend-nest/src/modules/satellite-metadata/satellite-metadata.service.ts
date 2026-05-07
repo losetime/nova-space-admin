@@ -32,7 +32,6 @@ export interface SatelliteMetadataDetail {
   rcs: string | null;
   stdMag: number | null;
   tleEpoch: string | null;
-  tleAge: number | null;
   cosparId: string | null;
   objectClass: string | null;
   launchMass: number | null;
@@ -219,7 +218,6 @@ export class SatelliteMetadataService {
       rcs: m.rcs,
       stdMag: m.stdMag,
       tleEpoch: m.tleEpoch ? m.tleEpoch.toISOString() : null,
-      tleAge: m.tleAge,
       cosparId: m.cosparId,
       objectClass: m.objectClass,
       launchMass: m.launchMass,
