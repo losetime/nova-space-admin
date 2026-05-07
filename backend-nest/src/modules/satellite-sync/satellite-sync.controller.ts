@@ -150,4 +150,21 @@ export class SatelliteSyncController {
       message: `定时任务已${body.enabled ? "启用" : "禁用"}`,
     };
   }
+
+  @Get("cron/tle/status")
+  getTleCronStatus() {
+    return {
+      tleEnabled: this.syncService.isTleCronEnabled(),
+    };
+  }
+
+  @Post("cron/tle/toggle")
+  @HttpCode(HttpStatus.OK)
+  toggleTleCron(@Body() body: { enabled: boolean }) {
+    this.syncService.setTleCronEnabled(body.enabled);
+    return {
+      tleEnabled: this.syncService.isTleCronEnabled(),
+      message: `TLE 定时任务已${body.enabled ? "启用" : "禁用"}`,
+    };
+  }
 }

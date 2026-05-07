@@ -42,6 +42,17 @@
           </t-space>
         </template>
       </t-table>
+      <div class="cron-control">
+        <div class="cron-label">
+          <span class="cron-title">TLE 定时同步</span>
+          <span class="cron-desc">每天凌晨 3:00 自动同步 KeepTrack TLE 数据</span>
+        </div>
+        <t-switch
+          v-model="tleCronEnabled"
+          :loading="tleCronLoading"
+          @change="handleTleCronToggle"
+        />
+      </div>
     </t-card>
 
     <!-- 卫星元数据表格 -->
@@ -283,6 +294,8 @@ const isPolling = ref(false) // 标记是否正在轮询
 // 定时任务状态
 const cronEnabled = ref(false) // 默认关闭
 const cronLoading = ref(false)
+const tleCronEnabled = ref(true) // 默认开启
+const tleCronLoading = ref(false)
 
 // TLE 数据源表格
 const tleSourceColumns = [
@@ -450,6 +463,38 @@ async function handleCronToggle(enabled: boolean) {
     cronEnabled.value = !enabled // 恢复原状态
   } finally {
     cronLoading.value = false
+  }
+}
+
+// 加载 TLE 定时任务状态
+async function loadTleCronStatus() {
+  try {
+    const res = await satelliteSyncApi.getTleCronStatus()
+    if (res.success) {
+      tleCronEnabled.value = res.data.tleEnabled
+    }
+  } catch (error) {
+    console.error('Failed to load TLE cron status:', error)
+  }
+}
+
+// 切换 TLE 定时任务
+async function handleTleCronToggle(enabled: boolean) {
+  try {
+    tleCronLoading.value = true
+    const res = await satelliteSyncApi.toggleTleCron(enabled)
+    if (res.success) {
+      tleCronEnabled.value = res.data.tleEnabled
+      MessagePlugin.success(res.data.message)
+    } else {
+      MessagePlugin.error(res.message || '操作失败')
+      tleCronEnabled.value = !enabled
+    }
+  } catch (error: any) {
+    MessagePlugin.error(error.message || '操作失败')
+    tleCronEnabled.value = !enabled
+  } finally {
+    tleCronLoading.value = false
   }
 }
 
@@ -694,7 +739,7 @@ function formatDate(dateStr: string) {
 
 onMounted(async () => {
   console.log('[Sync] onMounted, loading initial state')
-  await Promise.all([loadStats(), loadSyncStatus(), loadCronStatus()])
+  await Promise.all([loadStats(), loadSyncStatus(), loadCronStatus(), loadTleCronStatus()])
   console.log('[Sync] initial state loaded, syncStatus:', syncStatus.value)
   // 如果有任务正在运行，才开始轮询
   if (syncStatus.value?.status === 'running') {

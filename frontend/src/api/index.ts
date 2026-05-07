@@ -495,6 +495,12 @@ export const satelliteSyncApi = {
 
   toggleCron: (enabled: boolean) =>
     api.post<any, ApiResponse<{ enabled: boolean; message: string }>>('/satellite-sync/cron/toggle', { enabled }),
+
+  getTleCronStatus: () =>
+    api.get<any, ApiResponse<{ tleEnabled: boolean }>>('/satellite-sync/cron/tle/status'),
+
+  toggleTleCron: (enabled: boolean) =>
+    api.post<any, ApiResponse<{ tleEnabled: boolean; message: string }>>('/satellite-sync/cron/tle/toggle', { enabled }),
 }
 
 export interface MediaItem {

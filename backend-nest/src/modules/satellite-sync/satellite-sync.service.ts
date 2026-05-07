@@ -215,6 +215,7 @@ export class SatelliteSyncService {
   private useMockData: boolean = false;
   private stopRequested: boolean = false;
   private cronEnabled: boolean = false;
+  private tleCronEnabled: boolean = false;
 
   private readonly BATCH_INTERVAL_MS = 3000;
   private readonly RATE_LIMIT_WAIT_MS = 60000;
@@ -308,6 +309,45 @@ export class SatelliteSyncService {
     return recentTask[0] || null;
   }
 
+  async getCurrentStatusByType(type: SyncType): Promise<TaskRecord | null> {
+    const runningTask = await this.db
+      .select()
+      .from(satelliteSyncTasks)
+      .where(
+        and(
+          eq(satelliteSyncTasks.status, "running"),
+          eq(satelliteSyncTasks.type, type),
+        ),
+      )
+      .orderBy(desc(satelliteSyncTasks.startedAt))
+      .limit(1);
+
+    if (runningTask[0]) {
+      const task = runningTask[0];
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const taskAge = Date.now() - (task.startedAt?.getTime() || 0);
+      this.logger.log(
+        `找到 ${type} 类型 running 任务：${task.id}, 已运行：${Math.floor(taskAge / 1000)}秒，进度：${task.processed}/${task.total}`,
+      );
+
+      if (task.startedAt && task.startedAt < tenMinutesAgo) {
+        this.logger.warn(`发现超时任务 ${task.id}，标记为失败`);
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({
+            status: "failed",
+            error: "任务超时（超过 10 分钟未完成）",
+            completedAt: new Date(),
+          })
+          .where(eq(satelliteSyncTasks.id, task.id));
+        return null;
+      }
+      return task;
+    }
+
+    return null;
+  }
+
   async stopCurrentTask(): Promise<TaskRecord | null> {
     if (this.currentTask && this.currentTask.status === "running") {
       this.logger.log(`收到停止请求，任务 ID: ${this.currentTask.id}`);
@@ -341,6 +381,15 @@ export class SatelliteSyncService {
     this.logger.log(`定时任务已${enabled ? "启用" : "禁用"}`);
   }
 
+  isTleCronEnabled(): boolean {
+    return this.tleCronEnabled;
+  }
+
+  setTleCronEnabled(enabled: boolean): void {
+    this.tleCronEnabled = enabled;
+    this.logger.log(`TLE 定时任务已${enabled ? "启用" : "禁用"}`);
+  }
+
   @Cron("0 * * * *")
   async handleKeepTrackMetaSyncCron() {
     if (!this.cronEnabled) {
@@ -350,10 +399,10 @@ export class SatelliteSyncService {
 
     this.logger.log("[定时任务] 检查是否需要触发 KeepTrack 元数据同步...");
 
-    const runningTask = await this.getCurrentStatus();
-    if (runningTask && runningTask.status === "running") {
+    const runningTask = await this.getCurrentStatusByType("keeptrack-meta");
+    if (runningTask) {
       this.logger.log(
-        `[定时任务] 跳过本次同步，当前有任务正在运行: ${runningTask.id}`,
+        `[定时任务] 跳过本次同步，当前有 keeptrack-meta 任务正在运行: ${runningTask.id}`,
       );
       return;
     }
@@ -366,6 +415,36 @@ export class SatelliteSyncService {
     this.logger.log("[定时任务] 开始触发 KeepTrack 元数据同步");
     try {
       await this.startSync("keeptrack-meta");
+    } catch (error: any) {
+      this.logger.error(`[定时任务] 触发同步失败: ${error.message}`);
+    }
+  }
+
+  @Cron("0 3 * * *")
+  async handleKeepTrackTleSyncCron() {
+    if (!this.tleCronEnabled) {
+      this.logger.debug("[定时任务] KeepTrack TLE 同步已禁用，跳过");
+      return;
+    }
+
+    this.logger.log("[定时任务] 检查是否需要触发 KeepTrack TLE 同步...");
+
+    const runningTask = await this.getCurrentStatusByType("keeptrack-tle");
+    if (runningTask) {
+      this.logger.log(
+        `[定时任务] 跳过本次同步，当前有 keeptrack-tle 任务正在运行: ${runningTask.id}`,
+      );
+      return;
+    }
+
+    if (!this.keepTrackApiKey) {
+      this.logger.warn("[定时任务] KeepTrack API Key 未配置，跳过同步");
+      return;
+    }
+
+    this.logger.log("[定时任务] 开始触发 KeepTrack TLE 同步");
+    try {
+      await this.startSync("keeptrack-tle");
     } catch (error: any) {
       this.logger.error(`[定时任务] 触发同步失败: ${error.message}`);
     }
@@ -1254,9 +1333,6 @@ export class SatelliteSyncService {
       .limit(1);
 
     const epochDate = item.EPOCH ? new Date(item.EPOCH) : undefined;
-    const tleAge = epochDate
-      ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24))
-      : undefined;
 
     const parseDate = (dateStr: string | undefined): Date | undefined => {
       if (!dateStr) return undefined;
@@ -1288,7 +1364,6 @@ export class SatelliteSyncService {
       apogee: item.APOAPSIS ? parseFloat(item.APOAPSIS) : undefined,
       perigee: item.PERIAPSIS ? parseFloat(item.PERIAPSIS) : undefined,
       tleEpoch: epochDate,
-      tleAge: tleAge,
       hasSpaceTrackData: true,
     };
 
@@ -1341,6 +1416,8 @@ export class SatelliteSyncService {
       }
       try {
         const noradId = this.extractNoradId(sat.tle1);
+        const epochDate = this.parseTLEEpoch(sat.tle1);
+
         await this.db
           .insert(satelliteMetadata)
           .values({
@@ -1359,6 +1436,7 @@ export class SatelliteSyncService {
             source: "keeptrack",
             line1: sat.tle1,
             line2: sat.tle2,
+            epoch: epochDate,
           })
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
@@ -1366,9 +1444,18 @@ export class SatelliteSyncService {
               name: sat.name,
               line1: sat.tle1,
               line2: sat.tle2,
+              epoch: epochDate,
               updatedAt: new Date(),
             },
           });
+
+        if (epochDate) {
+          await this.db
+            .update(satelliteMetadata)
+            .set({ tleEpoch: epochDate })
+            .where(eq(satelliteMetadata.noradId, noradId));
+        }
+
         success++;
       } catch (error: any) {
         this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
@@ -1448,6 +1535,8 @@ export class SatelliteSyncService {
       }
 
       try {
+        const epochDate = this.parseTLEEpoch(sat.tle1);
+
         await this.db
           .insert(satelliteMetadata)
           .values({
@@ -1485,8 +1574,16 @@ export class SatelliteSyncService {
             source: "keeptrack",
             line1: sat.tle1,
             line2: sat.tle2,
+            epoch: epochDate,
           })
           .onConflictDoNothing({ target: satelliteTle.noradId });
+
+        if (epochDate) {
+          await this.db
+            .update(satelliteMetadata)
+            .set({ tleEpoch: epochDate })
+            .where(eq(satelliteMetadata.noradId, noradId));
+        }
 
         success++;
       } catch (dbError: any) {
@@ -1651,9 +1748,6 @@ export class SatelliteSyncService {
         : undefined;
 
     const epochDate = this.parseKeepTrackDate(detail.EPOCH);
-    const tleAge = epochDate
-      ? Math.floor((Date.now() - epochDate.getTime()) / (1000 * 60 * 60 * 24))
-      : undefined;
 
     const updateData = {
       name: detail.NAME,
@@ -1713,7 +1807,6 @@ export class SatelliteSyncService {
       argOfPerigee: detail.ARG_OF_PERICENTER,
       rcs: detail.RCS,
       tleEpoch: epochDate,
-      tleAge: tleAge,
       decayDate: this.parseKeepTrackDate(detail.DECAY_DATE),
       status: detail.STATUS,
       hasKeepTrackData: true,
@@ -2365,5 +2458,27 @@ export class SatelliteSyncService {
           (this.KEEPTRACK_MAX_DELAY_MS - this.KEEPTRACK_MIN_DELAY_MS + 1),
       ) + this.KEEPTRACK_MIN_DELAY_MS
     );
+  }
+
+  protected parseTLEEpoch(line1: string): Date | undefined {
+    try {
+      const epochStr = line1.substring(18, 32).trim();
+      const year = parseInt(epochStr.substring(0, 2), 10);
+      const dayStr = epochStr.substring(2, 12);
+      const dayFrac = parseFloat(dayStr);
+      const dayDec = dayFrac - Math.floor(dayFrac);
+      const dayOfYear = Math.floor(dayFrac);
+      const daySeconds = Math.round(dayDec * 86400);
+
+      const fullYear = year >= 57 ? 1900 + year : 2000 + year;
+      const jan1 = new Date(fullYear, 0, 1);
+      const epochDate = new Date(
+        jan1.getTime() + (dayOfYear - 1) * 86400 * 1000 + daySeconds * 1000,
+      );
+
+      return isNaN(epochDate.getTime()) ? undefined : epochDate;
+    } catch {
+      return undefined;
+    }
   }
 }
