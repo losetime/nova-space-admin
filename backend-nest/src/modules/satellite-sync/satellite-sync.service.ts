@@ -1417,6 +1417,7 @@ export class SatelliteSyncService {
       try {
         const noradId = this.extractNoradId(sat.tle1);
         const epochDate = this.parseTLEEpoch(sat.tle1);
+        const orbital = this.parseTLEOrbitalElements(sat.tle2);
 
         await this.db
           .insert(satelliteMetadata)
@@ -1428,16 +1429,27 @@ export class SatelliteSyncService {
           })
           .onConflictDoNothing({ target: satelliteMetadata.noradId });
 
+        const tleValues: any = {
+          noradId: noradId,
+          name: sat.name,
+          source: "keeptrack",
+          line1: sat.tle1,
+          line2: sat.tle2,
+          epoch: epochDate,
+          updatedAt: new Date(),
+        };
+
+        if (orbital) {
+          tleValues.inclination = orbital.inclination;
+          tleValues.raan = orbital.raan;
+          tleValues.eccentricity = orbital.eccentricity;
+          tleValues.argOfPerigee = orbital.argOfPerigee;
+          tleValues.meanMotion = orbital.meanMotion;
+        }
+
         await this.db
           .insert(satelliteTle)
-          .values({
-            noradId: noradId,
-            name: sat.name,
-            source: "keeptrack",
-            line1: sat.tle1,
-            line2: sat.tle2,
-            epoch: epochDate,
-          })
+          .values(tleValues)
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
@@ -1445,14 +1457,27 @@ export class SatelliteSyncService {
               line1: sat.tle1,
               line2: sat.tle2,
               epoch: epochDate,
+              inclination: orbital?.inclination,
+              raan: orbital?.raan,
+              eccentricity: orbital?.eccentricity,
+              argOfPerigee: orbital?.argOfPerigee,
+              meanMotion: orbital?.meanMotion,
               updatedAt: new Date(),
             },
           });
 
-        if (epochDate) {
+        if (epochDate || orbital) {
+          const metaUpdate: Record<string, any> = {};
+          if (epochDate) metaUpdate.tleEpoch = epochDate;
+          if (orbital) {
+            metaUpdate.inclination = orbital.inclination;
+            metaUpdate.raan = orbital.raan;
+            metaUpdate.eccentricity = orbital.eccentricity;
+            metaUpdate.argOfPerigee = orbital.argOfPerigee;
+          }
           await this.db
             .update(satelliteMetadata)
-            .set({ tleEpoch: epochDate })
+            .set(metaUpdate)
             .where(eq(satelliteMetadata.noradId, noradId));
         }
 
@@ -1536,6 +1561,7 @@ export class SatelliteSyncService {
 
       try {
         const epochDate = this.parseTLEEpoch(sat.tle1);
+        const orbital = this.parseTLEOrbitalElements(sat.tle2);
 
         await this.db
           .insert(satelliteMetadata)
@@ -1547,41 +1573,55 @@ export class SatelliteSyncService {
           })
           .onConflictDoNothing({ target: satelliteMetadata.noradId });
 
-        const existing = await this.db
-          .select({ source: satelliteTle.source })
-          .from(satelliteTle)
-          .where(eq(satelliteTle.noradId, noradId))
-          .limit(1);
+        const tleValues: any = {
+          noradId: noradId,
+          name: sat.name,
+          source: "keeptrack",
+          line1: sat.tle1,
+          line2: sat.tle2,
+          epoch: epochDate,
+          updatedAt: new Date(),
+        };
 
-        if (existing[0]) {
-          skipped++;
-          await this.logSyncError(
-            task.id,
-            noradId,
-            sat.name,
-            "keeptrack",
-            "duplicate",
-            `已有 ${existing[0].source} 数据源的数据`,
-          );
-          continue;
+        if (orbital) {
+          tleValues.inclination = orbital.inclination;
+          tleValues.raan = orbital.raan;
+          tleValues.eccentricity = orbital.eccentricity;
+          tleValues.argOfPerigee = orbital.argOfPerigee;
+          tleValues.meanMotion = orbital.meanMotion;
         }
 
         await this.db
           .insert(satelliteTle)
-          .values({
-            noradId: noradId,
-            name: sat.name,
-            source: "keeptrack",
-            line1: sat.tle1,
-            line2: sat.tle2,
-            epoch: epochDate,
-          })
-          .onConflictDoNothing({ target: satelliteTle.noradId });
+          .values(tleValues)
+          .onConflictDoUpdate({
+            target: satelliteTle.noradId,
+            set: {
+              name: sat.name,
+              line1: sat.tle1,
+              line2: sat.tle2,
+              epoch: epochDate,
+              inclination: orbital?.inclination,
+              raan: orbital?.raan,
+              eccentricity: orbital?.eccentricity,
+              argOfPerigee: orbital?.argOfPerigee,
+              meanMotion: orbital?.meanMotion,
+              updatedAt: new Date(),
+            },
+          });
 
-        if (epochDate) {
+        if (epochDate || orbital) {
+          const metaUpdate: Record<string, any> = {};
+          if (epochDate) metaUpdate.tleEpoch = epochDate;
+          if (orbital) {
+            metaUpdate.inclination = orbital.inclination;
+            metaUpdate.raan = orbital.raan;
+            metaUpdate.eccentricity = orbital.eccentricity;
+            metaUpdate.argOfPerigee = orbital.argOfPerigee;
+          }
           await this.db
             .update(satelliteMetadata)
-            .set({ tleEpoch: epochDate })
+            .set(metaUpdate)
             .where(eq(satelliteMetadata.noradId, noradId));
         }
 
@@ -1742,12 +1782,6 @@ export class SatelliteSyncService {
       4: "UNKNOWN",
       5: "SPECIAL",
     };
-    const period =
-      detail.MEAN_MOTION && detail.MEAN_MOTION > 0
-        ? 1440 / detail.MEAN_MOTION
-        : undefined;
-
-    const epochDate = this.parseKeepTrackDate(detail.EPOCH);
 
     const updateData = {
       name: detail.NAME,
@@ -1801,12 +1835,7 @@ export class SatelliteSyncService {
       summary: detail.summary,
       anomalyFlags: detail.anomaly_flags,
       lastReviewed: this.parseKeepTrackDate(detail.last_reviewed),
-      period,
-      inclination: detail.INCLINATION,
-      raan: detail.RA_OF_ASC_NODE,
-      argOfPerigee: detail.ARG_OF_PERICENTER,
       rcs: detail.RCS,
-      tleEpoch: epochDate,
       decayDate: this.parseKeepTrackDate(detail.DECAY_DATE),
       status: detail.STATUS,
       hasKeepTrackData: true,
@@ -1842,6 +1871,38 @@ export class SatelliteSyncService {
     const match = tle1.match(/^1\s+(\d+)/);
     if (match) return match[1].padStart(5, "0");
     throw new Error(`无法从 TLE 提取 NORAD ID: ${tle1}`);
+  }
+
+  private parseTLEOrbitalElements(
+    tle2: string,
+  ): {
+    inclination: number;
+    raan: number;
+    eccentricity: number;
+    argOfPerigee: number;
+    meanMotion: number;
+  } | null {
+    if (!tle2 || tle2.length < 52) return null;
+    try {
+      const inclination = parseFloat(tle2.substring(8, 16).trim());
+      const raan = parseFloat(tle2.substring(17, 25).trim());
+      const eccentricityStr = tle2.substring(26, 33).trim();
+      const eccentricity = parseInt(eccentricityStr, 10) / 10000000;
+      const argOfPerigee = parseFloat(tle2.substring(34, 42).trim());
+      const meanMotion = parseFloat(tle2.substring(52, 63).trim());
+      if (
+        isNaN(inclination) ||
+        isNaN(raan) ||
+        isNaN(eccentricity) ||
+        isNaN(argOfPerigee) ||
+        isNaN(meanMotion)
+      ) {
+        return null;
+      }
+      return { inclination, raan, eccentricity, argOfPerigee, meanMotion };
+    } catch {
+      return null;
+    }
   }
 
   private async syncSpaceTrackMetadata(task: TaskRecord): Promise<void> {
