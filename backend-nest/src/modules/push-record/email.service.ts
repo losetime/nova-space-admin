@@ -62,7 +62,7 @@ export class EmailService {
       await this.transporter.sendMail({
         from: this.fromEmail,
         to: email,
-        subject: `Nova Space 每日资讯 - ${data.date}`,
+        subject: `星瞰 每日资讯 - ${data.date}`,
         html,
         text,
       });
@@ -86,13 +86,13 @@ export class EmailService {
       await this.transporter.sendMail({
         from: this.fromEmail,
         to: email,
-        subject: "Nova Space 测试推送",
+        subject: "星瞰 测试推送",
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="color: #00d4ff;">Nova Space 测试推送</h1>
+            <h1 style="color: #00d4ff;">星瞰 测试推送</h1>
             <p>这是一封测试邮件，如果您收到此邮件，说明推送服务配置正常。</p>
             <p style="color: #666; font-size: 12px; margin-top: 20px;">
-              此邮件由 Nova Space Admin 自动发送，请勿直接回复。
+              此邮件由 星瞰 Admin 自动发送，请勿直接回复。
             </p>
           </div>
         `,
@@ -109,10 +109,11 @@ export class EmailService {
     const SITE_URL = "https://space.nuoweibd.com";
     let content = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0a0a0f; padding: 30px; border-radius: 12px;">
-        <h1 style="color: #00d4ff; text-align: center; margin-bottom: 30px;">Nova Space 每日资讯</h1>
+        <h1 style="color: #00d4ff; text-align: center; margin-bottom: 30px;">星瞰 每日资讯</h1>
         <p style="color: #888; text-align: center; margin-bottom: 30px;">${data.date}</p>
     `;
 
+    /* [暂注释 空间天气区块 2026-05-08]
     if (data.spaceWeather) {
       const sw = data.spaceWeather;
       const hasWarning =
@@ -152,6 +153,7 @@ export class EmailService {
         </div>
       `;
     }
+    */
 
     if (data.intelligence && data.intelligence.length > 0) {
       content += `
@@ -182,8 +184,8 @@ export class EmailService {
 
     content += `
         <p style="color: #666; font-size: 12px; text-align: center; margin-top: 30px;">
-          此邮件由 Nova Space 自动发送<br>
-          <a href="${SITE_URL}" style="color: #00d4ff;">访问 Nova Space</a>
+          此邮件由 星瞰 自动发送<br>
+          <a href="${SITE_URL}" style="color: #00d4ff;">访问 星瞰</a>
         </p>
       </div>
     `;
@@ -192,8 +194,9 @@ export class EmailService {
   }
 
   private generateDigestText(data: DigestData): string {
-    let content = `Nova Space 每日资讯 - ${data.date}\n\n`;
+    let content = `星瞰 每日资讯 - ${data.date}\n\n`;
 
+    /* [暂注释 空间天气文本 2026-05-08]
     if (data.spaceWeather) {
       const sw = data.spaceWeather;
       const translateText = (text: string, scale: number): string => {
@@ -213,6 +216,7 @@ export class EmailService {
       content += `- 地磁暴(G): G${sw.geomagnetic?.scale || 0} ${translateText(sw.geomagnetic?.text, sw.geomagnetic?.scale)}\n`;
       content += `- 太阳风速度: ${sw.solarWind?.speed || 0} km/s\n\n`;
     }
+    */
 
     if (data.intelligence && data.intelligence.length > 0) {
       content += `航天情报\n`;

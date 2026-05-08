@@ -1873,9 +1873,7 @@ export class SatelliteSyncService {
     throw new Error(`无法从 TLE 提取 NORAD ID: ${tle1}`);
   }
 
-  private parseTLEOrbitalElements(
-    tle2: string,
-  ): {
+  private parseTLEOrbitalElements(tle2: string): {
     inclination: number;
     raan: number;
     eccentricity: number;

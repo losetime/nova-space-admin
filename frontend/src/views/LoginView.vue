@@ -5,7 +5,7 @@
       <div class="login-container">
         <div class="title-container">
           <h1 class="title margin-no">账号登录</h1>
-          <h1 class="title">Nova Space - 后台管理系统</h1>
+          <h1 class="title">星瞰 - 后台管理系统</h1>
         </div>
 
         <t-form
@@ -53,7 +53,7 @@
         </t-form>
       </div>
 
-      <footer class="copyright">Copyright @ 2024-2025 Nova Space. All Rights Reserved</footer>
+      <footer class="copyright">Copyright @ 2024-2025 星瞰. All Rights Reserved</footer>
     </div>
 
     <!-- 右侧背景区域 -->

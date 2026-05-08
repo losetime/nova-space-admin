@@ -13,7 +13,7 @@
           <div class="side-nav-logo" @click="router.push('/dashboard')">
             <img v-if="!collapsed" src="/favicon.svg" class="logo-icon" />
             <img v-else src="/favicon.svg" class="logo-icon-small" />
-            <span v-if="!collapsed" class="logo-text">Nova Space</span>
+            <span v-if="!collapsed" class="logo-text">星瞰</span>
           </div>
         </template>
 
@@ -131,7 +131,7 @@
 
       <!-- 底部 -->
       <t-footer class="admin-footer">
-        Copyright © 2024 Nova Space. All Rights Reserved.
+        Copyright © 2024 星瞰. All Rights Reserved.
       </t-footer>
     </t-layout>
   </t-layout>

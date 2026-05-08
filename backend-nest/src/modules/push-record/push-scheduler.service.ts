@@ -43,7 +43,7 @@ export class PushSchedulerService {
       await this.db.insert(pushRecords).values({
         userId: userId,
         triggerType: "manual",
-        subject: `Nova Space 测试推送 - ${content.date}`,
+        subject: `星瞰 测试推送 - ${content.date}`,
         content: JSON.stringify(content),
         sentAt: new Date(),
         status: sent ? "sent" : "failed",
@@ -234,7 +234,7 @@ export class PushSchedulerService {
     await this.db.insert(pushRecords).values({
       userId: subscription.userId,
       triggerType: "scheduled",
-      subject: `Nova Space 每日资讯 - ${new Date().toLocaleDateString("zh-CN")}`,
+      subject: `星瞰 每日资讯 - ${new Date().toLocaleDateString("zh-CN")}`,
       content: content ? JSON.stringify(content) : "",
       sentAt: new Date(),
       status: success ? "sent" : "failed",

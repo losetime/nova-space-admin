@@ -1,10 +1,10 @@
-# Nova Space Admin
+# 星瞰 Admin
 
 太空教育文章和情报内容管理后台系统。
 
 ## 项目概述
 
-Nova Space Admin 是一个 Monorepo 项目，包含用于管理太空教育文章和情报内容的后台管理系统。项目由以下部分组成：
+星瞰 Admin 是一个 Monorepo 项目，包含用于管理太空教育文章和情报内容的后台管理系统。项目由以下部分组成：
 
 - **backend-nest**: NestJS 后端 API 服务（端口 3002）
 - **frontend**: Vue 3 管理后台前端界面（端口 5180）

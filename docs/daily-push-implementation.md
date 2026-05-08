@@ -321,4 +321,4 @@ docker logs nova-admin-backend --tail 100 | grep PushScheduler
 
 **文档版本**: v1.0  
 **最后更新**: 2026-04-02  
-**作者**: Nova Space Admin Team
+**作者**: 星瞰 Admin Team

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Nova Space Admin 是一个 monorepo，包含：
+星瞰 Admin 是一个 monorepo，包含：
 - **backend-nest**: NestJS 后端 API（端口 3002）
 - **frontend**: Vue 3 管理后台（端口 5180）
 

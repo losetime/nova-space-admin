@@ -38,8 +38,6 @@ async function bootstrap() {
 
   const port = process.env.PORT || 3002;
   await app.listen(port);
-  console.log(
-    `🚀 Nova Space Admin Backend running on: http://localhost:${port}/api`,
-  );
+  console.log(`🚀 星瞰 Admin Backend running on: http://localhost:${port}/api`);
 }
 void bootstrap();
