@@ -1,1 +1,0 @@
-ALTER TABLE "satellite_tle" ALTER COLUMN "norad_id" TYPE varchar(50);
