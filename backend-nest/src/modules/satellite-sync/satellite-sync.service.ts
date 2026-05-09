@@ -960,7 +960,33 @@ export class SatelliteSyncService {
             argOfPerigee: item.ARG_OF_PERICENTER,
             meanMotion: item.MEAN_MOTION,
           })
-          .onConflictDoNothing({ target: satelliteTle.noradId });
+          .onConflictDoUpdate({
+            target: satelliteTle.noradId,
+            set: {
+              name: item.OBJECT_NAME,
+              line1: "",
+              line2: "",
+              epoch: new Date(item.EPOCH),
+              inclination: item.INCLINATION,
+              raan: item.RA_OF_ASC_NODE,
+              eccentricity: item.ECCENTRICITY,
+              argOfPerigee: item.ARG_OF_PERICENTER,
+              meanMotion: item.MEAN_MOTION,
+              updatedAt: new Date(),
+            },
+          });
+
+        const epochDate = new Date(item.EPOCH);
+        await this.db
+          .update(satelliteMetadata)
+          .set({
+            tleEpoch: epochDate,
+            inclination: item.INCLINATION,
+            raan: item.RA_OF_ASC_NODE,
+            eccentricity: item.ECCENTRICITY,
+            argOfPerigee: item.ARG_OF_PERICENTER,
+          })
+          .where(eq(satelliteMetadata.noradId, noradId));
 
         success++;
       } catch (error: any) {
@@ -1080,7 +1106,53 @@ export class SatelliteSyncService {
               ? parseFloat(item.MEAN_MOTION)
               : undefined,
           })
-          .onConflictDoNothing({ target: satelliteTle.noradId });
+          .onConflictDoUpdate({
+            target: satelliteTle.noradId,
+            set: {
+              name: item.OBJECT_NAME,
+              line1: "",
+              line2: "",
+              epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+              inclination: item.INCLINATION
+                ? parseFloat(item.INCLINATION)
+                : undefined,
+              raan: item.RA_OF_ASC_NODE
+                ? parseFloat(item.RA_OF_ASC_NODE)
+                : undefined,
+              eccentricity: item.ECCENTRICITY
+                ? parseFloat(item.ECCENTRICITY)
+                : undefined,
+              argOfPerigee: item.ARG_OF_PERICENTER
+                ? parseFloat(item.ARG_OF_PERICENTER)
+                : undefined,
+              meanMotion: item.MEAN_MOTION
+                ? parseFloat(item.MEAN_MOTION)
+                : undefined,
+              updatedAt: new Date(),
+            },
+          });
+
+        const epochDate = item.EPOCH ? new Date(item.EPOCH) : undefined;
+        if (epochDate) {
+          await this.db
+            .update(satelliteMetadata)
+            .set({
+              tleEpoch: epochDate,
+              inclination: item.INCLINATION
+                ? parseFloat(item.INCLINATION)
+                : undefined,
+              raan: item.RA_OF_ASC_NODE
+                ? parseFloat(item.RA_OF_ASC_NODE)
+                : undefined,
+              eccentricity: item.ECCENTRICITY
+                ? parseFloat(item.ECCENTRICITY)
+                : undefined,
+              argOfPerigee: item.ARG_OF_PERICENTER
+                ? parseFloat(item.ARG_OF_PERICENTER)
+                : undefined,
+            })
+            .where(eq(satelliteMetadata.noradId, noradId));
+        }
 
         success++;
       } catch (dbError: any) {
@@ -1300,6 +1372,22 @@ export class SatelliteSyncService {
               name: item.OBJECT_NAME,
               line1: item.TLE_LINE1,
               line2: item.TLE_LINE2,
+              epoch: item.EPOCH ? new Date(item.EPOCH) : undefined,
+              inclination: item.INCLINATION
+                ? parseFloat(item.INCLINATION)
+                : undefined,
+              raan: item.RA_OF_ASC_NODE
+                ? parseFloat(item.RA_OF_ASC_NODE)
+                : undefined,
+              eccentricity: item.ECCENTRICITY
+                ? parseFloat(item.ECCENTRICITY)
+                : undefined,
+              argOfPerigee: item.ARG_OF_PERICENTER
+                ? parseFloat(item.ARG_OF_PERICENTER)
+                : undefined,
+              meanMotion: item.MEAN_MOTION
+                ? parseFloat(item.MEAN_MOTION)
+                : undefined,
               updatedAt: new Date(),
             },
           });
