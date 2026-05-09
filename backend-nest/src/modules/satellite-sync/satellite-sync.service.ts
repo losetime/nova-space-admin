@@ -215,7 +215,7 @@ export class SatelliteSyncService {
   private useMockData: boolean = false;
   private stopRequested: boolean = false;
   private cronEnabled: boolean = false;
-  private tleCronEnabled: boolean = false;
+  private tleCronEnabled: boolean = true;
 
   private readonly BATCH_INTERVAL_MS = 3000;
   private readonly RATE_LIMIT_WAIT_MS = 60000;
