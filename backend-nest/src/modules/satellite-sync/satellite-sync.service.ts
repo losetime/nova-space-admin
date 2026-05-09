@@ -1811,6 +1811,12 @@ export class SatelliteSyncService {
               this.extractErrorDetails(dbError),
             );
           }
+        } else if (response.status === 404) {
+          await this.db
+            .update(satelliteMetadata)
+            .set({ hasKeepTrackData: true })
+            .where(eq(satelliteMetadata.noradId, sat.noradId));
+          success++;
         } else {
           failed++;
           const errorType =
