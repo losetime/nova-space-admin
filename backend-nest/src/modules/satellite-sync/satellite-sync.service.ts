@@ -1869,6 +1869,7 @@ export class SatelliteSyncService {
     noradId: string,
     detail: KeepTrackSatDetailResponse,
   ): Promise<void> {
+    noradId = noradId.trim();
     const objectTypeMap: Record<number, string> = {
       1: "PAYLOAD",
       2: "ROCKET_BODY",
