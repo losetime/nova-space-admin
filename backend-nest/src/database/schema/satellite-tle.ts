@@ -10,7 +10,7 @@ import {
 export const satelliteTle = pgTable(
   "satellite_tle",
   {
-    noradId: varchar("norad_id", { length: 10 }).primaryKey(),
+    noradId: varchar("norad_id", { length: 50 }).primaryKey(),
     source: varchar("source", { length: 20 }).default("celestrak").notNull(),
     name: varchar("name", { length: 100 }).notNull(),
     line1: text("line1").notNull(),
