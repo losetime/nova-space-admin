@@ -963,6 +963,7 @@ export class SatelliteSyncService {
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
+              source: "celestrak",
               name: item.OBJECT_NAME,
               line1: "",
               line2: "",
@@ -1105,10 +1106,11 @@ export class SatelliteSyncService {
             meanMotion: item.MEAN_MOTION
               ? parseFloat(item.MEAN_MOTION)
               : undefined,
-          })
+})
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
+              source: "celestrak",
               name: item.OBJECT_NAME,
               line1: "",
               line2: "",
@@ -1369,6 +1371,7 @@ export class SatelliteSyncService {
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
+              source: "space-track",
               name: item.OBJECT_NAME,
               line1: item.TLE_LINE1,
               line2: item.TLE_LINE2,
@@ -1541,6 +1544,7 @@ export class SatelliteSyncService {
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
+              source: "keeptrack",
               name: sat.name,
               line1: sat.tle1,
               line2: sat.tle2,
@@ -1685,6 +1689,7 @@ export class SatelliteSyncService {
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
+              source: "keeptrack",
               name: sat.name,
               line1: sat.tle1,
               line2: sat.tle2,
