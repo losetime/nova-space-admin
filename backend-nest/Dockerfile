@@ -41,8 +41,9 @@ ENV NODE_ENV=production
 # 复制 package 文件
 COPY package.json pnpm-lock.yaml ./
 
-# 只安装生产依赖
-RUN pnpm install --prod
+# 只安装生产依赖（--ignore-scripts 避免 pnpm v10+ 因未批准构建脚本而报错，
+# 运行时依赖均为纯 JS，无需构建脚本；如需执行脚本可在此处 approve-builds）
+RUN pnpm install --prod --ignore-scripts
 
 # 从构建阶段复制编译后的文件
 COPY --from=builder /app/dist ./dist

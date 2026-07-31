@@ -1106,7 +1106,7 @@ export class SatelliteSyncService {
             meanMotion: item.MEAN_MOTION
               ? parseFloat(item.MEAN_MOTION)
               : undefined,
-})
+          })
           .onConflictDoUpdate({
             target: satelliteTle.noradId,
             set: {
@@ -1492,7 +1492,12 @@ export class SatelliteSyncService {
     const response = await fetch(`${this.keepTrackBaseUrl}/sats/brief`, {
       headers: { "X-API-Key": this.keepTrackApiKey },
     });
-    if (!response.ok) throw new Error(`KeepTrack API 错误：${response.status}`);
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(
+        `KeepTrack API 错误：${response.status}${body ? `：${body.slice(0, 300)}` : ""}`,
+      );
+    }
 
     const data: KeepTrackBriefResponse[] = await response.json();
     await this.db
@@ -1824,6 +1829,7 @@ export class SatelliteSyncService {
           success++;
         } else {
           failed++;
+          const body = await response.text().catch(() => "");
           const errorType =
             response.status === 403 || response.status === 429
               ? "rate_limit"
@@ -1834,7 +1840,7 @@ export class SatelliteSyncService {
             undefined,
             "keeptrack",
             errorType,
-            `API 返回 ${response.status}`,
+            `API 返回 ${response.status}${body ? `：${body.slice(0, 300)}` : ""}`,
           );
         }
 
