@@ -110,7 +110,7 @@ const form = reactive({
   code: '',
   category: 'general',
   description: '',
-  valueType: 'number',
+  valueType: 'number' as Benefit['valueType'],
   unit: '',
   sortOrder: 0,
 })

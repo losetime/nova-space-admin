@@ -6,7 +6,7 @@ import {
   Inject,
 } from "@nestjs/common";
 import { Cron } from "@nestjs/schedule";
-import { eq, desc, and, sql, lt, gte, asc, inArray } from "drizzle-orm";
+import { eq, desc, and, sql, lt, asc } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import * as schema from "../../database/schema";
 import type { Database } from "../../database";
@@ -27,7 +27,6 @@ import {
   AdminCancelDto,
 } from "./dto";
 
-type PlanLevel = "basic" | "advanced" | "professional";
 type SubscriptionStatus = "active" | "expired" | "cancelled" | "pending";
 
 @Injectable()
@@ -659,7 +658,7 @@ export class MembershipService {
     return subscription;
   }
 
-  async adminExtend(subscriptionId: string, months: number, reason?: string) {
+  async adminExtend(subscriptionId: string, months: number, _reason?: string) {
     const subscription = await this.findSubscriptionById(subscriptionId);
 
     const newEndDate = new Date(subscription.endDate);

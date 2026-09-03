@@ -16,6 +16,16 @@ export type SyncType =
   | "keeptrack-meta"
   | "discos";
 export type SyncStatus = "pending" | "running" | "completed" | "failed";
+export type SyncErrorType =
+  | "missing_name"
+  | "parse_error"
+  | "duplicate"
+  | "database"
+  | "api_error"
+  | "rate_limit"
+  | "network"
+  | "timeout"
+  | "other";
 
 export class SyncRequestDto {
   @IsEnum([
@@ -48,6 +58,7 @@ export interface SyncProgress {
   total: number;
   processed: number;
   success: number;
+  skipped: number;
   failed: number;
   percentage: number;
   estimatedTimeRemaining?: string;
@@ -88,7 +99,9 @@ export interface SyncStatsResponse {
   lastDiscosSync?: string;
   lastCelestrakSync?: string;
   lastKeepTrackSync?: string;
+  lastKeepTrackTleSync?: string;
   lastSpaceTrackSync?: string;
+  lastSpaceTrackTleSync?: string;
 }
 
 export class TaskListQueryDto {
@@ -136,6 +149,7 @@ export interface SyncTaskItem {
   total: number;
   processed: number;
   success: number;
+  skipped: number;
   failed: number;
   startedAt: string;
   completedAt?: string;
@@ -222,9 +236,45 @@ export interface MetadataItem {
   hasDiscosData?: boolean;
 }
 
+export class TaskErrorsQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsEnum([
+    "missing_name",
+    "parse_error",
+    "duplicate",
+    "database",
+    "api_error",
+    "rate_limit",
+    "network",
+    "timeout",
+    "other",
+  ])
+  errorType?: SyncErrorType;
+
+  @IsOptional()
+  @IsEnum(["celestrak", "space-track", "keeptrack", "discos"])
+  source?: string;
+}
+
 export interface ErrorLogListResponse {
   data: ErrorLogItem[];
   total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface ErrorLogItem {
@@ -232,7 +282,7 @@ export interface ErrorLogItem {
   noradId: string;
   name?: string;
   source: string;
-  errorType: string;
+  errorType: SyncErrorType;
   errorMessage: string;
   rawTle?: string;
   errorDetails?: {
@@ -244,6 +294,17 @@ export interface ErrorLogItem {
     constraint?: string;
   };
   timestamp: string;
+}
+
+export interface ErrorLogSummaryItem {
+  errorType: SyncErrorType;
+  count: number;
+  latestMessage?: string;
+}
+
+export interface ErrorLogSummaryResponse {
+  total: number;
+  data: ErrorLogSummaryItem[];
 }
 
 export class StopSyncDto {}

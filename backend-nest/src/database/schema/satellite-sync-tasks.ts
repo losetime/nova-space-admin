@@ -31,6 +31,7 @@ export const satelliteSyncTasks = pgTable(
     total: integer("total").default(0).notNull(),
     processed: integer("processed").default(0).notNull(),
     success: integer("success").default(0).notNull(),
+    skipped: integer("skipped").default(0).notNull(),
     failed: integer("failed").default(0).notNull(),
     startedAt: timestamp("started_at", { mode: "date" }),
     completedAt: timestamp("completed_at", { mode: "date" }),

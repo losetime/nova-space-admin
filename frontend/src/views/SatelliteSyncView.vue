@@ -129,13 +129,14 @@
       </div>
       <t-progress
         :percentage="syncStatus.progress.percentage || 0"
-        :theme="syncStatus.status === 'failed' ? 'warning' : 'primary'"
+        :status="syncProgressStatus"
         :label="true"
       />
       <div class="progress-stats">
         <span>总数：{{ syncStatus.progress.total || 0 }}</span>
         <span>已处理：{{ syncStatus.progress.processed || 0 }}</span>
         <span class="success">成功：{{ syncStatus.progress.success || 0 }}</span>
+        <span class="skipped">跳过：{{ syncStatus.progress.skipped || 0 }}</span>
         <span class="failed">失败：{{ syncStatus.progress.failed || 0 }}</span>
       </div>
       <!-- 最近错误日志 -->
@@ -156,97 +157,48 @@
       <t-alert v-if="syncStatus.error" theme="error" :message="syncStatus.error" style="margin-top: 12px" />
     </t-card>
 
-    <!-- 同步详情弹窗 -->
+    <!-- 同步任务历史弹窗 -->
     <t-dialog
       v-model:visible="syncDetailVisible"
       :header="syncDetailTitle"
       :footer="false"
-      mode="full-screen"
-      class="sync-detail-dialog"
+      :width="SYNC_DIALOG_WIDTH"
     >
-      <div class="sync-detail-content">
-        <!-- 历史任务列表 -->
-        <div class="task-history">
-          <h4>同步任务历史</h4>
-          <t-table
-            bordered
-            :columns="taskColumns"
-            :data="syncTasks"
-            :loading="tasksLoading"
-            :pagination="taskPagination"
-            row-key="id"
-            size="small"
-            @page-change="onTaskPageChange"
-          >
-            <template #status="{ row }">
-              <t-tag :theme="getStatusTheme(row.status)" size="small">
-                {{ getStatusText(row.status) }}
-              </t-tag>
-            </template>
-            <template #progress="{ row }">
-              <span>{{ row.success }}/{{ row.total }}</span>
-              <span v-if="row.failed > 0" class="failed-highlight"> (失败 {{ row.failed }})</span>
-            </template>
-            <template #startedAt="{ row }">
-              {{ formatDate(row.startedAt) }}
-            </template>
-            <template #action="{ row }">
-              <t-link
-                v-if="row.failed > 0"
-                theme="primary"
-                @click="showTaskErrors(row)"
-              >
-                查看失败记录 ({{ row.failed }})
-              </t-link>
-              <t-link
-                v-else-if="row.status === 'failed'"
-                theme="primary"
-                @click="showTaskErrors(row)"
-              >
-                查看错误日志
-              </t-link>
-              <span v-else style="color: var(--td-text-color-disabled)">
-                无失败记录
-              </span>
-            </template>
-          </t-table>
-        </div>
-
-        <!-- 失败记录 -->
-        <div v-if="selectedTask" class="error-records">
-          <h4>失败记录 - {{ selectedTask.id }}</h4>
-          <t-table
-            bordered
-            :columns="errorColumns"
-            :data="taskErrors"
-            :loading="errorsLoading"
-            row-key="id"
-            size="small"
-            max-height="400px"
-          >
-            <template #errorType="{ row }">
-              <t-tag :theme="getErrorTypeTheme(row.errorType)" size="small">
-                {{ getErrorTypeText(row.errorType) }}
-              </t-tag>
-            </template>
-            <template #timestamp="{ row }">
-              {{ formatDate(row.timestamp) }}
-            </template>
-            <template #action="{ row }">
-              <t-button size="small" variant="text" @click="showErrorDetailDialog(row)">
-                详情
-              </t-button>
-            </template>
-          </t-table>
-        </div>
-      </div>
+      <t-table
+        bordered
+        :columns="taskColumns"
+        :data="syncTasks"
+        :loading="tasksLoading"
+        :pagination="taskPagination"
+        row-key="id"
+        size="small"
+        @page-change="onTaskPageChange"
+      >
+        <template #status="{ row }">
+          <t-tag :theme="getStatusTheme(row.status)" size="small">
+            {{ getStatusText(row.status) }}
+          </t-tag>
+        </template>
+        <template #progress="{ row }">
+          <span>{{ row.success }}/{{ row.total }}</span>
+          <span v-if="row.skipped > 0" class="skipped-highlight"> (跳过 {{ row.skipped }})</span>
+          <span v-if="row.failed > 0" class="failed-highlight"> (失败 {{ row.failed }})</span>
+        </template>
+        <template #startedAt="{ row }">
+          {{ formatDate(row.startedAt) }}
+        </template>
+        <template #action="{ row }">
+          <t-link theme="primary" @click="openTaskDetail(row.id)">
+            详情
+          </t-link>
+        </template>
+      </t-table>
     </t-dialog>
 
-    <!-- 错误详情弹窗 -->
-    <ErrorDetailDialog
-      v-if="selectedError"
-      v-model:visible="errorDetailVisible"
-      :error="selectedError"
+    <!-- 同步任务详情弹窗 -->
+    <SatelliteSyncTaskDetailDialog
+      v-model:visible="taskDetailVisible"
+      :task-id="taskDetailId"
     />
   </div>
 </template>
@@ -254,16 +206,22 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
-import ErrorDetailDialog from '@/components/ErrorDetailDialog.vue'
+import SatelliteSyncTaskDetailDialog from '@/components/SatelliteSyncTaskDetailDialog.vue'
 import {
   satelliteSyncApi,
   type SyncType,
-  type SyncStatus,
   type SyncStats,
   type SyncTask,
   type SyncTaskItem,
-  type SyncErrorLog,
 } from '@/api'
+import {
+  getStatusText,
+  getStatusTheme,
+  getTypeText,
+  getErrorTypeText,
+  formatDate,
+  SYNC_DIALOG_WIDTH,
+} from '@/utils/sync'
 
 // 统计数据
 const stats = reactive<SyncStats>({
@@ -280,8 +238,10 @@ const stats = reactive<SyncStats>({
   spaceTrackTleCount: 0,
   lastCelestrakSync: undefined,
   lastKeepTrackSync: undefined,
+  lastKeepTrackTleSync: undefined,
   lastDiscosSync: undefined,
   lastSpaceTrackSync: undefined,
+  lastSpaceTrackTleSync: undefined,
 })
 
 // 同步状态
@@ -290,6 +250,16 @@ const syncStatus = ref<SyncTask | null>(null)
 const stopping = ref(false) // 标记是否正在停止
 let pollTimer: number | null = null
 const isPolling = ref(false) // 标记是否正在轮询
+
+const syncProgressStatus = computed(() => {
+  if (!syncStatus.value) return 'active'
+  switch (syncStatus.value.status) {
+    case 'completed': return 'success'
+    case 'failed': return 'error'
+    case 'running': return 'active'
+    default: return 'active'
+  }
+})
 
 // 定时任务状态
 const cronEnabled = ref(false) // 默认关闭
@@ -314,7 +284,7 @@ const tleSourceData = computed(() => [
     count: stats.keepTrackCount || 0,
     role: '主数据源',
     roleTheme: 'primary',
-    lastSync: stats.lastKeepTrackSync,
+    lastSync: stats.lastKeepTrackTleSync,
     syncType: 'keeptrack-tle' as SyncType,
   },
   {
@@ -324,7 +294,7 @@ const tleSourceData = computed(() => [
     count: stats.tleCount - (stats.celestrakCount || 0) - (stats.keepTrackCount || 0),
     role: '备用',
     roleTheme: 'default',
-    lastSync: stats.lastCelestrakSync,
+    lastSync: stats.lastSpaceTrackTleSync,
     syncType: 'space-track' as SyncType,
   },
   {
@@ -390,36 +360,22 @@ const syncDetailTitle = ref('')
 const currentSyncType = ref<SyncType | null>(null)
 const syncTasks = ref<SyncTaskItem[]>([])
 const tasksLoading = ref(false)
-const taskPagination = reactive({ current: 1, pageSize: 5, total: 0 })
-
-// 失败记录
-const selectedTask = ref<SyncTaskItem | null>(null)
-const taskErrors = ref<SyncErrorLog[]>([])
-const errorsLoading = ref(false)
-
-// 错误详情弹窗
-const errorDetailVisible = ref(false)
-const selectedError = ref<SyncErrorLog | null>(null)
+const taskPagination = reactive({ current: 1, pageSize: 10, total: 0 })
 
 const taskColumns = [
   { colKey: 'id', title: '任务 ID', width: 140, ellipsis: true },
   { colKey: 'status', title: '状态', width: 80 },
-  { colKey: 'progress', title: '进度', width: 100 },
+  { colKey: 'progress', title: '进度', width: 180 },
   { colKey: 'startedAt', title: '开始时间', width: 120 },
-  { colKey: 'action', title: '操作', width: 100 },
+  { colKey: 'action', title: '操作', width: 80 },
 ]
 
-const errorColumns = [
-  { colKey: 'noradId', title: 'NORAD ID' },
-  { colKey: 'name', title: '名称', ellipsis: true, width: 600 },
-  { colKey: 'errorType', title: '错误类型' },
-  { colKey: 'timestamp', title: '时间' },
-  { colKey: 'action', title: '操作' },
-]
+const taskDetailVisible = ref(false)
+const taskDetailId = ref('')
 
-function showErrorDetailDialog(error: SyncErrorLog) {
-  selectedError.value = error
-  errorDetailVisible.value = true
+function openTaskDetail(taskId: string) {
+  taskDetailId.value = taskId
+  taskDetailVisible.value = true
 }
 
 // 加载统计数据
@@ -553,8 +509,6 @@ async function showSyncDetail(type: SyncType) {
   currentSyncType.value = type
   syncDetailTitle.value = `${getTypeText(type)} 同步详情`
   syncDetailVisible.value = true
-  selectedTask.value = null
-  taskErrors.value = []
   await loadSyncTasks(type)
 }
 
@@ -605,23 +559,6 @@ function onTaskPageChange(pageInfo: { current: number; pageSize: number }) {
   }
 }
 
-// 显示任务失败记录
-async function showTaskErrors(task: SyncTaskItem) {
-  selectedTask.value = task
-  taskErrors.value = []
-  errorsLoading.value = true
-  try {
-    const res = await satelliteSyncApi.getTaskErrors(task.id)
-    if (res.success) {
-      taskErrors.value = res.data.data
-    }
-  } catch (error) {
-    console.error('Failed to load errors:', error)
-  } finally {
-    errorsLoading.value = false
-  }
-}
-
 // 轮询（只在同步运行时）
 function startPolling() {
   // 如果已经在轮询中，不要重复启动
@@ -666,76 +603,6 @@ function stopPolling() {
 // 注意：不再使用 watch 自动触发轮询，避免逻辑混乱
 // 轮询只在 onMounted 和 handleSync 中手动控制
 
-
-function getStatusText(status: SyncStatus) {
-  switch (status) {
-    case 'completed': return '已完成'
-    case 'failed': return '失败'
-    case 'running': return '运行中'
-    default: return '等待中'
-  }
-}
-
-function getTypeText(type: SyncType) {
-  const map: Record<SyncType, string> = {
-    'celestrak': 'CelesTrak',
-    'space-track': 'Space-Track',
-    'space-track-meta': 'Space-Track 元数据',
-    'keeptrack-tle': 'KeepTrack TLE',
-    'keeptrack-meta': 'KeepTrack 元数据',
-    'discos': 'ESA DISCOS',
-  }
-  return map[type] || type
-}
-
-function getErrorTypeTheme(type: string) {
-  if (!type) return 'default'
-  const map: Record<string, string> = {
-    'missing_name': 'warning',
-    'parse_error': 'danger',
-    'duplicate': 'default',
-    'database': 'danger',
-    'api_error': 'danger',
-    'network': 'danger',
-    'timeout': 'warning',
-    'other': 'default',
-  }
-  return map[type] || 'default'
-}
-
-function getErrorTypeText(type: string) {
-  const map: Record<string, string> = {
-    'missing_name': '缺少名称',
-    'parse_error': '解析失败',
-    'duplicate': '重复数据',
-    'database': '数据库错误',
-    'api_error': 'API 错误',
-    'network': '网络错误',
-    'timeout': '超时',
-    'other': '其他错误',
-  }
-  return map[type] || type
-}
-
-function getStatusTheme(status: SyncStatus) {
-  switch (status) {
-    case 'completed': return 'success'
-    case 'failed': return 'danger'
-    case 'running': return 'primary'
-    default: return 'default'
-  }
-}
-
-function formatDate(dateStr: string) {
-  if (!dateStr) return '-'
-  const date = new Date(dateStr)
-  return date.toLocaleString('zh-CN', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 onMounted(async () => {
   console.log('[Sync] onMounted, loading initial state')
@@ -854,8 +721,17 @@ onUnmounted(() => stopPolling())
   color: var(--td-success-color);
 }
 
+.skipped {
+  color: var(--td-warning-color);
+}
+
 .failed {
   color: var(--td-error-color);
+}
+
+.skipped-highlight {
+  color: var(--td-warning-color);
+  font-weight: 600;
 }
 
 .failed-highlight {
@@ -906,27 +782,5 @@ onUnmounted(() => stopPolling())
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.sync-detail-content {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.task-history h4,
-.error-records h4 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sync-detail-dialog :deep(.t-dialog) {
-  height: 80vh;
-}
-
-.sync-detail-dialog :deep(.t-dialog__body) {
-  max-height: calc(80vh - 120px);
-  overflow-y: auto;
 }
 </style>

@@ -112,12 +112,12 @@ const columns = [
   { colKey: 'errorMessage', title: '错误信息', width: 200, ellipsis: true },
 ]
 
-const triggerTypeMap = {
+const triggerTypeMap: Record<string, { text: string; theme: string }> = {
   scheduled: { text: '定时推送', theme: 'primary' },
   manual: { text: '手动推送', theme: 'warning' },
 }
 
-const statusMap = {
+const statusMap: Record<string, { text: string; theme: string }> = {
   sent: { text: '已发送', theme: 'success' },
   failed: { text: '失败', theme: 'danger' },
 }

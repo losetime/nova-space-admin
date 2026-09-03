@@ -356,6 +356,7 @@ export interface SyncProgress {
   total: number
   processed: number
   success: number
+  skipped: number
   failed: number
   percentage: number
   estimatedTimeRemaining?: string
@@ -397,7 +398,9 @@ export interface SyncStats {
   lastDiscosSync?: string
   lastCelestrakSync?: string
   lastKeepTrackSync?: string
+  lastKeepTrackTleSync?: string
   lastSpaceTrackSync?: string
+  lastSpaceTrackTleSync?: string
 }
 
 // 同步任务列表项
@@ -408,6 +411,7 @@ export interface SyncTaskItem {
   total: number
   processed: number
   success: number
+  skipped: number
   failed: number
   startedAt: string
   completedAt?: string
@@ -434,6 +438,29 @@ export interface SyncErrorLog {
   rawTle?: string
   errorDetails?: ErrorDetails
   timestamp: string
+}
+
+export type SyncErrorType =
+  | 'missing_name'
+  | 'parse_error'
+  | 'duplicate'
+  | 'database'
+  | 'api_error'
+  | 'rate_limit'
+  | 'network'
+  | 'timeout'
+  | 'other'
+
+// 错误汇总项（按错误类型聚合）
+export interface ErrorLogSummaryItem {
+  errorType: SyncErrorType
+  count: number
+  latestMessage?: string
+}
+
+export interface ErrorLogSummaryResponse {
+  total: number
+  data: ErrorLogSummaryItem[]
 }
 
 // TLE 数据项
@@ -481,8 +508,19 @@ export const satelliteSyncApi = {
   getTaskById: (taskId: string) =>
     api.get<any, ApiResponse<SyncTaskItem | null>>(`/satellite-sync/tasks/${taskId}`),
 
-  getTaskErrors: (taskId: string) =>
-    api.get<any, ApiResponse<{ data: SyncErrorLog[]; total: number }>>(`/satellite-sync/tasks/${taskId}/errors`),
+  getTaskErrors: (
+    taskId: string,
+    params?: { page?: number; limit?: number; errorType?: string; source?: string },
+  ) =>
+    api.get<any, ApiResponse<PaginatedResponse<SyncErrorLog>>>(
+      `/satellite-sync/tasks/${taskId}/errors`,
+      { params },
+    ),
+
+  getTaskErrorsSummary: (taskId: string) =>
+    api.get<any, ApiResponse<ErrorLogSummaryResponse>>(
+      `/satellite-sync/tasks/${taskId}/errors/summary`,
+    ),
 
   getTleList: (params?: { page?: number; limit?: number; search?: string; source?: string }) =>
     api.get<any, ApiResponse<PaginatedResponse<TleItem>>>('/satellite-sync/tle', { params }),
@@ -612,6 +650,8 @@ export interface MembershipPlan {
 export interface Benefit {
   id: string
   name: string
+  code?: string | null
+  category?: string
   description: string | null
   valueType: 'number' | 'text' | 'boolean'
   unit: string | null

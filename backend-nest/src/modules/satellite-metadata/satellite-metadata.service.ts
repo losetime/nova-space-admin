@@ -1,5 +1,5 @@
 import { Injectable, Logger, Inject } from "@nestjs/common";
-import { eq, and, or, like, asc, sql, SQL } from "drizzle-orm";
+import { eq, and, like, asc, sql, SQL } from "drizzle-orm";
 import type { Database } from "../../database";
 import { satelliteMetadata } from "../../database/schema/satellite-metadata";
 import { QuerySatelliteMetadataDto } from "./dto/query-metadata.dto";

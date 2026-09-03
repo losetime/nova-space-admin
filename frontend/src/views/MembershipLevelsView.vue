@@ -119,11 +119,11 @@
     >
       <div class="delete-content">
         <p>确定要删除等级「{{ deletingLevel?.name }}」吗？</p>
-        <div v-if="deletingLevel?.userCount > 0" class="delete-warning">
-          <p>⚠️ 有 {{ deletingLevel.userCount }} 个用户正在使用该等级</p>
+        <div v-if="deletingLevel && (deletingLevel.userCount ?? 0) > 0" class="delete-warning">
+          <p>⚠️ 有 {{ deletingLevel.userCount ?? 0 }} 个用户正在使用该等级</p>
           <p class="text-sm">请先将这些用户调整到其他等级后再删除</p>
         </div>
-        <div v-if="deletingLevel?.isDefault" class="delete-warning">
+        <div v-if="deletingLevel && deletingLevel.isDefault" class="delete-warning">
           <p>⚠️ 默认等级不能删除</p>
         </div>
       </div>
@@ -368,8 +368,9 @@ async function confirmDeleteLevel() {
     return
   }
 
-  if (deletingLevel.value.userCount > 0) {
-    MessagePlugin.warning(`有 ${deletingLevel.value.userCount} 个用户使用该等级，请先调整后再删除`)
+  if ((deletingLevel.value.userCount ?? 0) > 0) {
+    const userCount = deletingLevel.value.userCount ?? 0
+    MessagePlugin.warning(`有 ${userCount} 个用户使用该等级，请先调整后再删除`)
     showDeleteLevelDialog.value = false
     deletingLevel.value = null
     return

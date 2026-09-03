@@ -13,6 +13,7 @@ import { SatelliteSyncService } from "./satellite-sync.service";
 import {
   SyncRequestDto,
   TaskListQueryDto,
+  TaskErrorsQueryDto,
   TleListQueryDto,
   MetadataListQueryDto,
 } from "./dto/sync.dto";
@@ -38,6 +39,7 @@ export class SatelliteSyncController {
         total: task.total,
         processed: task.processed,
         success: task.success,
+        skipped: task.skipped,
         failed: task.failed,
         percentage:
           task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
@@ -81,6 +83,7 @@ export class SatelliteSyncController {
         total: task.total,
         processed: task.processed,
         success: task.success,
+        skipped: task.skipped,
         failed: task.failed,
         percentage:
           task.total > 0 ? Math.round((task.processed / task.total) * 100) : 0,
@@ -120,8 +123,16 @@ export class SatelliteSyncController {
   }
 
   @Get("tasks/:id/errors")
-  async getTaskErrors(@Param("id") taskId: string) {
-    return this.syncService.getTaskErrors(taskId);
+  async getTaskErrors(
+    @Param("id") taskId: string,
+    @Query() query: TaskErrorsQueryDto,
+  ) {
+    return this.syncService.getTaskErrors(taskId, query);
+  }
+
+  @Get("tasks/:id/errors/summary")
+  async getTaskErrorsSummary(@Param("id") taskId: string) {
+    return this.syncService.getTaskErrorsSummary(taskId);
   }
 
   @Get("tle")

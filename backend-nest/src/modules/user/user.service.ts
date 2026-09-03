@@ -11,7 +11,6 @@ import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
 import { subscriptions } from "../../database/schema/subscriptions";
 import { memberLevels } from "../../database/schema/member-levels";
-import { membershipPlans } from "../../database/schema/membership-plans";
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";
 
 type UserRoleType = "user" | "admin" | "super_admin";

@@ -75,7 +75,7 @@ export class DigestService {
   }
 
   private async getIntelligenceContent(
-    subscription: SubscriptionRecord,
+    _subscription: SubscriptionRecord,
   ): Promise<any[]> {
     try {
       const YESTERDAY = new Date(Date.now() - 24 * 60 * 60 * 1000);

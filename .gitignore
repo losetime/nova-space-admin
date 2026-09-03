@@ -5,6 +5,13 @@ dist/nova-space-admin-frontend.tar
 # Uploads
 backend-nest/uploads/
 
+# IDE
+.idea/
+.vscode/
+
+# Deploy artifacts (镜像/数据库导出产物)
+deploy/
+
 # Environment files
 .env
 

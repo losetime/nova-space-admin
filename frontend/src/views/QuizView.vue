@@ -61,7 +61,7 @@
         </t-form-item>
         <t-form-item label="选项" required>
           <t-radio-group v-model="editForm.correctIndex" class="options-radio-group">
-            <div v-for="(opt, idx) in editForm.options" :key="idx" class="option-edit-row">
+            <div v-for="(_, idx) in editForm.options" :key="idx" class="option-edit-row">
               <t-radio :value="idx">{{ String.fromCharCode(65 + idx) }}.</t-radio>
               <t-input v-model="editForm.options[idx]" :placeholder="`选项${String.fromCharCode(65 + idx)}`" />
             </div>
@@ -87,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { AddIcon } from 'tdesign-icons-vue-next'
 import { quizApi, type Quiz } from '@/api'
@@ -197,7 +197,7 @@ async function handleSubmit() {
   if (!editForm.value) return
 
   // 验证
-  if (!editForm.value.question.trim()) {
+  if (!editForm.value.question?.trim()) {
     MessagePlugin.warning('请输入题目')
     return
   }

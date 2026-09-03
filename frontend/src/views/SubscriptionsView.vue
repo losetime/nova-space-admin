@@ -204,12 +204,12 @@ const columns = [
   { colKey: 'action', title: '操作', width: 160 },
 ]
 
-const subscriptionTypeMap = {
+const subscriptionTypeMap: Record<string, string> = {
   space_weather: '空间天气',
   intelligence: '航天情报',
 }
 
-const statusMap = {
+const statusMap: Record<string, { text: string; theme: string }> = {
   active: { text: '正常', theme: 'success' },
   paused: { text: '暂停', theme: 'warning' },
   cancelled: { text: '已取消', theme: 'default' },

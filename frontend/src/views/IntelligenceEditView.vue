@@ -91,18 +91,9 @@ import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { ChevronLeftIcon } from 'tdesign-icons-vue-next'
-import { intelligenceApi, membershipApi } from '@/api'
+import { intelligenceApi, membershipApi, type MemberLevel, type Intelligence } from '@/api'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import ImageUpload from '@/components/ImageUpload.vue'
-
-interface MemberLevel {
-  id: string
-  code: string
-  name: string
-  description?: string
-  icon?: string
-  isDefault?: boolean
-}
 
 const router = useRouter()
 const route = useRoute()
@@ -176,7 +167,8 @@ async function handleSubmit({ validateResult }: { validateResult: boolean }) {
   try {
     const data = {
       ...form,
-      tags: tagsArray.value,
+      level: form.level as Intelligence['level'],
+      tags: tagsArray.value.join(','),
     }
     if (isEdit.value) {
       await intelligenceApi.update(Number(route.params.id), data)

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, Inject } from "@nestjs/common";
-import { eq, like, desc, and, sql, asc } from "drizzle-orm";
+import { eq, like, desc, and, sql } from "drizzle-orm";
 import type { Database } from "../../database";
 import { companies } from "../../database/schema/companies";
 import { CreateCompanyDto, UpdateCompanyDto, QueryCompanyDto } from "./dto";

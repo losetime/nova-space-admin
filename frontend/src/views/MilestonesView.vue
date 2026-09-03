@@ -127,7 +127,7 @@ import { milestoneApi, type Milestone } from '@/api'
 const loading = ref(false)
 const milestones = ref<Milestone[]>([])
 const searchKeyword = ref('')
-const selectedCategory = ref<string | undefined>()
+const selectedCategory = ref<Milestone['category'] | undefined>()
 const selectedImportance = ref<number | undefined>()
 const selectedPublishStatus = ref<boolean | undefined>()
 
