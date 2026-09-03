@@ -9,9 +9,6 @@ backend-nest/uploads/
 .idea/
 .vscode/
 
-# Deploy artifacts (镜像/数据库导出产物)
-deploy/
-
 # Environment files
 .env
 
