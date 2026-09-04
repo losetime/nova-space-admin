@@ -6,6 +6,7 @@ import { UploadService } from "../upload/upload.service";
 import {
   TrackingRecord,
   DocxArticle,
+  EmbeddedImage,
   AlignmentResult,
   DailyReportResult,
 } from "./parser.types";
@@ -44,11 +45,27 @@ export class HwReportService {
           continue;
         }
 
+        // 上传所有图片到MinIO（中英文共用同一组图片）
+        const imageMap = await this.uploadImages(
+          translatedArticle.images,
+          result.warnings,
+          match.titleCn,
+        );
+
+        // cover保持第一张图片
+        const cover = imageMap.get(0) || null;
+
         // 组装数据
         const titleEn = match.titleEn;
         const titleCn = match.titleCn;
-        const contentEn = originalArticle.body.map(p => `<p>${p}</p>`).join("");
-        const contentCn = translatedArticle.body.map(p => `<p>${p}</p>`).join("");
+        const contentEn = this.buildContentWithImages(
+          originalArticle.body,
+          imageMap,
+        );
+        const contentCn = this.buildContentWithImages(
+          translatedArticle.body,
+          imageMap,
+        );
         const source = this.findSource(trackingRecords, match.xlsxIndex);
         const sourceUrl = this.findSourceUrl(trackingRecords, match.xlsxIndex);
         const publishedAt = this.findPublishTime(
@@ -56,25 +73,8 @@ export class HwReportService {
           match.xlsxIndex,
         );
 
-        // 上传封面图片到MinIO
-        let cover = null;
-        const coverImage = translatedArticle.images[0];
-        if (coverImage) {
-          try {
-            const uploadResult = await this.uploadService.uploadImage({
-              buffer: coverImage.data,
-              originalname: coverImage.fileName.split("/").pop() || "image.jpeg",
-              mimetype: coverImage.mimeType,
-              size: coverImage.data.length,
-            } as Express.Multer.File);
-            cover = uploadResult.url;
-          } catch (error) {
-            result.warnings.push(`文章 "${titleCn}" 图片上传失败: ${error.message}`);
-          }
-        }
-
         // 生成摘要（取前200个字符）
-        const summary = contentCn.substring(0, 200).trim() + "...";
+        const summary = contentCn.replace(/<[^>]*>/g, "").substring(0, 200).trim() + "...";
 
         // 检查重复性（根据中文标题）
         const existing = await tx
@@ -128,6 +128,55 @@ export class HwReportService {
     }
 
     return result;
+  }
+
+  /**
+   * 上传图片到MinIO，返回 position -> URL 的映射
+   */
+  private async uploadImages(
+    images: EmbeddedImage[],
+    warnings: string[],
+    articleTitle: string,
+  ): Promise<Map<number, string>> {
+    const imageMap = new Map<number, string>();
+
+    for (const img of images) {
+      try {
+        const uploadResult = await this.uploadService.uploadImage({
+          buffer: img.data,
+          originalname: img.fileName.split("/").pop() || "image.jpeg",
+          mimetype: img.mimeType,
+          size: img.data.length,
+        } as Express.Multer.File);
+        imageMap.set(img.position, uploadResult.url);
+      } catch (error) {
+        warnings.push(
+          `文章 "${articleTitle}" 图片上传失败: ${error.message}`,
+        );
+      }
+    }
+
+    return imageMap;
+  }
+
+  /**
+   * 根据图片位置组装content，保持原始排版
+   */
+  private buildContentWithImages(
+    body: string[],
+    imageMap: Map<number, string>,
+  ): string {
+    const parts: string[] = [];
+
+    body.forEach((paragraph, index) => {
+      // 在段落前检查是否有图片
+      if (imageMap.has(index)) {
+        parts.push(`<p><img src="${imageMap.get(index)}" /></p>`);
+      }
+      parts.push(`<p>${paragraph}</p>`);
+    });
+
+    return parts.join("");
   }
 
   private findSource(
