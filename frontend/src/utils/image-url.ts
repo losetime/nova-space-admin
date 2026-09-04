@@ -14,7 +14,8 @@ const MINIO_BASE_URL = import.meta.env.VITE_MINIO_BASE_URL || 'http://8.160.178.
 export function getFullImageUrl(url: string | undefined | null): string {
   if (!url) return ''
 
-  // MinIO 相对路径 -> 拼接公网 IP URL
+  // MinIO 相对路径 -> 拼接基础 URL
+  // 格式: /minio/images/xxx.jpg -> http://localhost:9000/minio/images/xxx.jpg
   if (url.startsWith('/minio/')) {
     return `${MINIO_BASE_URL}${url}`
   }
