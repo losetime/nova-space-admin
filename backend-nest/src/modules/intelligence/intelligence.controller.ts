@@ -51,4 +51,9 @@ export class IntelligenceController {
   remove(@Param("id", ParseIntPipe) id: number) {
     return this.intelligenceService.remove(id);
   }
+
+  @Post("batch-delete")
+  batchRemove(@Body() body: { ids: number[] }) {
+    return this.intelligenceService.batchRemove(body.ids);
+  }
 }

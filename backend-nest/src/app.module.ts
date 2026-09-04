@@ -16,6 +16,7 @@ import { SatelliteMetadataModule } from "./modules/satellite-metadata/satellite-
 import { MilestoneModule } from "./modules/milestone/milestone.module";
 import { CompanyModule } from "./modules/company/company.module";
 import { MembershipModule } from "./modules/membership/membership.module";
+import { ParserModule } from "./modules/parser/parser.module";
 import { HealthModule } from "./common/health/health.module";
 import { AllExceptionsFilter } from "./common/filters";
 import { TransformInterceptor } from "./common/interceptors";
@@ -44,6 +45,7 @@ import appConfig from "./config/app.config";
     MilestoneModule,
     CompanyModule,
     MembershipModule,
+    ParserModule,
     HealthModule,
   ],
   providers: [

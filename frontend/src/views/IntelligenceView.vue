@@ -2,10 +2,24 @@
   <div class="page-container">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">情报管理</h2>
-      <t-button theme="primary" @click="$router.push('/intelligence/create')">
-        <template #icon><AddIcon /></template>
-        新建
-      </t-button>
+      <div class="action-buttons">
+        <t-button
+          v-if="selectedRowKeys.length > 0"
+          theme="danger"
+          variant="outline"
+          @click="handleBatchDelete"
+        >
+          批量删除 ({{ selectedRowKeys.length }})
+        </t-button>
+        <t-button theme="default" variant="outline" @click="showImportDialog = true">
+          <template #icon><UploadIcon /></template>
+          导入HW专报
+        </t-button>
+        <t-button theme="primary" @click="$router.push('/intelligence/create')">
+          <template #icon><AddIcon /></template>
+          新建
+        </t-button>
+      </div>
     </div>
 
     <t-table bordered
@@ -13,7 +27,9 @@
       :data="intelligences"
       :loading="loading"
       :pagination="pagination"
+      :selected-row-keys="selectedRowKeys"
       row-key="id"
+      :row-selection="{ selectedRowKeys, onChange: handleSelectChange }"
       @page-change="handlePageChange"
     >
       <template #category="{ row }">
@@ -40,15 +56,22 @@
         </t-space>
       </template>
     </t-table>
+
+    <!-- HW专报导入弹窗 -->
+    <HwReportImportDialog
+      v-model:visible="showImportDialog"
+      @success="fetchIntelligences"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { AddIcon } from 'tdesign-icons-vue-next'
+import { AddIcon, UploadIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
 import { intelligenceApi, membershipApi, type Intelligence } from '@/api'
+import HwReportImportDialog from '@/components/HwReportImportDialog.vue'
 
 interface MemberLevel {
   id: string
@@ -56,8 +79,10 @@ interface MemberLevel {
   name: string
 }
 
+const showImportDialog = ref(false)
 const loading = ref(false)
 const intelligences = ref<Intelligence[]>([])
+const selectedRowKeys = ref<(string | number)[]>([])
 const pagination = reactive({
   current: 1,
   pageSize: 10,
@@ -69,10 +94,10 @@ const columns = [
   { colKey: 'id', title: 'ID', width: 60 },
   { colKey: 'title', title: '标题', ellipsis: true },
   { colKey: 'category', title: '分类', width: 100 },
-  { colKey: 'level', title: '等级', width: 100 },
-  { colKey: 'source', title: '来源', width: 120 },
+  { colKey: 'level', title: '等级', width: 140 },
+  { colKey: 'source', title: '来源', width: 160 },
   { colKey: 'views', title: '浏览', width: 80 },
-  { colKey: 'createdAt', title: '创建时间', width: 140 },
+  { colKey: 'createdAt', title: '创建时间', width: 160 },
   { colKey: 'action', title: '操作', width: 120 },
 ]
 
@@ -160,6 +185,27 @@ async function handleDelete(id: number) {
   }
 }
 
+function handleSelectChange(keys: (string | number)[]) {
+  selectedRowKeys.value = keys
+}
+
+async function handleBatchDelete() {
+  if (selectedRowKeys.value.length === 0) {
+    MessagePlugin.warning('请选择要删除的情报')
+    return
+  }
+
+  try {
+    const ids = selectedRowKeys.value.map(id => id as number)
+    await intelligenceApi.batchDelete(ids)
+    MessagePlugin.success(`成功删除 ${ids.length} 条情报`)
+    selectedRowKeys.value = []
+    fetchIntelligences()
+  } catch (error) {
+    MessagePlugin.error('批量删除失败')
+  }
+}
+
 onMounted(() => {
   fetchLevelMap()
   fetchIntelligences()
@@ -171,5 +217,10 @@ onMounted(() => {
   background: #fff;
   padding: 24px;
   border-radius: 3px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
 }
 </style>

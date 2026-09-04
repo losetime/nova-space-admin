@@ -64,8 +64,8 @@ const columns = [
   { colKey: 'title', title: '标题', ellipsis: true },
   { colKey: 'category', title: '分类', width: 100 },
   { colKey: 'views', title: '浏览', width: 80 },
-  { colKey: 'isPublished', title: '状态', width: 80 },
-  { colKey: 'createdAt', title: '创建时间', width: 140 },
+  { colKey: 'isPublished', title: '状态', width: 100 },
+  { colKey: 'createdAt', title: '创建时间', width: 160 },
   { colKey: 'action', title: '操作', width: 120 },
 ]
 

@@ -35,4 +35,6 @@ export const intelligences = pgTable("intelligences", {
   publishedAt: timestamp("published_at", { mode: "date" }),
   createdAt: timestamp("created_at", { mode: "date" }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow().notNull(),
+  titleEn: varchar("title_en", { length: 255 }),
+  contentEn: text("content_en"),
 });

@@ -143,4 +143,15 @@ export class IntelligenceService {
     await this.db.delete(intelligences).where(eq(intelligences.id, id));
     return { message: "删除成功" };
   }
+
+  async batchRemove(ids: number[]) {
+    if (!ids || ids.length === 0) {
+      return { message: "请选择要删除的情报", deleted: 0 };
+    }
+    const result = await this.db
+      .delete(intelligences)
+      .where(sql`${intelligences.id} IN ${ids}`)
+      .returning();
+    return { message: `成功删除 ${result.length} 条情报`, deleted: result.length };
+  }
 }

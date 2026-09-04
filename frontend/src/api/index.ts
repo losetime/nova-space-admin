@@ -16,6 +16,10 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    // 如果是FormData上传，删除默认的Content-Type，让axios自动设置
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type']
+    }
     return config
   },
   (error) => {
@@ -133,6 +137,9 @@ export const intelligenceApi = {
 
   delete: (id: number) =>
     api.delete<any, ApiResponse<void>>(`/intelligence/${id}`),
+
+  batchDelete: (ids: number[]) =>
+    api.post<any, ApiResponse<{ message: string; deleted: number }>>('/intelligence/batch-delete', { ids }),
 }
 
 // User API
@@ -895,6 +902,29 @@ export const satelliteMetadataApi = {
 
   getOne: (noradId: string) =>
     api.get<any, ApiResponse<SatelliteMetadataDetail>>(`/satellite-metadata/${noradId}`),
+}
+
+// Parser API (HW专报解析)
+export interface DailyReportArticle {
+  id: number
+  titleEn: string
+  titleCn: string
+  matchScore: number
+}
+
+export interface DailyReportResult {
+  articles: DailyReportArticle[]
+  warnings: string[]
+}
+
+export const parserApi = {
+  parseDailyReport: (formData: FormData) => {
+    console.log('Parsing daily report with formData:', formData.getAll('files')) // Debug log
+    return api.post<any, ApiResponse<DailyReportResult>>('/parser/daily-report', formData, {
+      timeout: 60000,
+    })
+  }
+    
 }
 
 export default api
