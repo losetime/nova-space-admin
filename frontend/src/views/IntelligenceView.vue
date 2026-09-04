@@ -29,8 +29,8 @@
       :pagination="pagination"
       :selected-row-keys="selectedRowKeys"
       row-key="id"
-      :row-selection="{ selectedRowKeys, onChange: handleSelectChange }"
       @page-change="handlePageChange"
+      @select-change="handleSelectChange"
     >
       <template #category="{ row }">
         <t-tag :theme="getCategoryTheme(row.category)" variant="light">
@@ -91,6 +91,7 @@ const pagination = reactive({
 })
 
 const columns = [
+  { colKey: 'row-select', type: 'multiple', width: 50 },
   { colKey: 'id', title: 'ID', width: 60 },
   { colKey: 'title', title: '标题', ellipsis: true },
   { colKey: 'category', title: '分类', width: 100 },
