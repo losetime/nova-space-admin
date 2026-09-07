@@ -17,21 +17,26 @@ export class DocxParserService {
       const docXml = await docXmlFile.async("string");
       const parser = new XMLParser({
         ignoreAttributes: false,
+        removeNSPrefix: true,
       });
       const doc = parser.parse(docXml);
-      const body = doc["w:document"]["w:body"];
+      const body = doc["document"]["body"];
 
-      // 提取所有图片
-      const allImages = await this.extractAllImages(zip);
+      // 读取 rId 到文件名的映射
+      const ridToFile = await this.readRidMapping(zip);
 
       // 提取段落
-      const paragraphs = body["w:p"] || [];
+      const paragraphs = body["p"] || [];
       const paragraphsArray = Array.isArray(paragraphs)
         ? paragraphs
         : [paragraphs];
 
-      // 按"N."格式切分文章
-      const articles = this.splitArticles(paragraphsArray, allImages);
+      // 按"N."格式切分文章，并提取图片
+      const { articles, allImages } = await this.splitArticles(
+        paragraphsArray,
+        zip,
+        ridToFile,
+      );
 
       return { articles, allImages };
     } catch (error) {
@@ -42,32 +47,89 @@ export class DocxParserService {
     }
   }
 
-  private async extractAllImages(zip: JSZip): Promise<EmbeddedImage[]> {
-    const images: EmbeddedImage[] = [];
-    const mediaFolder = zip.folder("word/media");
+  /**
+   * 从 word/_rels/document.xml.rels 读取 rId 到文件名的映射
+   */
+  private async readRidMapping(
+    zip: JSZip,
+  ): Promise<Map<string, string>> {
+    const ridToFile = new Map<string, string>();
+    const relsFile = zip.file("word/_rels/document.xml.rels");
 
-    if (mediaFolder) {
-      const files: { path: string; file: JSZip.JSZipObject }[] = [];
+    if (!relsFile) {
+      return ridToFile;
+    }
 
-      mediaFolder.forEach((path, file) => {
-        if (path.match(/\.(jpeg|png|gif|jpg)$/i)) {
-          files.push({ path, file });
+    const relsXml = await relsFile.async("string");
+    const parser = new XMLParser({ ignoreAttributes: false });
+    const relsDoc = parser.parse(relsXml);
+    const relationships = relsDoc["Relationships"]["Relationship"];
+
+    if (Array.isArray(relationships)) {
+      for (const rel of relationships) {
+        const target = rel["@_Target"];
+        const id = rel["@_Id"];
+        if (target && id && target.includes("media")) {
+          ridToFile.set(id, target);
         }
-      });
-
-      for (const { path, file } of files) {
-        const data = await file.async("nodebuffer");
-        images.push({
-          fileName: `word/media/${path}`,
-          mimeType: this.getMimeType(path),
-          data,
-          articleIndex: 0,
-          position: 0,
-        });
       }
     }
 
-    return images;
+    return ridToFile;
+  }
+
+  /**
+   * 从段落中提取图片的 rId
+   */
+  private extractImageRid(p: any): string | null {
+    if (!p || !p["r"]) return null;
+
+    const runs = Array.isArray(p["r"]) ? p["r"] : [p["r"]];
+
+    for (const r of runs) {
+      if (!r["drawing"]) continue;
+
+      const drawing = r["drawing"];
+      // 尝试不同的图片嵌入路径
+      const blip =
+        drawing["inline"]?.["graphic"]?.["graphicData"]?.["pic"]?.[
+          "blipFill"
+        ]?.["blip"];
+
+      if (blip) {
+        // 支持两种属性名格式（带命名空间前缀和不带）
+        return blip["@_r:embed"] || blip["@_embed"] || null;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 根据 rId 从 zip 中提取图片数据
+   */
+  private async extractImageByRid(
+    zip: JSZip,
+    rid: string,
+    ridToFile: Map<string, string>,
+  ): Promise<EmbeddedImage | null> {
+    const target = ridToFile.get(rid);
+    if (!target) return null;
+
+    // target 格式: "media/image1.jpeg"
+    const file = zip.file(`word/${target}`);
+    if (!file) return null;
+
+    const data = await file.async("nodebuffer");
+    const fileName = target.split("/").pop() || "image.jpeg";
+
+    return {
+      fileName: `word/${target}`,
+      mimeType: this.getMimeType(fileName),
+      data,
+      articleIndex: 0,
+      position: 0,
+    };
   }
 
   private getMimeType(fileName: string): string {
@@ -85,14 +147,15 @@ export class DocxParserService {
     }
   }
 
-  private splitArticles(
+  private async splitArticles(
     paragraphs: any[],
-    allImages: EmbeddedImage[],
-  ): DocxArticle[] {
+    zip: JSZip,
+    ridToFile: Map<string, string>,
+  ): Promise<{ articles: DocxArticle[]; allImages: EmbeddedImage[] }> {
     const articles: DocxArticle[] = [];
+    const allImages: EmbeddedImage[] = [];
     let currentArticle: DocxArticle | null = null;
     let articleIndex = 0;
-    let imageCounter = 0;
 
     for (let i = 0; i < paragraphs.length; i++) {
       const p = paragraphs[i];
@@ -121,13 +184,14 @@ export class DocxParserService {
         }
 
         // 检查是否有图片
-        if (this.hasImage(p)) {
-          const image = allImages[imageCounter];
+        const rid = this.extractImageRid(p);
+        if (rid) {
+          const image = await this.extractImageByRid(zip, rid, ridToFile);
           if (image) {
             image.articleIndex = articleIndex;
             image.position = currentArticle.body.length;
             currentArticle.images.push(image);
-            imageCounter++;
+            allImages.push(image);
           }
         }
       }
@@ -138,16 +202,16 @@ export class DocxParserService {
       articles.push(currentArticle);
     }
 
-    return articles;
+    return { articles, allImages };
   }
 
   private extractParagraphText(p: any): string {
-    if (!p || !p["w:r"]) return "";
+    if (!p || !p["r"]) return "";
 
-    const runs = Array.isArray(p["w:r"]) ? p["w:r"] : [p["w:r"]];
+    const runs = Array.isArray(p["r"]) ? p["r"] : [p["r"]];
     return runs
       .map((r: any) => {
-        const t = r["w:t"];
+        const t = r["t"];
         if (!t && t !== 0) return "";
         if (typeof t === "object") {
           // 处理 {"#text": "..."} 格式
@@ -163,9 +227,9 @@ export class DocxParserService {
   }
 
   private hasImage(p: any): boolean {
-    if (!p || !p["w:r"]) return false;
+    if (!p || !p["r"]) return false;
 
-    const runs = Array.isArray(p["w:r"]) ? p["w:r"] : [p["w:r"]];
-    return runs.some((r: any) => r["w:drawing"]);
+    const runs = Array.isArray(p["r"]) ? p["r"] : [p["r"]];
+    return runs.some((r: any) => r["drawing"]);
   }
 }
