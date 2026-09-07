@@ -111,9 +111,11 @@ const categoryMap: Record<string, { text: string; theme: 'danger' | 'primary' | 
 }
 
 // 等级映射，动态从会员管理获取
-const levelMap: Record<string, { text: string; theme: string }> = {
+const levelMap = ref<Record<string, { text: string; theme: string }>>({
   free: { text: '免费', theme: 'success' },
-}
+  advanced: { text: '高级会员', theme: 'primary' },
+  professional: { text: '专业会员', theme: 'warning' },
+})
 
 function getCategoryText(category: string) {
   return categoryMap[category]?.text || category
@@ -124,11 +126,11 @@ function getCategoryTheme(category: string) {
 }
 
 function getLevelText(level: string) {
-  return levelMap[level]?.text || level
+  return levelMap.value[level]?.text || level
 }
 
 function getLevelTheme(level: string) {
-  return levelMap[level]?.theme || 'default'
+  return levelMap.value[level]?.theme || 'default'
 }
 
 function formatDate(date: string) {
@@ -141,7 +143,7 @@ async function fetchLevelMap() {
     const res = await membershipApi.getLevels({ page: 1, limit: 100 })
     if (res.success && res.data?.data) {
       res.data.data.forEach((level: MemberLevel) => {
-        levelMap[level.code] = {
+        levelMap.value[level.code] = {
           text: level.name,
           theme: 'primary',
         }
