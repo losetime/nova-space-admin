@@ -51,7 +51,7 @@ export class IntelligenceService {
       .where(whereClause)
       .limit(limit)
       .offset((page - 1) * limit)
-      .orderBy(desc(intelligences.createdAt));
+      .orderBy(desc(intelligences.id));
 
     const countResult = await this.db
       .select({ count: sql<number>`count(*)` })
