@@ -73,8 +73,8 @@ export class HwReportService {
           match.xlsxIndex,
         );
 
-        // 生成摘要（取前200个字符）
-        const summary = contentCn.replace(/<[^>]*>/g, "").substring(0, 200).trim() + "...";
+        // 生成智能摘要（跳过图片描述和过短段落）
+        const summary = this.generateSummary(contentCn);
 
         // 检查重复性（根据中文标题）
         const existing = await tx
@@ -201,5 +201,39 @@ export class HwReportService {
   ): Date | null {
     const record = trackingRecords.find((r) => r.id === xlsxIndex);
     return record?.publishTime || null;
+  }
+
+  /**
+   * 检测是否为图片描述段落
+   */
+  private isImageDescription(paragraph: string): boolean {
+    const keywords = ["图片来源", "照片来源", "Credit", "拍摄者", "图片说明", "照片"];
+    return keywords.some((keyword) => paragraph.includes(keyword));
+  }
+
+  /**
+   * 检测段落是否过短（少于10个字符）
+   */
+  private isTooShort(paragraph: string): boolean {
+    return paragraph.length < 10;
+  }
+
+  /**
+   * 生成智能摘要：跳过图片描述和过短段落，取第一个有效段落
+   */
+  private generateSummary(contentCn: string): string {
+    // 从content中提取有效段落（去掉HTML标签）
+    const paragraphs = contentCn
+      .split("</p>")
+      .map((p) => p.replace(/<[^>]*>/g, "").trim())
+      .filter((p) => p && !this.isImageDescription(p) && !this.isTooShort(p));
+
+    // 取第一段作为摘要
+    if (paragraphs.length > 0) {
+      return paragraphs[0].substring(0, 150).trim() + "...";
+    }
+
+    // 降级处理：直接截取前150个字符
+    return contentCn.replace(/<[^>]*>/g, "").substring(0, 150).trim() + "...";
   }
 }
