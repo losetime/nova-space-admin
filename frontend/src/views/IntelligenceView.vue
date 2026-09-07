@@ -11,6 +11,10 @@
         >
           批量删除 ({{ selectedRowKeys.length }})
         </t-button>
+        <t-button theme="default" variant="outline" @click="fetchIntelligences">
+          <template #icon><RefreshIcon /></template>
+          刷新
+        </t-button>
         <t-button theme="default" variant="outline" @click="showImportDialog = true">
           <template #icon><UploadIcon /></template>
           导入HW专报
@@ -68,7 +72,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { AddIcon, UploadIcon } from 'tdesign-icons-vue-next'
+import { AddIcon, UploadIcon, RefreshIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
 import { intelligenceApi, membershipApi, type Intelligence } from '@/api'
 import HwReportImportDialog from '@/components/HwReportImportDialog.vue'

@@ -2,10 +2,16 @@
   <div class="page-container">
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">科普管理</h2>
-      <t-button theme="primary" @click="$router.push('/articles/create')">
-        <template #icon><AddIcon /></template>
-        新建
-      </t-button>
+      <div class="action-buttons">
+        <t-button theme="default" variant="outline" @click="fetchArticles">
+          <template #icon><RefreshIcon /></template>
+          刷新
+        </t-button>
+        <t-button theme="primary" @click="$router.push('/articles/create')">
+          <template #icon><AddIcon /></template>
+          新建
+        </t-button>
+      </div>
     </div>
 
     <t-table bordered
@@ -46,7 +52,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
-import { AddIcon } from 'tdesign-icons-vue-next'
+import { AddIcon, RefreshIcon } from 'tdesign-icons-vue-next'
 import dayjs from 'dayjs'
 import { articleApi, type Article } from '@/api'
 
