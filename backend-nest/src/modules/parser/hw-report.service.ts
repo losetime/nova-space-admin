@@ -230,10 +230,10 @@ export class HwReportService {
 
     // 取第一段作为摘要
     if (paragraphs.length > 0) {
-      return paragraphs[0].substring(0, 150).trim() + "...";
+      return paragraphs[0].substring(0, 150).trim();
     }
 
     // 降级处理：直接截取前150个字符
-    return contentCn.replace(/<[^>]*>/g, "").substring(0, 150).trim() + "...";
+    return contentCn.replace(/<[^>]*>/g, "").substring(0, 150).trim();
   }
 }
