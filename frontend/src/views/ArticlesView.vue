@@ -137,4 +137,9 @@ onMounted(fetchArticles)
   padding: 24px;
   border-radius: 3px;
 }
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
 </style>
