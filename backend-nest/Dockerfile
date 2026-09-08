@@ -6,17 +6,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # 复制 package 文件
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # 在构建阶段添加
 RUN npm install -g pnpm
 
 # 使用 pnpm 代替 npm
-# --ignore-scripts 先跳过脚本
-RUN pnpm install --frozen-lockfile --ignore-scripts
-
-# 允许所有包的脚本构建，针对pnpm v11版本
-RUN pnpm approve-builds --all
+RUN pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY . .
@@ -36,11 +32,10 @@ RUN npm install -g pnpm
 ENV NODE_ENV=production
 
 # 复制 package 文件
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-# 只安装生产依赖（--ignore-scripts 避免 pnpm v10+ 因未批准构建脚本而报错，
-# 运行时依赖均为纯 JS，无需构建脚本；如需执行脚本可在此处 approve-builds）
-RUN pnpm install --prod --ignore-scripts
+# 只安装生产依赖（allowBuilds 在 pnpm-workspace.yaml 中声明）
+RUN pnpm install --prod
 
 # 从构建阶段复制编译后的文件
 COPY --from=builder /app/dist ./dist
