@@ -3,17 +3,23 @@ import {
   NotFoundException,
   ConflictException,
   BadRequestException,
+  ForbiddenException,
   Inject,
 } from "@nestjs/common";
-import { eq, like, desc, and, sql, SQL, gte } from "drizzle-orm";
+import { eq, ilike, desc, and, sql, SQL, gte } from "drizzle-orm";
 import * as bcrypt from "bcryptjs";
 import type { Database } from "../../database";
 import { users } from "../../database/schema/users";
 import { subscriptions } from "../../database/schema/subscriptions";
 import { memberLevels } from "../../database/schema/member-levels";
+import { membershipPlans } from "../../database/schema/membership-plans";
 import { CreateUserDto, UpdateUserDto, QueryUserDto } from "./dto";
 
 type UserRoleType = "user" | "admin" | "super_admin";
+export interface Operator {
+  id: string;
+  role: string;
+}
 
 @Injectable()
 export class UserService {
@@ -24,7 +30,7 @@ export class UserService {
 
     const conditions: SQL[] = [];
     if (keyword) {
-      conditions.push(like(users.username, `%${keyword}%`));
+      conditions.push(ilike(users.email, `%${keyword}%`));
     }
     if (role) {
       conditions.push(eq(users.role, role as UserRoleType));
@@ -105,20 +111,40 @@ export class UserService {
       throw new NotFoundException("用户不存在");
     }
 
+    const [subscription] = await this.db
+      .select({
+        id: subscriptions.id,
+        plan: subscriptions.plan,
+        planName: membershipPlans.name,
+        status: subscriptions.status,
+        price: subscriptions.price,
+        currency: subscriptions.currency,
+        startDate: subscriptions.startDate,
+        endDate: subscriptions.endDate,
+        autoRenew: subscriptions.autoRenew,
+      })
+      .from(subscriptions)
+      .leftJoin(
+        membershipPlans,
+        sql`${membershipPlans.planCode} = cast(${subscriptions.plan} as text)`,
+      )
+      .where(eq(subscriptions.userId, id))
+      .orderBy(desc(subscriptions.createdAt))
+      .limit(1);
+
     return {
       ...result[0],
-      subscription: null,
+      subscription: subscription ?? null,
     };
   }
 
-  async create(dto: CreateUserDto) {
-    const existingUser = await this.db
-      .select()
-      .from(users)
-      .where(eq(users.username, dto.username))
-      .limit(1);
-    if (existingUser[0]) {
-      throw new ConflictException("用户名已存在");
+  async create(dto: CreateUserDto, operator: Operator) {
+    if (dto.role === "super_admin") {
+      throw new ForbiddenException("无法创建超级管理员账号");
+    }
+
+    if (operator.role !== "super_admin" && dto.role && dto.role !== "user") {
+      throw new ForbiddenException("只有超级管理员可以创建管理员账号");
     }
 
     if (dto.email) {
@@ -143,24 +169,41 @@ export class UserService {
       }
     }
 
+    const username = await this.generateUsername(dto.email);
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
     const result = await this.db
       .insert(users)
       .values({
-        username: dto.username,
+        username,
         email: dto.email,
         phone: dto.phone,
         password: hashedPassword,
-        nickname: dto.nickname,
-        avatar: dto.avatar,
-        role: dto.role as UserRoleType,
+        nickname: dto.nickname || username,
+        role: (dto.role ?? "user") as UserRoleType,
+        level: dto.level ?? "basic",
+        isActive: dto.isActive ?? true,
       } as any)
       .returning();
     return result[0];
   }
 
-  async update(id: string, dto: UpdateUserDto) {
+  private async generateUsername(email: string): Promise<string> {
+    const local = (email.split("@")[0] || "").split(".")[0];
+    const base = (local || "").slice(0, 30) || "user";
+    let candidate = base;
+    let n = 1;
+    for (;;) {
+      const [existing] = await this.db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.username, candidate));
+      if (!existing) return candidate;
+      candidate = `${base}${n++}`;
+    }
+  }
+
+  async update(id: string, dto: UpdateUserDto, operator: Operator) {
     const existing = await this.db
       .select()
       .from(users)
@@ -171,47 +214,19 @@ export class UserService {
       throw new NotFoundException("用户不存在");
     }
 
-    if (dto.username && dto.username !== user.username) {
-      const existingUser = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.username, dto.username))
-        .limit(1);
-      if (existingUser[0]) {
-        throw new ConflictException("用户名已存在");
-      }
+    this.assertCanManageTarget(user, operator);
+
+    if (dto.role === "super_admin") {
+      throw new ForbiddenException("无法将角色设置为超级管理员");
     }
 
-    if (dto.email && dto.email !== user.email) {
-      const existingEmail = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.email, dto.email))
-        .limit(1);
-      if (existingEmail[0]) {
-        throw new ConflictException("邮箱已被使用");
-      }
-    }
-
-    if (dto.phone && dto.phone !== user.phone) {
-      const existingPhone = await this.db
-        .select()
-        .from(users)
-        .where(eq(users.phone, dto.phone))
-        .limit(1);
-      if (existingPhone[0]) {
-        throw new ConflictException("手机号已被使用");
-      }
+    if (operator.role !== "super_admin" && dto.role && dto.role !== "user") {
+      throw new ForbiddenException("只有超级管理员可以设置管理员角色");
     }
 
     const result = await this.db
       .update(users)
       .set({
-        username: dto.username,
-        email: dto.email,
-        phone: dto.phone,
-        nickname: dto.nickname,
-        avatar: dto.avatar,
         role: dto.role as UserRoleType,
         isActive: dto.isActive,
       } as any)
@@ -220,7 +235,7 @@ export class UserService {
     return result[0];
   }
 
-  async softDelete(id: string) {
+  async softDelete(id: string, operator: Operator) {
     const existing = await this.db
       .select()
       .from(users)
@@ -229,6 +244,9 @@ export class UserService {
     if (!existing[0]) {
       throw new NotFoundException("用户不存在");
     }
+
+    this.assertCanManageTarget(existing[0], operator);
+
     await this.db
       .update(users)
       .set({ isActive: false })
@@ -236,7 +254,11 @@ export class UserService {
     return { message: "删除成功" };
   }
 
-  async resetPassword(id: string, newPassword?: string) {
+  async resetPassword(
+    id: string,
+    operator: Operator,
+    newPassword?: string,
+  ) {
     const existing = await this.db
       .select()
       .from(users)
@@ -245,6 +267,8 @@ export class UserService {
     if (!existing[0]) {
       throw new NotFoundException("用户不存在");
     }
+
+    this.assertCanManageTarget(existing[0], operator);
 
     const password = newPassword || this.generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -296,7 +320,21 @@ export class UserService {
     return { canDelete: true };
   }
 
-  async hardDelete(userId: string): Promise<{ message: string }> {
+  async hardDelete(
+    userId: string,
+    operator: Operator,
+  ): Promise<{ message: string }> {
+    const existing = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    if (!existing[0]) {
+      throw new NotFoundException("用户不存在");
+    }
+
+    this.assertCanManageTarget(existing[0], operator);
+
     const canDelete = await this.canHardDelete(userId);
     if (!canDelete.canDelete) {
       throw new BadRequestException(canDelete.reason);
@@ -304,6 +342,19 @@ export class UserService {
 
     await this.db.delete(users).where(eq(users.id, userId));
     return { message: "用户已彻底删除" };
+  }
+
+  private assertCanManageTarget(
+    target: { role: string },
+    operator: Operator,
+  ): void {
+    if (target.role === "super_admin") {
+      throw new ForbiddenException("超级管理员账号受保护，无法操作");
+    }
+
+    if (operator.role === "admin" && target.role !== "user") {
+      throw new ForbiddenException("普通管理员不能操作管理员账号");
+    }
   }
 
   private generateRandomPassword(): string {

@@ -58,8 +58,8 @@ export interface PaginatedResponse<T> {
 
 // Auth API
 export const authApi = {
-  login: (username: string, password: string) =>
-    api.post<any, ApiResponse<{ user: any; token: string }>>('/auth/login', { username, password }),
+  login: (email: string, password: string) =>
+    api.post<any, ApiResponse<{ user: any; token: string }>>('/auth/login', { email, password }),
 
   getProfile: () =>
     api.get<any, ApiResponse<any>>('/auth/profile'),
@@ -167,6 +167,7 @@ export interface User {
     status: string
     startDate: string
     endDate: string
+    autoRenew?: boolean
   } | null
 }
 

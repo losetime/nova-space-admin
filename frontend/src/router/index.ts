@@ -58,16 +58,6 @@ const routes = [
         component: () => import('@/views/UsersView.vue'),
       },
       {
-        path: 'users/create',
-        name: 'UserCreate',
-        component: () => import('@/views/UserEditView.vue'),
-      },
-      {
-        path: 'users/:id/edit',
-        name: 'UserEdit',
-        component: () => import('@/views/UserEditView.vue'),
-      },
-      {
         path: 'feedback',
         name: 'Feedback',
         component: () => import('@/views/FeedbackView.vue'),

@@ -13,13 +13,17 @@
           <div class="side-nav-logo" @click="router.push('/dashboard')">
             <img v-if="!collapsed" src="/favicon.svg" class="logo-icon" />
             <img v-else src="/favicon.svg" class="logo-icon-small" />
-            <span v-if="!collapsed" class="logo-text">星瞰</span>
+            <span v-if="!collapsed" class="logo-text">星揽</span>
           </div>
         </template>
 
         <t-menu-item value="dashboard">
           <template #icon><DashboardIcon /></template>
           仪表盘
+        </t-menu-item>
+        <t-menu-item value="users">
+          <template #icon><UserIcon /></template>
+          用户管理
         </t-menu-item>
         <t-menu-item value="articles">
           <template #icon><FileTxtIcon /></template>
@@ -28,14 +32,6 @@
         <t-menu-item value="intelligence">
           <template #icon><LightbulbIcon /></template>
           情报管理
-        </t-menu-item>
-        <t-menu-item value="users">
-          <template #icon><UserIcon /></template>
-          用户管理
-        </t-menu-item>
-        <t-menu-item value="feedback">
-          <template #icon><ChatIcon /></template>
-          反馈管理
         </t-menu-item>
         <t-menu-item value="subscriptions">
           <template #icon><SendIcon /></template>
@@ -76,6 +72,10 @@
         <t-menu-item value="companies">
           <template #icon><BuildingIcon /></template>
           公司管理
+        </t-menu-item>
+        <t-menu-item value="feedback">
+          <template #icon><ChatIcon /></template>
+          反馈管理
         </t-menu-item>
 
         <template #operations>
@@ -131,7 +131,7 @@
 
       <!-- 底部 -->
       <t-footer class="admin-footer">
-        Copyright © 2024 星瞰. All Rights Reserved.
+        Copyright © 2024 星揽. All Rights Reserved.
       </t-footer>
     </t-layout>
   </t-layout>
@@ -179,8 +179,6 @@ const routeTitleMap: Record<string, string> = {
   IntelligenceCreate: '新建情报',
   IntelligenceEdit: '编辑情报',
   Users: '用户管理',
-  UserCreate: '新建用户',
-  UserEdit: '编辑用户',
   Feedback: '反馈管理',
   Subscriptions: '邮件订阅',
   MembershipBenefits: '权益管理',
@@ -210,7 +208,7 @@ watch(
       activeMenu.value = 'articles'
     } else if (name === 'Intelligence' || name === 'IntelligenceCreate' || name === 'IntelligenceEdit') {
       activeMenu.value = 'intelligence'
-    } else if (name === 'Users' || name === 'UserCreate' || name === 'UserEdit') {
+    } else if (name === 'Users') {
       activeMenu.value = 'users'
     } else if (name === 'Feedback') {
       activeMenu.value = 'feedback'

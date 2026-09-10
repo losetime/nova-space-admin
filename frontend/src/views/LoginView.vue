@@ -5,7 +5,7 @@
       <div class="login-container">
         <div class="title-container">
           <h1 class="title margin-no">账号登录</h1>
-          <h1 class="title">星瞰 - 后台管理系统</h1>
+          <h1 class="title">星揽 - 后台管理系统</h1>
         </div>
 
         <t-form
@@ -15,11 +15,11 @@
           label-width="0"
           @submit="onSubmit"
         >
-          <t-form-item name="username">
+          <t-form-item name="email">
             <t-input
-              v-model="formData.username"
+              v-model="formData.email"
               size="large"
-              placeholder="请输入用户名"
+              placeholder="请输入邮箱"
               clearable
             >
               <template #prefix-icon>
@@ -53,7 +53,7 @@
         </t-form>
       </div>
 
-      <footer class="copyright">Copyright @ 2024-2025 星瞰. All Rights Reserved</footer>
+      <footer class="copyright">Copyright @ 2024-2025 星揽. All Rights Reserved</footer>
     </div>
 
     <!-- 右侧背景区域 -->
@@ -80,12 +80,15 @@ const loading = ref(false)
 const showPsw = ref(false)
 
 const formData = reactive({
-  username: '',
+  email: '',
   password: '',
 })
 
 const FORM_RULES: Record<string, FormRule[]> = {
-  username: [{ required: true, message: '请输入用户名', type: 'error' }],
+  email: [
+    { required: true, message: '请输入邮箱', type: 'error' },
+    { email: true, message: '邮箱格式不正确', type: 'error' },
+  ],
   password: [{ required: true, message: '请输入密码', type: 'error' }],
 }
 
@@ -94,7 +97,7 @@ const onSubmit = async (ctx: SubmitContext) => {
 
   loading.value = true
   try {
-    const res = await authStore.login(formData.username, formData.password)
+    const res = await authStore.login(formData.email, formData.password)
     if (res.success) {
       MessagePlugin.success('登录成功')
       const redirect = route.query.redirect as string

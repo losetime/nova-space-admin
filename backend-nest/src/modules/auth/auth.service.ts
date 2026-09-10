@@ -34,23 +34,23 @@ export class AuthService {
   ) {}
 
   async login(
-    username: string,
+    email: string,
     password: string,
   ): Promise<{ user: UserProfile; token: string }> {
     const result = await this.db
       .select()
       .from(users)
-      .where(eq(users.username, username))
+      .where(eq(users.email, email.trim().toLowerCase()))
       .limit(1);
     const user = result[0];
 
     if (!user) {
-      throw new UnauthorizedException("用户名或密码错误");
+      throw new UnauthorizedException("邮箱或密码错误");
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException("用户名或密码错误");
+      throw new UnauthorizedException("邮箱或密码错误");
     }
 
     if (!user.isActive) {
