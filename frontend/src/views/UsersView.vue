@@ -72,13 +72,13 @@
       </template>
       <template #action="{ row }">
         <t-space>
-          <t-link v-if="canMutate(row)" theme="primary" @click="handleRole(row)">
+          <t-link v-if="isSuperAdminOp && row.role !== 'super_admin'" theme="primary" @click="handleRole(row)">
             角色
           </t-link>
           <t-link theme="primary" @click="handleViewSubscription(row)">
             订阅
           </t-link>
-          <t-link v-if="canMutate(row)" theme="primary" @click="handleResetPassword(row.id)">
+          <t-link v-if="canMutate(row) || canResetOwn(row)" theme="primary" @click="handleResetPassword(row.id)">
             重置密码
           </t-link>
           <template v-if="canMutate(row)">
@@ -205,6 +205,11 @@ function canMutate(row: User) {
   if (row.role === 'super_admin') return false
   if (!isSuperAdminOp.value && row.role !== 'user') return false
   return true
+}
+
+function canResetOwn(row: User) {
+  if (row.role === 'super_admin') return false
+  return row.id === authStore.user?.id
 }
 
 const loading = ref(false)

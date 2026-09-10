@@ -220,8 +220,8 @@ export class UserService {
       throw new ForbiddenException("无法将角色设置为超级管理员");
     }
 
-    if (operator.role !== "super_admin" && dto.role && dto.role !== "user") {
-      throw new ForbiddenException("只有超级管理员可以设置管理员角色");
+    if (operator.role !== "super_admin" && dto.role !== undefined) {
+      throw new ForbiddenException("普通管理员不能修改角色");
     }
 
     const result = await this.db
@@ -268,7 +268,9 @@ export class UserService {
       throw new NotFoundException("用户不存在");
     }
 
-    this.assertCanManageTarget(existing[0], operator);
+    if (!(existing[0].id === operator.id && existing[0].role !== "super_admin")) {
+      this.assertCanManageTarget(existing[0], operator);
+    }
 
     const password = newPassword || this.generateRandomPassword();
     const hashedPassword = await bcrypt.hash(password, 10);
