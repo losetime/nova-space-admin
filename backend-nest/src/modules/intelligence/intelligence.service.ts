@@ -152,6 +152,9 @@ export class IntelligenceService {
       .delete(intelligences)
       .where(sql`${intelligences.id} IN ${ids}`)
       .returning();
-    return { message: `成功删除 ${result.length} 条情报`, deleted: result.length };
+    return {
+      message: `成功删除 ${result.length} 条情报`,
+      deleted: result.length,
+    };
   }
 }

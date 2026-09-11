@@ -49,7 +49,7 @@ export class ParserController {
   @Post("daily-report")
   @UseInterceptors(
     FilesInterceptor("files", 3, {
-      defParamCharset: 'utf8',
+      defParamCharset: "utf8",
       fileFilter: (req: any, file: any, cb: any) => {
         const allowedMimes = [
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -86,24 +86,25 @@ export class ParserController {
     }
 
     // 识别原文和译文（根据文件名关键词）
-    const originalFile = docxFiles.find(
-      (f) => {
-        const name = f.originalname;
-        const hasKeyword = name.includes("原文") || name.includes("original");
-        log(`[FILES] 检查原文: [${name}] => ${hasKeyword}`);
-        return hasKeyword;
-      },
-    );
-    const translatedFile = docxFiles.find(
-      (f) => {
-        const name = f.originalname;
-        const hasKeyword = name.includes("译文") || name.includes("translated") || name.includes("translation");
-        log(`[FILES] 检查译文: [${name}] => ${hasKeyword}`);
-        return hasKeyword;
-      },
-    );
+    const originalFile = docxFiles.find((f) => {
+      const name = f.originalname;
+      const hasKeyword = name.includes("原文") || name.includes("original");
+      log(`[FILES] 检查原文: [${name}] => ${hasKeyword}`);
+      return hasKeyword;
+    });
+    const translatedFile = docxFiles.find((f) => {
+      const name = f.originalname;
+      const hasKeyword =
+        name.includes("译文") ||
+        name.includes("translated") ||
+        name.includes("translation");
+      log(`[FILES] 检查译文: [${name}] => ${hasKeyword}`);
+      return hasKeyword;
+    });
 
-    log(`[FILES] 文件名识别: originalFile=[${originalFile?.originalname}] translatedFile=[${translatedFile?.originalname}]`);
+    log(
+      `[FILES] 文件名识别: originalFile=[${originalFile?.originalname}] translatedFile=[${translatedFile?.originalname}]`,
+    );
 
     if (!originalFile || !translatedFile) {
       throw new BadRequestException(
@@ -142,7 +143,9 @@ export class ParserController {
     const translatedDocx = await this.docxParserService.parse(
       finalTranslated.buffer,
     );
-    log(`[DOCX-TRANSLATED] 解析完成，文章数: ${translatedDocx.articles.length}`);
+    log(
+      `[DOCX-TRANSLATED] 解析完成，文章数: ${translatedDocx.articles.length}`,
+    );
     translatedDocx.articles.forEach((a, i) => {
       log(`[DOCX-TRANSLATED] 文章${i + 1}: [${a.title}]`);
     });

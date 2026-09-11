@@ -217,8 +217,8 @@ export class SatelliteSyncService {
   private cookieExpiry: Date | null = null;
   private useMockData: boolean = false;
   private stopRequested: boolean = false;
-  private cronEnabled: boolean = true;
-  private tleCronEnabled: boolean = true;
+  private cronEnabled: boolean = false;
+  private tleCronEnabled: boolean = false;
 
   private readonly objectTypeMap: Record<number, string> = {
     1: "PAYLOAD",
@@ -283,18 +283,6 @@ export class SatelliteSyncService {
         return null;
       }
       return task;
-    }
-
-    // 如果内存中有任务但数据库没有 running 状态，说明任务可能刚完成，查询最新状态
-    if (this.currentTask) {
-      const latestTask = await this.db
-        .select()
-        .from(satelliteSyncTasks)
-        .where(eq(satelliteSyncTasks.id, this.currentTask.id))
-        .limit(1);
-      if (latestTask[0] && latestTask[0].status !== "running") {
-        return latestTask[0];
-      }
     }
 
     // 查找最近完成的任务（5分钟内）
@@ -401,7 +389,7 @@ export class SatelliteSyncService {
     this.logger.log(`TLE 定时任务已${enabled ? "启用" : "禁用"}`);
   }
 
-  @Cron("0 * * * *")
+  @Cron("0 0 */12 * * *")
   async handleKeepTrackMetaSyncCron() {
     if (!this.cronEnabled) {
       this.logger.debug("[定时任务] KeepTrack 元数据同步已禁用，跳过");
@@ -431,7 +419,7 @@ export class SatelliteSyncService {
     }
   }
 
-  @Cron("0 3 * * *")
+  @Cron("0 3 */2 * *")
   async handleKeepTrackTleSyncCron() {
     if (!this.tleCronEnabled) {
       this.logger.debug("[定时任务] KeepTrack TLE 同步已禁用，跳过");
@@ -941,6 +929,19 @@ export class SatelliteSyncService {
           completedAt: new Date(),
         })
         .where(eq(satelliteSyncTasks.id, task.id));
+
+      if (task.type === "keeptrack-tle" && !this.stopRequested) {
+        this.logger.log(
+          "[自动回退] KeepTrack TLE 同步失败，尝试 Space-Track TLE 同步",
+        );
+        try {
+          await this.startSync("space-track");
+        } catch (fallbackError: any) {
+          this.logger.error(
+            `[自动回退] Space-Track TLE 同步触发失败: ${fallbackError.message}`,
+          );
+        }
+      }
     } finally {
       this.currentTask = null;
       this.stopRequested = false;
@@ -1573,13 +1574,35 @@ export class SatelliteSyncService {
       .set({ total: data.length })
       .where(eq(satelliteSyncTasks.id, task.id));
 
-    let success = 0;
+    let success = 0,
+      skipped = 0,
+      failed = 0;
+
     for (const sat of data) {
+      this.checkStopRequested();
+
       if (!sat.status) {
+        skipped++;
         continue;
       }
+
+      let noradId: string;
       try {
-        const noradId = this.extractNoradId(sat.tle1);
+        noradId = this.extractNoradId(sat.tle1);
+      } catch {
+        failed++;
+        await this.logSyncError(
+          task.id,
+          "UNKNOWN",
+          sat.name,
+          "keeptrack",
+          "parse_error",
+          "TLE 解析失败",
+        );
+        continue;
+      }
+
+      try {
         const epochDate = this.parseTLEEpoch(sat.tle1);
         const orbital = this.parseTLEOrbitalElements(sat.tle2);
 
@@ -1643,15 +1666,45 @@ export class SatelliteSyncService {
 
         success++;
       } catch (error: any) {
+        failed++;
         this.logger.warn(`保存失败 (${sat.name}): ${error.message}`);
+        await this.logSyncError(
+          task.id,
+          noradId,
+          sat.name,
+          "keeptrack",
+          "database",
+          error.message,
+          undefined,
+          this.extractErrorDetails(error),
+        );
+      }
+
+      if ((success + skipped + failed) % 100 === 0) {
+        await this.db
+          .update(satelliteSyncTasks)
+          .set({
+            processed: success + skipped + failed,
+            success,
+            skipped,
+            failed,
+          })
+          .where(eq(satelliteSyncTasks.id, task.id));
       }
     }
 
     await this.db
       .update(satelliteSyncTasks)
-      .set({ success, processed: data.length })
+      .set({
+        processed: success + skipped + failed,
+        success,
+        skipped,
+        failed,
+      })
       .where(eq(satelliteSyncTasks.id, task.id));
-    this.logger.log(`KeepTrack TLE 同步完成：成功 ${success}`);
+    this.logger.log(
+      `KeepTrack TLE 同步完成：成功 ${success}，跳过 ${skipped}，失败 ${failed}`,
+    );
   }
 
   private async syncKeepTrackBriefMock(task: TaskRecord): Promise<void> {

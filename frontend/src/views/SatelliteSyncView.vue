@@ -1,5 +1,14 @@
 <template>
   <div class="satellite-sync-container">
+    <!-- 页面工具栏 -->
+    <div class="page-toolbar">
+      <span class="page-title">卫星数据同步管理</span>
+      <t-button variant="outline" theme="primary" @click="flowVisible = true">
+        <template #icon><FlowchartIcon /></template>
+        同步流程
+      </t-button>
+    </div>
+
     <!-- TLE 轨道数据表格 -->
     <t-card title="TLE 轨道数据" :bordered="false" class="section-card">
       <t-table
@@ -45,7 +54,7 @@
       <div class="cron-control">
         <div class="cron-label">
           <span class="cron-title">TLE 定时同步</span>
-          <span class="cron-desc">每天凌晨 3:00 自动同步 KeepTrack TLE 数据</span>
+          <span class="cron-desc">每 48 小时（隔天）凌晨 3:00 自动同步 KeepTrack TLE 数据</span>
         </div>
         <t-switch
           v-model="tleCronEnabled"
@@ -100,7 +109,7 @@
       <div class="cron-control">
         <div class="cron-label">
           <span class="cron-title">定时同步</span>
-          <span class="cron-desc">每小时自动同步 KeepTrack 元数据</span>
+          <span class="cron-desc">每 12 小时自动同步 KeepTrack 元数据</span>
         </div>
         <t-switch
           v-model="cronEnabled"
@@ -200,13 +209,18 @@
       v-model:visible="taskDetailVisible"
       :task-id="taskDetailId"
     />
+
+    <!-- 同步流程弹窗 -->
+    <SatelliteSyncFlowDialog v-model:visible="flowVisible" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
+import { FlowchartIcon } from 'tdesign-icons-vue-next'
 import SatelliteSyncTaskDetailDialog from '@/components/SatelliteSyncTaskDetailDialog.vue'
+import SatelliteSyncFlowDialog from '@/components/SatelliteSyncFlowDialog.vue'
 import {
   satelliteSyncApi,
   type SyncType,
@@ -264,7 +278,7 @@ const syncProgressStatus = computed(() => {
 // 定时任务状态
 const cronEnabled = ref(false) // 默认关闭
 const cronLoading = ref(false)
-const tleCronEnabled = ref(true) // 默认开启
+const tleCronEnabled = ref(false) // 默认关闭
 const tleCronLoading = ref(false)
 
 // TLE 数据源表格
@@ -372,6 +386,9 @@ const taskColumns = [
 
 const taskDetailVisible = ref(false)
 const taskDetailId = ref('')
+
+// 同步流程弹窗
+const flowVisible = ref(false)
 
 function openTaskDetail(taskId: string) {
   taskDetailId.value = taskId
@@ -624,21 +641,46 @@ onUnmounted(() => stopPolling())
 
 <style scoped>
 .satellite-sync-container {
+  background: #fff;
+  padding: 24px;
+  border-radius: 3px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.section-card {
-  border-radius: 12px;
+.page-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.section-card :deep(.t-card__header) {
-  padding: 16px 24px;
+.page-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.section-card {
+  background: transparent;
+  box-shadow: none;
 }
 
 .section-card :deep(.t-card__body) {
-  padding: 16px 24px;
+  background: transparent;
+}
+
+.section-card:not(:last-child) {
+  border-bottom: 1px solid var(--td-component-border);
+  padding-bottom: 16px;
+}
+
+.section-card :deep(.t-card__header) {
+  padding: 0 0 16px;
+}
+
+.section-card :deep(.t-card__body) {
+  padding: 16px 0 0;
 }
 
 .cron-control {
@@ -646,7 +688,6 @@ onUnmounted(() => stopPolling())
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: var(--td-bg-color-container);
   border-radius: 8px;
   margin-top: 16px;
 }

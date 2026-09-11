@@ -50,9 +50,7 @@ export class DocxParserService {
   /**
    * 从 word/_rels/document.xml.rels 读取 rId 到文件名的映射
    */
-  private async readRidMapping(
-    zip: JSZip,
-  ): Promise<Map<string, string>> {
+  private async readRidMapping(zip: JSZip): Promise<Map<string, string>> {
     const ridToFile = new Map<string, string>();
     const relsFile = zip.file("word/_rels/document.xml.rels");
 

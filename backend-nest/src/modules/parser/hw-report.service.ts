@@ -150,9 +150,7 @@ export class HwReportService {
         } as Express.Multer.File);
         imageMap.set(img.position, uploadResult.url);
       } catch (error) {
-        warnings.push(
-          `文章 "${articleTitle}" 图片上传失败: ${error.message}`,
-        );
+        warnings.push(`文章 "${articleTitle}" 图片上传失败: ${error.message}`);
       }
     }
 
@@ -207,7 +205,14 @@ export class HwReportService {
    * 检测是否为图片描述段落
    */
   private isImageDescription(paragraph: string): boolean {
-    const keywords = ["图片来源", "照片来源", "Credit", "拍摄者", "图片说明", "照片"];
+    const keywords = [
+      "图片来源",
+      "照片来源",
+      "Credit",
+      "拍摄者",
+      "图片说明",
+      "照片",
+    ];
     return keywords.some((keyword) => paragraph.includes(keyword));
   }
 
@@ -234,6 +239,9 @@ export class HwReportService {
     }
 
     // 降级处理：直接截取前150个字符
-    return contentCn.replace(/<[^>]*>/g, "").substring(0, 150).trim();
+    return contentCn
+      .replace(/<[^>]*>/g, "")
+      .substring(0, 150)
+      .trim();
   }
 }

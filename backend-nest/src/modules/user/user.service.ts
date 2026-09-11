@@ -254,11 +254,7 @@ export class UserService {
     return { message: "删除成功" };
   }
 
-  async resetPassword(
-    id: string,
-    operator: Operator,
-    newPassword?: string,
-  ) {
+  async resetPassword(id: string, operator: Operator, newPassword?: string) {
     const existing = await this.db
       .select()
       .from(users)
@@ -268,7 +264,9 @@ export class UserService {
       throw new NotFoundException("用户不存在");
     }
 
-    if (!(existing[0].id === operator.id && existing[0].role !== "super_admin")) {
+    if (
+      !(existing[0].id === operator.id && existing[0].role !== "super_admin")
+    ) {
       this.assertCanManageTarget(existing[0], operator);
     }
 
